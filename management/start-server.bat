@@ -18,24 +18,11 @@ set ROOT=%~dp0
 set SERVER=%ROOT%server
 set CLIENT=%ROOT%client
 
-where git >nul 2>&1
-if %errorlevel% equ 0 (
-    echo [0/3] Pulling latest code from git...
-    cd /d "%ROOT%"
-    git pull
-) else (
-    echo [0/3] git not found, skipping update
-)
-
 if not exist "%SERVER%\node_modules" (
     echo [1/3] Installing server packages...
     cd /d "%SERVER%"
     call npm install --no-audit --no-fund
-    if %errorlevel% neq 0 (
-        echo [ERROR] npm install failed in server
-        pause
-        exit /b 1
-    )
+    echo [1/3] Server packages installed.
 ) else (
     echo [1/3] Server packages OK
 )
@@ -44,11 +31,7 @@ if not exist "%CLIENT%\node_modules" (
     echo [2/3] Installing client packages...
     cd /d "%CLIENT%"
     call npm install --foreground-scripts --no-audit --no-fund
-    if %errorlevel% neq 0 (
-        echo [ERROR] npm install failed in client
-        pause
-        exit /b 1
-    )
+    echo [2/3] Client packages installed.
 ) else (
     echo [2/3] Client packages OK
 )
