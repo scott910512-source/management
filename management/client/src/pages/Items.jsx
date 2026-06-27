@@ -22,12 +22,12 @@ export default function Items() {
 
   return (
     <>
-      <div className="page-head">
+      <CanisterDefaultsCard toast={toast} />
+
+      <div className="page-head" style={{ marginTop: 8 }}>
         <div className="desc">원·부재료의 <b>품목</b>과 <b>안전재고 목표값</b>을 관리합니다. 사용자는 등록 시 이 목록에서 품목을 선택합니다.</div>
         <button className="btn sm" onClick={() => setEdit({ mode: 'create', data: { ...blank, category: cat } })}>+ 품목 등록</button>
       </div>
-
-      <CanisterDefaultsCard toast={toast} />
 
       <div className="toolbar">
         <div className="btn-row">
@@ -129,6 +129,36 @@ function ItemForm({ mode, initial, onClose, onSaved, onError }) {
         <button className="btn" onClick={submit} disabled={busy}>{busy ? '저장 중…' : '저장'}</button>
       </>}
     >
+      {/* Package 설정 최상단 */}
+      <div style={{ background: 'var(--bg2)', borderRadius: 8, padding: '12px 14px', marginBottom: 16 }}>
+        <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 10 }}>Package 설정</div>
+        <div className="form-row">
+          <Field label="Package 종류">
+            <Select value={f.pkgType} onChange={(e) => set('pkgType', e.target.value)}>
+              <option value="">없음</option>
+              <option value="Drum">Drum</option>
+              <option value="Can">Can</option>
+              <option value="Set">Set</option>
+              <option value="ea">ea</option>
+            </Select>
+          </Field>
+          <Field label="Package 당 수량">
+            <TextInput type="number" value={f.pkgSize} onChange={(e) => set('pkgSize', e.target.value)} placeholder="예: 200" disabled={!f.pkgType} />
+          </Field>
+          <Field label="Package 단위">
+            <Select value={f.pkgUnit} onChange={(e) => set('pkgUnit', e.target.value)} disabled={!f.pkgType}>
+              <option value="">–</option>
+              <option value="L">L</option>
+              <option value="kg">kg</option>
+              <option value="g">g</option>
+              <option value="ea">ea</option>
+            </Select>
+          </Field>
+        </div>
+        {f.pkgType && f.pkgSize && f.pkgUnit && (
+          <div className="hint">1 {f.pkgType} = {f.pkgSize}{f.pkgUnit}</div>
+        )}
+      </div>
       <Field label="구분" required>
         <Select value={f.category} onChange={(e) => set('category', e.target.value)} disabled={mode === 'edit'}>
           <option value="raw">원재료</option>
@@ -160,17 +190,6 @@ function ItemForm({ mode, initial, onClose, onSaved, onError }) {
       <Field label="기본 업체명" hint="원/부재료 등록 시 자동 입력(수정 가능)">
         <TextInput value={f.vendor} onChange={(e) => set('vendor', e.target.value)} placeholder="예: (주)한솔케미칼" />
       </Field>
-      <div className="form-row">
-        <Field label="Package 종류" hint="예: drum, can, set, ea">
-          <TextInput value={f.pkgType} onChange={(e) => set('pkgType', e.target.value)} placeholder="예: drum" />
-        </Field>
-        <Field label="Package 당 수량" hint="예: 200">
-          <TextInput type="number" value={f.pkgSize} onChange={(e) => set('pkgSize', e.target.value)} placeholder="예: 200" />
-        </Field>
-        <Field label="Package 단위" hint="예: L, kg">
-          <TextInput value={f.pkgUnit} onChange={(e) => set('pkgUnit', e.target.value)} placeholder="예: L" />
-        </Field>
-      </div>
       <Field label="비고">
         <TextInput value={f.note} onChange={(e) => set('note', e.target.value)} placeholder="선택 입력" />
       </Field>

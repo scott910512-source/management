@@ -131,12 +131,13 @@ export default function SubMaterials() {
                   return (
                   <Fragment key={g.name}>
                     <tr className={`group-row ${low.has(g.name) ? 'row-low' : ''}`}>
-                      <td colSpan={7}>
-                        📦 <b>{g.name}</b> · {g.lots.length} Lot
-                        {' '}<span className="muted">· 총 <b>{totalW.toLocaleString()}{unit}</b>{totalPkg > 0 && ` (${totalPkg}${pkgType})`}</span>
-                        {oldest && <span className="muted"> · 최초입고 {oldest.receivedDate} · <span style={{color:'var(--blue)'}}>{oldest.lotNo}</span></span>}
-                        {low.has(g.name) && <span className="badge red" style={{ marginLeft: 6 }}>안전재고 부족</span>}
-                      </td>
+                      <td>📦 <b>{g.name}</b> · {g.lots.length} Lot {low.has(g.name) && <span className="badge red" style={{ marginLeft: 4 }}>안전재고 부족</span>}</td>
+                      <td className="num"><b>{totalW.toLocaleString()}{unit}</b>{totalPkg > 0 && <span className="muted"> ({totalPkg}{pkgType})</span>}</td>
+                      <td></td>
+                      <td className="muted">{oldest?.receivedDate || ''}</td>
+                      <td><span style={{color:'var(--blue)', fontSize: 12}}>{oldest?.lotNo || ''}</span></td>
+                      <td></td>
+                      <td></td>
                     </tr>
                     {g.lots.map((r) => (
                       <tr key={r.id}>
