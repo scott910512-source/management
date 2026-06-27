@@ -7,208 +7,487 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
+    :root {
+      --bg: #000;
+      --surface: #111;
+      --border: #222;
+      --accent: #0071e3;
+      --green: #30d158;
+      --orange: #ff9f0a;
+      --red: #ff375f;
+      --purple: #bf5af2;
+      --cyan: #5ac8fa;
+      --text: #f5f5f7;
+      --text2: #a1a1a6;
+      --text3: #48484a;
+      --code-bg: #1c1c1e;
+    }
+
     body {
-      background: #f5f5f7;
-      font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
-      color: #1d1d1f;
-      padding: 60px 24px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+      line-height: 1.6;
     }
 
-    .wrap {
-      max-width: 640px;
-      margin: 0 auto;
-    }
-
-    h1 {
-      font-size: 36px;
-      font-weight: 700;
-      letter-spacing: -1px;
-      margin-bottom: 8px;
-    }
-
-    .subtitle {
-      font-size: 15px;
-      color: #6e6e73;
-      margin-bottom: 56px;
-    }
-
-    /* 흐름 화살표 */
-    .flow {
+    /* NAV */
+    nav {
+      position: sticky;
+      top: 0;
+      background: rgba(0,0,0,0.8);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 32px;
+      height: 48px;
       display: flex;
       align-items: center;
-      gap: 8px;
-      margin-bottom: 56px;
-      flex-wrap: wrap;
+      justify-content: space-between;
+      z-index: 99;
     }
-    .flow-item {
-      background: #fff;
-      border-radius: 12px;
-      padding: 10px 18px;
-      font-size: 14px;
+    nav .logo { font-size: 15px; font-weight: 600; }
+    nav ul { display: flex; gap: 28px; list-style: none; }
+    nav ul a { font-size: 13px; color: var(--text2); text-decoration: none; }
+    nav ul a:hover { color: var(--text); }
+
+    /* HERO */
+    .hero {
+      padding: 100px 32px 80px;
+      text-align: center;
+      background: radial-gradient(ellipse 70% 50% at 50% -10%, #0a1a30, transparent);
+    }
+    .hero .label {
+      font-size: 12px;
       font-weight: 600;
-      color: #1d1d1f;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
-    }
-    .flow-arrow {
-      color: #c7c7cc;
-      font-size: 16px;
-    }
-
-    /* 섹션 */
-    .section {
-      margin-bottom: 48px;
-    }
-
-    .section-num {
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 1.5px;
+      letter-spacing: 2px;
       text-transform: uppercase;
-      color: #6e6e73;
-      margin-bottom: 6px;
-    }
-
-    .section h2 {
-      font-size: 22px;
-      font-weight: 700;
-      letter-spacing: -0.5px;
-      margin-bottom: 10px;
-    }
-
-    .section p {
-      font-size: 15px;
-      color: #3a3a3c;
-      line-height: 1.7;
+      color: var(--accent);
       margin-bottom: 16px;
     }
+    .hero h1 {
+      font-size: clamp(38px, 6vw, 64px);
+      font-weight: 700;
+      letter-spacing: -2px;
+      line-height: 1.05;
+      margin-bottom: 16px;
+      background: linear-gradient(160deg, #fff 40%, #666);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero p { font-size: 17px; color: var(--text2); }
 
-    /* 코드 블록 */
-    .code {
-      background: #1c1c1e;
-      border-radius: 12px;
+    /* FLOW BAR */
+    .flow-bar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      padding: 40px 32px;
+      flex-wrap: wrap;
+    }
+    .flow-node {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+    .flow-circle {
+      width: 56px; height: 56px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      border: 1px solid var(--border);
+    }
+    .flow-name { font-size: 12px; font-weight: 600; color: var(--text2); }
+    .flow-line {
+      width: 60px; height: 1px;
+      background: linear-gradient(90deg, var(--border), var(--text3));
+      margin-bottom: 22px;
+    }
+
+    /* SECTION */
+    .section {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 72px 32px;
+      border-top: 1px solid var(--border);
+    }
+    .section .num {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--text3);
+      margin-bottom: 8px;
+    }
+    .section h2 {
+      font-size: clamp(26px, 4vw, 38px);
+      font-weight: 700;
+      letter-spacing: -1px;
+      margin-bottom: 12px;
+    }
+    .section .desc {
+      font-size: 16px;
+      color: var(--text2);
+      margin-bottom: 32px;
+      line-height: 1.7;
+    }
+
+    /* CODE */
+    .code-wrap {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      margin-bottom: 20px;
+    }
+    .code-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--border);
+    }
+    .d1 { width:11px;height:11px;border-radius:50%;background:#ff5f57; }
+    .d2 { width:11px;height:11px;border-radius:50%;background:#febc2e; }
+    .d3 { width:11px;height:11px;border-radius:50%;background:#28c840; }
+    pre {
       padding: 20px 22px;
       font-family: "SF Mono", "Menlo", monospace;
       font-size: 13px;
       line-height: 1.9;
-      color: #e5e5ea;
+      overflow-x: auto;
     }
-    .c { color: #636366; }
-    .g { color: #30d158; }
-    .b { color: #5ac8fa; }
-    .o { color: #ff9f0a; }
+    .cm { color: #48484a; }
+    .ck { color: var(--cyan); }
+    .cs { color: var(--green); }
+    .cf { color: var(--orange); }
 
-    /* 구분선 */
-    hr {
-      border: none;
-      border-top: 1px solid #d2d2d7;
-      margin-bottom: 48px;
+    /* CARD ROW */
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+      margin-bottom: 20px;
     }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 22px 20px;
+    }
+    .card .icon { font-size: 24px; margin-bottom: 12px; }
+    .card h3 { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+    .card p { font-size: 13px; color: var(--text2); line-height: 1.6; }
 
-    /* 포인트 박스 */
-    .tip {
-      background: #fff;
-      border-radius: 12px;
-      padding: 18px 20px;
+    /* TABLE */
+    .tbl {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      margin-bottom: 20px;
+    }
+    .tbl th {
+      padding: 12px 18px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--text3);
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    .tbl td {
+      padding: 14px 18px;
       font-size: 14px;
-      color: #3a3a3c;
-      line-height: 1.7;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+      border-bottom: 1px solid rgba(255,255,255,0.04);
     }
-    .tip strong { color: #1d1d1f; }
+    .tbl tr:last-child td { border-bottom: none; }
+    .tbl td:first-child { font-family: "SF Mono", monospace; font-size: 12px; }
+    .tag {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .t-blue   { color: var(--accent);  background: rgba(0,113,227,0.12); }
+    .t-green  { color: var(--green);   background: rgba(48,209,88,0.12); }
+    .t-orange { color: var(--orange);  background: rgba(255,159,10,0.12); }
+    .t-red    { color: var(--red);     background: rgba(255,55,95,0.12); }
+    .t-purple { color: var(--purple);  background: rgba(191,90,242,0.12); }
+    .t-cyan   { color: var(--cyan);    background: rgba(90,200,250,0.12); }
+
+    /* STEPS */
+    .steps { display: flex; flex-direction: column; gap: 2px; background: var(--border); border-radius: 14px; overflow: hidden; margin-bottom: 20px; }
+    .step { background: var(--surface); padding: 22px 24px; display: flex; gap: 18px; }
+    .sn {
+      width: 28px; height: 28px; border-radius: 50%;
+      background: rgba(0,113,227,0.12);
+      border: 1px solid rgba(0,113,227,0.2);
+      color: var(--accent);
+      font-size: 12px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; margin-top: 2px;
+    }
+    .step h3 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+    .step p  { font-size: 13px; color: var(--text2); }
+
+    /* CONFLICT */
+    .conflict {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      margin-bottom: 20px;
+      font-family: "SF Mono", monospace;
+      font-size: 13px;
+    }
+    .cl { padding: 10px 22px; line-height: 1.8; }
+    .cl-h { background: rgba(255,55,95,0.1);  color: var(--red); }
+    .cl-a { background: rgba(255,55,95,0.04); color: #ff8fab; }
+    .cl-s { background: rgba(255,255,255,0.03); color: var(--text3); }
+    .cl-b { background: rgba(48,209,88,0.04); color: #69db7c; }
+    .cl-t { background: rgba(48,209,88,0.1);  color: var(--green); }
+
+    /* NOTE */
+    .note {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--accent);
+      border-radius: 0 12px 12px 0;
+      padding: 16px 20px;
+      font-size: 14px;
+      color: var(--text2);
+      line-height: 1.7;
+      margin-bottom: 20px;
+    }
+    .note strong { color: var(--text); }
+
+    /* FOOTER */
+    footer {
+      text-align: center;
+      padding: 60px 32px;
+      border-top: 1px solid var(--border);
+      color: var(--text3);
+      font-size: 13px;
+    }
+    footer p:first-child { font-size: 18px; font-weight: 700; color: var(--text2); margin-bottom: 8px; letter-spacing: -0.3px; }
+
+    @media (max-width: 600px) {
+      nav ul { display: none; }
+      .flow-line { width: 24px; }
+    }
   </style>
 </head>
 <body>
-<div class="wrap">
 
-  <h1>깃허브 기본구성</h1>
-  <p class="subtitle">혼자 쓰는 사람 기준 — 딱 이것만 알면 됩니다.</p>
+<nav>
+  <span class="logo">깃허브 기본구성</span>
+  <ul>
+    <li><a href="#repo">레포</a></li>
+    <li><a href="#branch">브랜치</a></li>
+    <li><a href="#commit">커밋</a></li>
+    <li><a href="#merge">머지</a></li>
+    <li><a href="#collab">협업</a></li>
+  </ul>
+</nav>
 
-  <!-- 흐름 -->
-  <div class="flow">
-    <div class="flow-item">레포지토리</div>
-    <span class="flow-arrow">→</span>
-    <div class="flow-item">브랜치</div>
-    <span class="flow-arrow">→</span>
-    <div class="flow-item">작업 / 커밋</div>
-    <span class="flow-arrow">→</span>
-    <div class="flow-item">머지</div>
-  </div>
-
-  <hr>
-
-  <!-- 1. 레포지토리 -->
-  <div class="section">
-    <p class="section-num">01</p>
-    <h2>레포지토리 (Repository)</h2>
-    <p>프로젝트 하나 = 레포지토리 하나.<br>
-    모든 파일과 변경 이력이 여기에 저장됩니다.</p>
-    <div class="tip">
-      <strong>예시</strong> — "쇼핑몰 앱"을 만든다면 <code style="background:#f5f5f7;padding:2px 6px;border-radius:6px;font-size:12px;">my-shop</code> 이라는 레포지토리 하나를 만들면 됩니다.
-    </div>
-  </div>
-
-  <hr>
-
-  <!-- 2. 브랜치 -->
-  <div class="section">
-    <p class="section-num">02</p>
-    <h2>브랜치 (Branch)</h2>
-    <p>현재 코드를 복사해서 만드는 <strong>독립 작업공간</strong>.<br>
-    기능 하나를 건드릴 때 main을 직접 수정하지 않고, 브랜치를 따서 작업합니다.</p>
-    <div class="code">
-<span class="c"># main 기준으로 새 브랜치 만들기</span>
-<span class="b">git checkout</span> -b <span class="g">feature/로그인</span>
-    </div>
-    <br>
-    <div class="tip">
-      <strong>main</strong> = 완성된 안정 코드만 두는 곳<br>
-      <strong>feature/xxx</strong> = 기능 작업할 때 쓰는 임시 공간
-    </div>
-  </div>
-
-  <hr>
-
-  <!-- 3. 작업 / 커밋 -->
-  <div class="section">
-    <p class="section-num">03</p>
-    <h2>작업 / 커밋 (Commit)</h2>
-    <p>브랜치에서 파일을 수정하고 <strong>커밋으로 저장</strong>합니다.<br>
-    커밋은 "이 시점 코드를 저장해 둔 것" — 나중에 되돌릴 수도 있습니다.</p>
-    <div class="code">
-<span class="c"># 변경된 파일 전체 올리기</span>
-<span class="b">git add</span> .
-
-<span class="c"># 커밋 (뭘 했는지 한 줄로)</span>
-<span class="b">git commit</span> -m <span class="o">"로그인 화면 추가"</span>
-
-<span class="c"># GitHub에 올리기</span>
-<span class="b">git push</span> origin <span class="g">feature/로그인</span>
-    </div>
-  </div>
-
-  <hr>
-
-  <!-- 4. 머지 -->
-  <div class="section">
-    <p class="section-num">04</p>
-    <h2>머지 (Merge)</h2>
-    <p>작업이 끝난 브랜치를 <strong>main에 합치는 것</strong>.<br>
-    혼자 쓸 때는 GitHub에서 버튼 하나로 끝납니다.</p>
-    <div class="code">
-<span class="c"># GitHub에서 Pull Request 생성 후</span>
-<span class="c"># "Merge pull request" 버튼 클릭</span>
-
-<span class="c"># 로컬도 최신화하고 싶으면</span>
-<span class="b">git checkout</span> main
-<span class="b">git pull</span> origin main
-    </div>
-    <br>
-    <div class="tip">
-      혼자 쓰면 리뷰 없이 바로 머지해도 됩니다.<br>
-      머지 후 브랜치는 삭제해서 깔끔하게 유지하세요.
-    </div>
-  </div>
-
+<!-- HERO -->
+<div class="hero">
+  <p class="label">GitHub 입문 가이드</p>
+  <h1>레포 · 브랜치 · 커밋 · 머지</h1>
+  <p>혼자 쓰는 기본부터 팀 협업까지 — 한 페이지로 끝냅니다.</p>
 </div>
+
+<!-- FLOW BAR -->
+<div class="flow-bar">
+  <div class="flow-node">
+    <div class="flow-circle" style="background:rgba(0,113,227,0.1);">📁</div>
+    <span class="flow-name">레포지토리</span>
+  </div>
+  <div class="flow-line"></div>
+  <div class="flow-node">
+    <div class="flow-circle" style="background:rgba(48,209,88,0.1);">🌿</div>
+    <span class="flow-name">브랜치</span>
+  </div>
+  <div class="flow-line"></div>
+  <div class="flow-node">
+    <div class="flow-circle" style="background:rgba(255,159,10,0.1);">💾</div>
+    <span class="flow-name">커밋</span>
+  </div>
+  <div class="flow-line"></div>
+  <div class="flow-node">
+    <div class="flow-circle" style="background:rgba(255,55,95,0.1);">🔀</div>
+    <span class="flow-name">머지</span>
+  </div>
+</div>
+
+<!-- 1. 레포지토리 -->
+<section class="section" id="repo">
+  <p class="num">01 — Repository</p>
+  <h2>레포지토리</h2>
+  <p class="desc">
+    프로젝트 하나 = 레포지토리 하나.<br>
+    모든 파일과 전체 변경 이력이 여기에 저장됩니다.
+  </p>
+  <div class="cards">
+    <div class="card">
+      <div class="icon">📂</div>
+      <h3>프로젝트 저장소</h3>
+      <p>코드, 이미지, 설정파일 등 프로젝트에 필요한 모든 것을 담는 공간</p>
+    </div>
+    <div class="card">
+      <div class="icon">📜</div>
+      <h3>이력 관리</h3>
+      <p>언제 무엇을 바꿨는지 전부 기록. 언제든 이전 버전으로 되돌릴 수 있음</p>
+    </div>
+    <div class="card">
+      <div class="icon">☁️</div>
+      <h3>원격 백업</h3>
+      <p>GitHub에 올려두면 어디서든 접근 가능하고 날아갈 걱정 없음</p>
+    </div>
+  </div>
+</section>
+
+<!-- 2. 브랜치 -->
+<section class="section" id="branch">
+  <p class="num">02 — Branch</p>
+  <h2>브랜치</h2>
+  <p class="desc">
+    현재 코드를 그대로 복사한 <strong style="color:var(--text);">독립 작업공간</strong>.<br>
+    main은 항상 완성된 코드만 두고, 새 기능은 브랜치를 따서 작업합니다.
+  </p>
+
+  <div class="code-wrap">
+    <div class="code-bar"><div class="d1"></div><div class="d2"></div><div class="d3"></div></div>
+    <pre><span class="cm"># 브랜치 만들고 이동</span>
+<span class="ck">git checkout</span> -b <span class="cs">feature/로그인</span>
+
+<span class="cm"># 현재 브랜치 확인</span>
+<span class="ck">git branch</span></pre>
+  </div>
+
+  <table class="tbl">
+    <thead><tr><th>이름</th><th>용도</th></tr></thead>
+    <tbody>
+      <tr><td><span class="tag t-blue">feature/</span></td><td>새 기능 개발</td></tr>
+      <tr><td><span class="tag t-red">fix/</span></td><td>버그 수정</td></tr>
+      <tr><td><span class="tag t-orange">hotfix/</span></td><td>긴급 수정</td></tr>
+      <tr><td><span class="tag t-cyan">docs/</span></td><td>문서 작업</td></tr>
+      <tr><td><span class="tag t-purple">refactor/</span></td><td>코드 구조 정리</td></tr>
+    </tbody>
+  </table>
+
+  <div class="note">
+    <strong>핵심:</strong> main은 건드리지 않는다. 항상 브랜치에서 작업한다.
+  </div>
+</section>
+
+<!-- 3. 커밋 -->
+<section class="section" id="commit">
+  <p class="num">03 — Commit</p>
+  <h2>작업 & 커밋</h2>
+  <p class="desc">
+    파일을 수정한 뒤 커밋으로 저장합니다.<br>
+    커밋은 "이 시점을 저장해 둔 스냅샷" — 나중에 이 시점으로 되돌릴 수 있습니다.
+  </p>
+
+  <div class="code-wrap">
+    <div class="code-bar"><div class="d1"></div><div class="d2"></div><div class="d3"></div></div>
+    <pre><span class="cm"># 변경 파일 스테이징</span>
+<span class="ck">git add</span> .
+
+<span class="cm"># 커밋 — 무엇을 했는지 한 줄로</span>
+<span class="ck">git commit</span> -m <span class="cf">"feat: 로그인 화면 추가"</span>
+
+<span class="cm"># GitHub에 올리기</span>
+<span class="ck">git push</span> origin <span class="cs">feature/로그인</span></pre>
+  </div>
+
+  <table class="tbl">
+    <thead><tr><th>메시지 prefix</th><th>언제 쓰나</th></tr></thead>
+    <tbody>
+      <tr><td><span class="tag t-blue">feat:</span></td><td>새 기능 추가</td></tr>
+      <tr><td><span class="tag t-red">fix:</span></td><td>버그 수정</td></tr>
+      <tr><td><span class="tag t-orange">style:</span></td><td>디자인·레이아웃 변경</td></tr>
+      <tr><td><span class="tag t-purple">refactor:</span></td><td>코드 구조 변경 (기능 변화 없음)</td></tr>
+      <tr><td><span class="tag t-cyan">docs:</span></td><td>문서·주석 변경</td></tr>
+      <tr><td><span class="tag t-green">remove:</span></td><td>파일·코드 삭제</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- 4. 머지 -->
+<section class="section" id="merge">
+  <p class="num">04 — Merge</p>
+  <h2>머지</h2>
+  <p class="desc">
+    브랜치에서 완성된 작업을 main에 합치는 것.<br>
+    GitHub에서 Pull Request(PR) 를 만들고 버튼 하나로 끝납니다.
+  </p>
+
+  <div class="steps">
+    <div class="step"><div class="sn">1</div><div><h3>GitHub에서 PR 생성</h3><p>브랜치 push 후 GitHub 페이지에서 "Compare &amp; pull request" 클릭</p></div></div>
+    <div class="step"><div class="sn">2</div><div><h3>변경 내용 확인</h3><p>어떤 파일이 바뀌었는지 diff 보기. 혼자라면 그냥 쭉 훑고 넘어가도 됨</p></div></div>
+    <div class="step"><div class="sn">3</div><div><h3>Merge pull request</h3><p>버튼 클릭 → main에 반영 완료</p></div></div>
+    <div class="step"><div class="sn">4</div><div><h3>브랜치 삭제 & 로컬 업데이트</h3><p>머지된 브랜치는 Delete branch로 정리. 로컬도 <code style="font-family:SF Mono,monospace;font-size:12px;background:#1c1c1e;padding:1px 6px;border-radius:4px;">git pull origin main</code> 으로 최신화</p></div></div>
+  </div>
+</section>
+
+<!-- 5. 협업 -->
+<section class="section" id="collab">
+  <p class="num">05 — Collaboration</p>
+  <h2>팀으로 쓸 때 추가되는 것</h2>
+  <p class="desc">
+    기본 흐름은 혼자 쓸 때와 같습니다.<br>
+    추가되는 건 딱 두 가지 — <strong style="color:var(--text);">코드 리뷰</strong>와 <strong style="color:var(--text);">충돌 처리</strong>.
+  </p>
+
+  <div class="cards" style="margin-bottom:28px;">
+    <div class="card">
+      <div class="icon">👀</div>
+      <h3>코드 리뷰</h3>
+      <p>PR을 만들면 팀원이 코드를 검토하고 Approve. 이후 머지합니다.</p>
+    </div>
+    <div class="card">
+      <div class="icon">⚡️</div>
+      <h3>빠른 머지</h3>
+      <p>브랜치를 오래 유지할수록 충돌 위험이 높아집니다. 작게 쪼개서 빨리 머지하세요.</p>
+    </div>
+  </div>
+
+  <p style="font-size:15px; font-weight:600; margin-bottom:14px; color:var(--text);">충돌(Conflict)이 생겼을 때</p>
+  <p style="font-size:14px; color:var(--text2); margin-bottom:16px;">같은 파일의 같은 줄을 두 브랜치에서 동시에 수정하면 발생합니다.</p>
+
+  <div class="conflict">
+    <div class="cl cl-h">&lt;&lt;&lt;&lt;&lt;&lt;&lt; feature/내-브랜치</div>
+    <div class="cl cl-a">빨간색 버튼</div>
+    <div class="cl cl-s">=======</div>
+    <div class="cl cl-b">파란색 버튼</div>
+    <div class="cl cl-t">&gt;&gt;&gt;&gt;&gt;&gt;&gt; main</div>
+  </div>
+
+  <div class="steps">
+    <div class="step"><div class="sn">1</div><div><h3>충돌 표시 구간 찾기</h3><p><code style="font-family:SF Mono,monospace;font-size:12px;background:#1c1c1e;padding:1px 6px;border-radius:4px;">&lt;&lt;&lt;</code> <code style="font-family:SF Mono,monospace;font-size:12px;background:#1c1c1e;padding:1px 6px;border-radius:4px;">===</code> <code style="font-family:SF Mono,monospace;font-size:12px;background:#1c1c1e;padding:1px 6px;border-radius:4px;">&gt;&gt;&gt;</code> 로 표시된 부분을 VS Code 등에서 열기</p></div></div>
+    <div class="step"><div class="sn">2</div><div><h3>원하는 내용만 남기고 저장</h3><p>표시 기호를 모두 삭제하고, 최종으로 쓸 코드만 남김</p></div></div>
+    <div class="step"><div class="sn">3</div><div><h3>다시 커밋</h3><p><code style="font-family:SF Mono,monospace;font-size:12px;background:#1c1c1e;padding:1px 6px;border-radius:4px;">git add .</code> → <code style="font-family:SF Mono,monospace;font-size:12px;background:#1c1c1e;padding:1px 6px;border-radius:4px;">git commit -m "fix: 충돌 해결"</code></p></div></div>
+  </div>
+
+  <div class="note">
+    <strong>충돌 예방:</strong> 팀원마다 다른 파일을 담당하고, 브랜치를 오래 끌지 않으면 대부분 피할 수 있습니다.
+  </div>
+</section>
+
+<footer>
+  <p>깃허브 기본구성</p>
+  <p>레포지토리 → 브랜치 → 커밋 → 머지 — 이 흐름 하나면 충분합니다.</p>
+</footer>
+
 </body>
 </html>
