@@ -88,12 +88,14 @@ export function EtcSelect({ options, value, etc, onChange, placeholder = '직접
   return (
     <div className="form-row">
       <Select value={value} onChange={(e) => onChange(e.target.value, e.target.value === '기타' ? etc : '')}>
-        {options.map((o) => (
+        <option value="" disabled>선택하세요</option>
+        {(options || []).map((o) => (
           <option key={o} value={o}>{o}</option>
         ))}
+        <option value="기타">기타(직접입력)</option>
       </Select>
       {value === '기타' && (
-        <TextInput value={etc || ''} onChange={(e) => onChange('기타', e.target.value)} placeholder={placeholder} />
+        <TextInput value={etc || ''} onChange={(e) => onChange('기타', e.target.value)} placeholder={placeholder} autoFocus />
       )}
     </div>
   );

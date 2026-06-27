@@ -187,11 +187,21 @@ function CanisterForm({ meta, onClose, onSaved, onError }) {
 
   async function submit() {
     if (!f.canisterNo.trim()) return onError('Canister No.를 입력하세요.');
-    const content = f.content === '기타' ? f.contentEtc : f.content;
-    if (!content.trim()) return onError('내용물을 입력하세요.');
+    const content = f.content === '기타' ? (f.contentEtc || '').trim() : f.content;
+    if (!content) return onError('내용물을 입력하세요.');
     setBusy(true);
     try {
-      await api.post('/canisters', { ...f, content: content.trim(), canisterNo: f.canisterNo.trim(), weight: f.weight === '' ? 0 : Number(f.weight) });
+      await api.post('/canisters', { ...f, content, canisterNo: f.canisterNo.trim(), weight: f.weight === '' ? 0 : Number(f.weight) });
+      // 기타 직접입력 시 기준정보 내용물 목록에 자동 추가
+      if (f.content === '기타') {
+        try {
+          const s = await api.get('/settings');
+          const existing = (s.settings.canisterContents || '').split(',').map(v => v.trim()).filter(Boolean);
+          if (!existing.includes(content)) {
+            await api.patch('/settings', { canisterContents: [...existing, content].join(',') });
+          }
+        } catch { /* 기준정보 저장 실패는 조용히 무시 */ }
+      }
       onSaved();
     } catch (e) { onError(e.message); } finally { setBusy(false); }
   }
@@ -245,10 +255,19 @@ function MoveForm({ meta, canisters, onClose, onSaved, onError }) {
 
   async function submit() {
     if (!cid) return onError('Canister를 선택하세요.');
-    const content = f.content === '기타' ? f.contentEtc : f.content;
+    const content = f.content === '기타' ? (f.contentEtc || '').trim() : f.content;
     setBusy(true);
     try {
-      await api.post(`/canisters/${cid}/move`, { ...f, content: content.trim(), weight: f.weight === '' ? 0 : Number(f.weight) });
+      await api.post(`/canisters/${cid}/move`, { ...f, content, weight: f.weight === '' ? 0 : Number(f.weight) });
+      if (f.content === '기타' && content) {
+        try {
+          const s = await api.get('/settings');
+          const existing = (s.settings.canisterContents || '').split(',').map(v => v.trim()).filter(Boolean);
+          if (!existing.includes(content)) {
+            await api.patch('/settings', { canisterContents: [...existing, content].join(',') });
+          }
+        } catch { /* 조용히 무시 */ }
+      }
       onSaved();
     } catch (e) { onError(e.message); } finally { setBusy(false); }
   }
