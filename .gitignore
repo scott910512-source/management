@@ -14,3 +14,7 @@ uploads/
 
 # OS
 .DS_Store
+
+# App data (CSV storage - do not commit)
+management/data/
+data/
