@@ -1,0 +1,118 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+html.dark {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+  /* 리퀴드 글라스 배경 - 부드러운 오로라 그라데이션 */
+  background:
+    radial-gradient(1200px 600px at 10% -10%, rgba(255, 138, 101, 0.35), transparent 60%),
+    radial-gradient(1000px 700px at 110% 10%, rgba(96, 165, 250, 0.28), transparent 55%),
+    radial-gradient(900px 600px at 50% 120%, rgba(52, 211, 153, 0.25), transparent 55%),
+    #f4f6fb;
+  background-attachment: fixed;
+  color: #1f2937;
+  transition: background 0.4s ease, color 0.4s ease;
+}
+
+html.dark body {
+  background:
+    radial-gradient(1200px 600px at 5% -10%, rgba(255, 138, 101, 0.22), transparent 60%),
+    radial-gradient(1000px 700px at 115% 5%, rgba(59, 130, 246, 0.22), transparent 55%),
+    radial-gradient(900px 700px at 50% 120%, rgba(16, 185, 129, 0.18), transparent 55%),
+    #0b1020;
+  color: #e5e7eb;
+}
+
+@layer components {
+  /* 핵심 리퀴드 글라스 패널 */
+  .glass {
+    @apply rounded-3xl border border-white/40 bg-white/55 shadow-glass backdrop-blur-xl;
+  }
+  .dark .glass {
+    @apply border-white/10 bg-white/5;
+  }
+
+  .glass-soft {
+    @apply rounded-2xl border border-white/30 bg-white/40 backdrop-blur-lg;
+  }
+  .dark .glass-soft {
+    @apply border-white/10 bg-white/[0.04];
+  }
+
+  .glass-input {
+    @apply w-full rounded-xl border border-white/50 bg-white/60 px-4 py-2.5 text-sm outline-none
+           backdrop-blur transition placeholder:text-slate-400
+           focus:border-brand/60 focus:ring-2 focus:ring-brand/30;
+  }
+  .dark .glass-input {
+    @apply border-white/10 bg-white/[0.06] text-slate-100 placeholder:text-slate-500;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold
+           transition active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply btn bg-gradient-to-br from-brand-500 to-brand-600 text-white shadow-lg shadow-brand/30
+           hover:from-brand-600 hover:to-brand-700;
+  }
+  .btn-ghost {
+    @apply btn border border-white/50 bg-white/40 text-slate-700 backdrop-blur hover:bg-white/70;
+  }
+  .dark .btn-ghost {
+    @apply border-white/10 bg-white/5 text-slate-200 hover:bg-white/10;
+  }
+
+  .chip {
+    @apply inline-flex cursor-pointer select-none items-center gap-1 rounded-full border px-3 py-1.5
+           text-xs font-medium transition active:scale-95;
+  }
+
+  .nav-link {
+    @apply flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium text-slate-600
+           transition hover:bg-white/60;
+  }
+  .dark .nav-link {
+    @apply text-slate-300 hover:bg-white/10;
+  }
+  .nav-link-active {
+    @apply bg-white/80 text-brand-700 shadow-sm;
+  }
+  .dark .nav-link-active {
+    @apply bg-white/10 text-brand-500;
+  }
+
+  .stat-value {
+    @apply text-3xl font-extrabold tracking-tight;
+  }
+}
+
+/* 스크롤바 - 글래스 느낌 */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(120, 120, 140, 0.35);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
