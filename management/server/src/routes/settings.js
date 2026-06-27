@@ -13,8 +13,14 @@ const DEFAULTS = {
   canisterDefaultSize: '50L',
   canisterDefaultLocation: '2공장현장',
   canisterDefaultStatus: '수령',
+  canisterSizes: '5gal,50L,100L,200L',
+  canisterLocations: '2공장현장,3류창고,4류창고',
+  canisterStatuses: '수령,사용중,사용완료,세정의뢰,사용금지',
 };
-const STRING_KEYS = ['canisterDefaultSize', 'canisterDefaultLocation', 'canisterDefaultStatus'];
+const STRING_KEYS = [
+  'canisterDefaultSize', 'canisterDefaultLocation', 'canisterDefaultStatus',
+  'canisterSizes', 'canisterLocations', 'canisterStatuses',
+];
 
 async function readSettings(plant) {
   const rows = await readTable('settings', plant);

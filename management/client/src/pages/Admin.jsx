@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { api } from '../api';
 import { useAuth } from '../auth/AuthContext';
-import { Loading, Empty, Badge, useToast, ConfirmDialog, Select, Field, TextInput } from '../components/ui';
+import { Loading, Empty, Badge, useToast, ConfirmDialog, Select, Field, TextInput, Modal } from '../components/ui';
 
 const statusBadge = { pending: { c: 'orange', t: '승인대기' }, approved: { c: 'green', t: '승인됨' }, rejected: { c: 'red', t: '거절/금지' } };
 
@@ -10,6 +10,8 @@ export default function Admin() {
   const toast = useToast();
   const [items, setItems] = useState(null);
   const [del, setDel] = useState(null);
+  const [resetTarget, setResetTarget] = useState(null);
+  const [newPw, setNewPw] = useState('');
 
   const load = useCallback(async () => {
     if (!isSuper) { setItems([]); return; }
@@ -117,6 +119,7 @@ export default function Admin() {
                         {u.status !== 'approved' && (
                           <button className="btn ghost sm" onClick={() => action(() => api.post(`/users/${u.id}/approve`, { role: u.role }), '승인했습니다.')}>승인</button>
                         )}
+                        {!self && <button className="btn secondary sm" onClick={() => { setResetTarget(u); setNewPw(''); }}>비번초기화</button>}
                         {!self && <button className="btn danger sm" onClick={() => setDel(u)}>삭제</button>}
                       </div>
                     </td>
@@ -127,6 +130,25 @@ export default function Admin() {
           </table>
         )}
       </div>
+      )}
+
+      {resetTarget && (
+        <Modal title={`비밀번호 초기화 — ${resetTarget.name}`} size="sm" onClose={() => setResetTarget(null)}
+          footer={
+            <>
+              <button className="btn" onClick={async () => {
+                if (newPw.length < 4) { toast.err('비밀번호는 4자 이상이어야 합니다.'); return; }
+                await action(() => api.patch(`/users/${resetTarget.id}`, { password: newPw }), `${resetTarget.name} 비밀번호를 초기화했습니다.`);
+                setResetTarget(null);
+              }}>확인</button>
+              <button className="btn secondary" onClick={() => setResetTarget(null)}>취소</button>
+            </>
+          }
+        >
+          <Field label="새 비밀번호" hint="4자 이상 입력하세요.">
+            <TextInput type="password" value={newPw} onChange={e => setNewPw(e.target.value)} placeholder="새 비밀번호" autoFocus />
+          </Field>
+        </Modal>
       )}
 
       {del && (
