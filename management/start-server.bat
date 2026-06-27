@@ -18,6 +18,15 @@ set ROOT=%~dp0
 set SERVER=%ROOT%server
 set CLIENT=%ROOT%client
 
+where git >nul 2>&1
+if %errorlevel% equ 0 (
+    echo [0/3] Pulling latest code from git...
+    cd /d "%ROOT%"
+    git pull
+) else (
+    echo [0/3] git not found, skipping update
+)
+
 if not exist "%SERVER%\node_modules" (
     echo [1/3] Installing server packages...
     cd /d "%SERVER%"
