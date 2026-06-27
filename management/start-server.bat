@@ -43,7 +43,7 @@ if not exist "%SERVER%\node_modules" (
 if not exist "%CLIENT%\node_modules" (
     echo [2/3] Installing client packages...
     cd /d "%CLIENT%"
-    call npm install
+    call npm install --foreground-scripts
     if %errorlevel% neq 0 (
         echo [ERROR] npm install failed in client
         pause
