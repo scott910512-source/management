@@ -13,13 +13,15 @@ const DEFAULTS = {
   canisterDefaultSize: '50L',
   canisterDefaultLocation: '2공장현장',
   canisterDefaultStatus: '수령',
+  canisterDefaultContent: '',
   canisterSizes: '5gal,50L,100L,200L',
   canisterLocations: '2공장현장,3류창고,4류창고',
   canisterStatuses: '수령,사용중,사용완료,세정의뢰,사용금지',
+  canisterContents: '톨루엔,황산,활성탄,실링패드',
 };
 const STRING_KEYS = [
-  'canisterDefaultSize', 'canisterDefaultLocation', 'canisterDefaultStatus',
-  'canisterSizes', 'canisterLocations', 'canisterStatuses',
+  'canisterDefaultSize', 'canisterDefaultLocation', 'canisterDefaultStatus', 'canisterDefaultContent',
+  'canisterSizes', 'canisterLocations', 'canisterStatuses', 'canisterContents',
 ];
 
 async function readSettings(plant) {

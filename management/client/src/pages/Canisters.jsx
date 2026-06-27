@@ -187,9 +187,11 @@ function CanisterForm({ meta, onClose, onSaved, onError }) {
 
   async function submit() {
     if (!f.canisterNo.trim()) return onError('Canister No.를 입력하세요.');
+    const content = f.content === '기타' ? f.contentEtc : f.content;
+    if (!content.trim()) return onError('내용물을 입력하세요.');
     setBusy(true);
     try {
-      await api.post('/canisters', { ...f, canisterNo: f.canisterNo.trim(), weight: f.weight === '' ? 0 : Number(f.weight) });
+      await api.post('/canisters', { ...f, content: content.trim(), canisterNo: f.canisterNo.trim(), weight: f.weight === '' ? 0 : Number(f.weight) });
       onSaved();
     } catch (e) { onError(e.message); } finally { setBusy(false); }
   }
@@ -204,20 +206,18 @@ function CanisterForm({ meta, onClose, onSaved, onError }) {
         <button className="btn" onClick={submit} disabled={busy}>{busy ? '저장 중…' : '저장'}</button>
       </>}
     >
+      <Field label="제품(내용물)" required>
+        <EtcSelect options={meta.canisterContents || []} value={f.content} etc={f.contentEtc || ''} onChange={(v, etc) => setF((p) => ({ ...p, content: v, contentEtc: etc || '' }))} placeholder="내용물 직접 입력" />
+      </Field>
+      <Field label="무게">
+        <TextInput type="number" value={f.weight} onChange={(e) => set('weight', e.target.value)} placeholder="0" />
+      </Field>
       <Field label="Canister No." required>
-        <TextInput value={f.canisterNo} onChange={(e) => set('canisterNo', e.target.value)} placeholder="예: CN-004" autoFocus />
+        <TextInput value={f.canisterNo} onChange={(e) => set('canisterNo', e.target.value)} placeholder="예: CN-004" />
       </Field>
       <Field label="용기 사이즈" required>
         <EtcSelect options={meta.canisterSizes} value={f.size} etc={f.sizeEtc} onChange={(v, etc) => setF((p) => ({ ...p, size: v, sizeEtc: etc }))} placeholder="사이즈 입력" />
       </Field>
-      <div className="form-row">
-        <Field label="제품(내용물)">
-          <TextInput value={f.content} onChange={(e) => set('content', e.target.value)} placeholder="예: 톨루엔 (비어있으면 공란)" />
-        </Field>
-        <Field label="무게">
-          <TextInput type="number" value={f.weight} onChange={(e) => set('weight', e.target.value)} placeholder="0" />
-        </Field>
-      </div>
       <Field label="위치" required>
         <EtcSelect options={meta.canisterLocations} value={f.location} etc={f.locationEtc} onChange={(v, etc) => setF((p) => ({ ...p, location: v, locationEtc: etc }))} placeholder="위치 입력" />
       </Field>
@@ -234,7 +234,7 @@ function CanisterForm({ meta, onClose, onSaved, onError }) {
 function MoveForm({ meta, canisters, onClose, onSaved, onError }) {
   const [cid, setCid] = useState(canisters[0]?.id || '');
   const sel = canisters.find((c) => c.id === cid);
-  const [f, setF] = useState({ type: '반출', content: '', weight: '', location: '', locationEtc: '', status: '', statusEtc: '', note: '' });
+  const [f, setF] = useState({ type: '반출', content: '', contentEtc: '', weight: '', location: '', locationEtc: '', status: '', statusEtc: '', note: '' });
   const [busy, setBusy] = useState(false);
   const set = (k, v) => setF((p) => ({ ...p, [k]: v }));
 
@@ -245,9 +245,10 @@ function MoveForm({ meta, canisters, onClose, onSaved, onError }) {
 
   async function submit() {
     if (!cid) return onError('Canister를 선택하세요.');
+    const content = f.content === '기타' ? f.contentEtc : f.content;
     setBusy(true);
     try {
-      await api.post(`/canisters/${cid}/move`, { ...f, weight: f.weight === '' ? 0 : Number(f.weight) });
+      await api.post(`/canisters/${cid}/move`, { ...f, content: content.trim(), weight: f.weight === '' ? 0 : Number(f.weight) });
       onSaved();
     } catch (e) { onError(e.message); } finally { setBusy(false); }
   }
@@ -274,14 +275,14 @@ function MoveForm({ meta, canisters, onClose, onSaved, onError }) {
         </Select>
       </Field>
       {f.type !== '상태변경' && (
-        <div className="form-row">
+        <>
           <Field label="제품(내용물)">
-            <TextInput value={f.content} onChange={(e) => set('content', e.target.value)} placeholder="반입 시 내용물" />
+            <EtcSelect options={meta.canisterContents || []} value={f.content} etc={f.contentEtc || ''} onChange={(v, etc) => setF((p) => ({ ...p, content: v, contentEtc: etc || '' }))} placeholder="내용물 직접 입력" />
           </Field>
           <Field label={f.type === '반입' ? '반입 무게' : '반출 무게'} required>
             <TextInput type="number" value={f.weight} onChange={(e) => set('weight', e.target.value)} placeholder="0" />
           </Field>
-        </div>
+        </>
       )}
       <Field label="위치">
         <EtcSelect options={meta.canisterLocations} value={f.location || meta.canisterLocations[0]} etc={f.locationEtc} onChange={(v, etc) => setF((p) => ({ ...p, location: v, locationEtc: etc }))} />

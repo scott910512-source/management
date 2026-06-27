@@ -170,12 +170,14 @@ function CanisterDefaultsCard({ toast }) {
   const [cnSizes, setCnSizes] = useState('');
   const [cnLocs, setCnLocs] = useState('');
   const [cnStats, setCnStats] = useState('');
+  const [cnContents, setCnContents] = useState('');
   const [defSize, setDefSize] = useState('');
   const [defLoc, setDefLoc] = useState('');
   const [defStat, setDefStat] = useState('');
   const [newSize, setNewSize] = useState('');
   const [newLoc, setNewLoc] = useState('');
   const [newStat, setNewStat] = useState('');
+  const [newContent, setNewContent] = useState('');
   const [busy, setBusy] = useState(false);
 
   function toArr(str) { return (str || '').split(',').map(s => s.trim()).filter(Boolean); }
@@ -200,6 +202,7 @@ function CanisterDefaultsCard({ toast }) {
       setCnSizes(s.canisterSizes || '5gal,50L,100L,200L');
       setCnLocs(s.canisterLocations || '2공장현장,3류창고,4류창고');
       setCnStats(s.canisterStatuses || '수령,사용중,사용완료,세정의뢰,사용금지');
+      setCnContents(s.canisterContents || '톨루엔,황산,활성탄,실링패드');
       setDefSize(s.canisterDefaultSize || '50L');
       setDefLoc(s.canisterDefaultLocation || '2공장현장');
       setDefStat(s.canisterDefaultStatus || '수령');
@@ -213,6 +216,7 @@ function CanisterDefaultsCard({ toast }) {
         canisterSizes: cnSizes,
         canisterLocations: cnLocs,
         canisterStatuses: cnStats,
+        canisterContents: cnContents,
         canisterDefaultSize: defSize,
         canisterDefaultLocation: defLoc,
         canisterDefaultStatus: defStat,
@@ -231,7 +235,7 @@ function CanisterDefaultsCard({ toast }) {
       <h3 style={{ marginBottom: 4 }}>Canister 기준정보 관리</h3>
       <p className="hint" style={{ marginBottom: 16 }}>Canister 등록 시 사용할 사이즈·위치·상태 목록과 기본값을 관리합니다.</p>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 24, marginBottom: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 20, marginBottom: 20 }}>
         {/* 사이즈 */}
         <div>
           <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 13 }}>사이즈 목록</div>
@@ -295,6 +299,23 @@ function CanisterDefaultsCard({ toast }) {
           <div className="form-row" style={{ marginTop: 8 }}>
             <TextInput placeholder="새 상태 (예: 검사중)" value={newStat} onChange={e => setNewStat(e.target.value)} />
             <button className="btn sm secondary" onClick={() => addItem(cnStats, newStat, setCnStats, setNewStat)}>추가</button>
+          </div>
+        </div>
+
+        {/* 내용물 */}
+        <div>
+          <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 13 }}>내용물 목록</div>
+          <div style={{ ...colStyle, marginBottom: 10 }}>
+            {toArr(cnContents).map(s => (
+              <div key={s} style={tagStyle}>
+                <span style={{ fontSize: 13 }}>{s}</span>
+                <button className="btn ghost sm" style={{ padding: '2px 8px', fontSize: 12 }} onClick={() => removeItem(cnContents, s, setCnContents)}>×</button>
+              </div>
+            ))}
+          </div>
+          <div className="form-row">
+            <TextInput placeholder="새 내용물 (예: 메탄올)" value={newContent} onChange={e => setNewContent(e.target.value)} />
+            <button className="btn sm secondary" onClick={() => addItem(cnContents, newContent, setCnContents, setNewContent)}>추가</button>
           </div>
         </div>
       </div>
