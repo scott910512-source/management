@@ -14,6 +14,7 @@ export default function Settings() {
   const [cnDefSize, setCnDefSize] = useState('');
   const [cnDefLoc, setCnDefLoc] = useState('');
   const [cnDefStatus, setCnDefStatus] = useState('');
+  const [cnDefContent, setCnDefContent] = useState('');
   const [cnSizes, setCnSizes] = useState('');
   const [cnLocs, setCnLocs] = useState('');
   const [cnStats, setCnStats] = useState('');
@@ -32,6 +33,7 @@ export default function Settings() {
       setCnDefSize(s.canisterDefaultSize || '50L');
       setCnDefLoc(s.canisterDefaultLocation || '2공장현장');
       setCnDefStatus(s.canisterDefaultStatus || '수령');
+      setCnDefContent(s.canisterDefaultContent || '');
       setCnSizes(s.canisterSizes || '5gal,50L,100L,200L');
       setCnLocs(s.canisterLocations || '2공장현장,3류창고,4류창고');
       setCnStats(s.canisterStatuses || '수령,사용중,사용완료,세정의뢰,사용금지');
@@ -59,6 +61,7 @@ export default function Settings() {
         canisterDefaultSize: cnDefSize,
         canisterDefaultLocation: cnDefLoc,
         canisterDefaultStatus: cnDefStatus,
+        canisterDefaultContent: cnDefContent,
         canisterSizes: cnSizes,
         canisterLocations: cnLocs,
         canisterStatuses: cnStats,
@@ -73,6 +76,7 @@ export default function Settings() {
       setCnDefSize(s.canisterDefaultSize);
       setCnDefLoc(s.canisterDefaultLocation);
       setCnDefStatus(s.canisterDefaultStatus);
+      setCnDefContent(s.canisterDefaultContent || '');
       toast.ok('Canister 설정을 저장했습니다.');
     } catch (e) {
       toast.err(e.message);
@@ -134,7 +138,18 @@ export default function Settings() {
           {/* 사이즈 */}
           <div>
             <div style={{ fontWeight: 600, marginBottom: 10 }}>사이즈 목록</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
+            <Field label="기본값" style={{ marginBottom: 10 }}>
+              <Select value={cnDefSize} onChange={e => setCnDefSize(e.target.value)} disabled={!isAdmin}>
+                {toArr(cnSizes).map(s => <option key={s} value={s}>{s}</option>)}
+              </Select>
+            </Field>
+            {isAdmin && (
+              <div className="form-row" style={{ marginBottom: 10 }}>
+                <TextInput placeholder="새 사이즈 (예: 500L)" value={newSize} onChange={e => setNewSize(e.target.value)} />
+                <button className="btn sm secondary" onClick={() => addItem(cnSizes, newSize, setCnSizes, setNewSize)}>추가</button>
+              </div>
+            )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {toArr(cnSizes).map(s => (
                 <div key={s} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg2)', borderRadius: 6, padding: '4px 10px' }}>
                   <span style={{ fontSize: 14 }}>{s}</span>
@@ -142,23 +157,23 @@ export default function Settings() {
                 </div>
               ))}
             </div>
-            {isAdmin && (
-              <div className="form-row">
-                <TextInput placeholder="새 사이즈 (예: 500L)" value={newSize} onChange={e => setNewSize(e.target.value)} />
-                <button className="btn sm secondary" onClick={() => addItem(cnSizes, newSize, setCnSizes, setNewSize)}>추가</button>
-              </div>
-            )}
-            <Field label="기본값" style={{ marginTop: 12 }}>
-              <Select value={cnDefSize} onChange={e => setCnDefSize(e.target.value)} disabled={!isAdmin}>
-                {toArr(cnSizes).map(s => <option key={s} value={s}>{s}</option>)}
-              </Select>
-            </Field>
           </div>
 
           {/* 위치 */}
           <div>
             <div style={{ fontWeight: 600, marginBottom: 10 }}>위치 목록</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
+            <Field label="기본값" style={{ marginBottom: 10 }}>
+              <Select value={cnDefLoc} onChange={e => setCnDefLoc(e.target.value)} disabled={!isAdmin}>
+                {toArr(cnLocs).map(s => <option key={s} value={s}>{s}</option>)}
+              </Select>
+            </Field>
+            {isAdmin && (
+              <div className="form-row" style={{ marginBottom: 10 }}>
+                <TextInput placeholder="새 위치 (예: 1공장현장)" value={newLoc} onChange={e => setNewLoc(e.target.value)} />
+                <button className="btn sm secondary" onClick={() => addItem(cnLocs, newLoc, setCnLocs, setNewLoc)}>추가</button>
+              </div>
+            )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {toArr(cnLocs).map(s => (
                 <div key={s} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg2)', borderRadius: 6, padding: '4px 10px' }}>
                   <span style={{ fontSize: 14 }}>{s}</span>
@@ -166,23 +181,23 @@ export default function Settings() {
                 </div>
               ))}
             </div>
-            {isAdmin && (
-              <div className="form-row">
-                <TextInput placeholder="새 위치 (예: 1공장현장)" value={newLoc} onChange={e => setNewLoc(e.target.value)} />
-                <button className="btn sm secondary" onClick={() => addItem(cnLocs, newLoc, setCnLocs, setNewLoc)}>추가</button>
-              </div>
-            )}
-            <Field label="기본값" style={{ marginTop: 12 }}>
-              <Select value={cnDefLoc} onChange={e => setCnDefLoc(e.target.value)} disabled={!isAdmin}>
-                {toArr(cnLocs).map(s => <option key={s} value={s}>{s}</option>)}
-              </Select>
-            </Field>
           </div>
 
           {/* 상태 */}
           <div>
             <div style={{ fontWeight: 600, marginBottom: 10 }}>상태 목록</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
+            <Field label="기본값" style={{ marginBottom: 10 }}>
+              <Select value={cnDefStatus} onChange={e => setCnDefStatus(e.target.value)} disabled={!isAdmin}>
+                {toArr(cnStats).map(s => <option key={s} value={s}>{s}</option>)}
+              </Select>
+            </Field>
+            {isAdmin && (
+              <div className="form-row" style={{ marginBottom: 10 }}>
+                <TextInput placeholder="새 상태 (예: 검사중)" value={newStat} onChange={e => setNewStat(e.target.value)} />
+                <button className="btn sm secondary" onClick={() => addItem(cnStats, newStat, setCnStats, setNewStat)}>추가</button>
+              </div>
+            )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {toArr(cnStats).map(s => (
                 <div key={s} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg2)', borderRadius: 6, padding: '4px 10px' }}>
                   <span style={{ fontSize: 14 }}>{s}</span>
@@ -190,23 +205,24 @@ export default function Settings() {
                 </div>
               ))}
             </div>
-            {isAdmin && (
-              <div className="form-row">
-                <TextInput placeholder="새 상태 (예: 검사중)" value={newStat} onChange={e => setNewStat(e.target.value)} />
-                <button className="btn sm secondary" onClick={() => addItem(cnStats, newStat, setCnStats, setNewStat)}>추가</button>
-              </div>
-            )}
-            <Field label="기본값" style={{ marginTop: 12 }}>
-              <Select value={cnDefStatus} onChange={e => setCnDefStatus(e.target.value)} disabled={!isAdmin}>
-                {toArr(cnStats).map(s => <option key={s} value={s}>{s}</option>)}
-              </Select>
-            </Field>
           </div>
 
-          {/* 내용물 */}
+          {/* 취급물질 */}
           <div>
-            <div style={{ fontWeight: 600, marginBottom: 10 }}>내용물 목록</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
+            <div style={{ fontWeight: 600, marginBottom: 10 }}>취급물질 목록</div>
+            <Field label="기본값" style={{ marginBottom: 10 }}>
+              <Select value={cnDefContent} onChange={e => setCnDefContent(e.target.value)} disabled={!isAdmin}>
+                <option value="">선택 안 함</option>
+                {toArr(cnContents).map(s => <option key={s} value={s}>{s}</option>)}
+              </Select>
+            </Field>
+            {isAdmin && (
+              <div className="form-row" style={{ marginBottom: 10 }}>
+                <TextInput placeholder="새 취급물질 (예: 메탄올)" value={newContent} onChange={e => setNewContent(e.target.value)} />
+                <button className="btn sm secondary" onClick={() => addItem(cnContents, newContent, setCnContents, setNewContent)}>추가</button>
+              </div>
+            )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {toArr(cnContents).map(s => (
                 <div key={s} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg2)', borderRadius: 6, padding: '4px 10px' }}>
                   <span style={{ fontSize: 14 }}>{s}</span>
@@ -214,12 +230,6 @@ export default function Settings() {
                 </div>
               ))}
             </div>
-            {isAdmin && (
-              <div className="form-row">
-                <TextInput placeholder="새 내용물 (예: 메탄올)" value={newContent} onChange={e => setNewContent(e.target.value)} />
-                <button className="btn sm secondary" onClick={() => addItem(cnContents, newContent, setCnContents, setNewContent)}>추가</button>
-              </div>
-            )}
           </div>
         </div>
 
