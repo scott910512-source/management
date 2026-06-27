@@ -1,0 +1,42 @@
+{
+  "toggle_hotkey": "ctrl+alt+space",
+  "quit_hotkey": "ctrl+alt+q",
+  "items": [
+    {
+      "name": "Google 검색",
+      "type": "url",
+      "target": "https://www.google.com",
+      "hotkey": "ctrl+alt+1"
+    },
+    {
+      "name": "사내 포털",
+      "type": "url",
+      "target": "https://portal.example.com",
+      "hotkey": "ctrl+alt+2"
+    },
+    {
+      "name": "Chrome (이름만으로 실행)",
+      "type": "program",
+      "target": "chrome",
+      "hotkey": "ctrl+alt+3"
+    },
+    {
+      "name": "메모장",
+      "type": "program",
+      "target": "notepad.exe",
+      "hotkey": "ctrl+alt+4"
+    },
+    {
+      "name": "특정 프로그램 (전체 경로 예시)",
+      "type": "program",
+      "target": "C:\\Program Files\\MyApp\\myapp.exe",
+      "hotkey": "ctrl+alt+5"
+    },
+    {
+      "name": "내 문서 폴더",
+      "type": "folder",
+      "target": "C:\\Users",
+      "hotkey": "ctrl+alt+6"
+    }
+  ]
+}

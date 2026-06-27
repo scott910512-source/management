@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VDI 단축키 런처 — 스터디 자료</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "맑은 고딕", "Malgun Gothic", -apple-system, sans-serif;
+    line-height: 1.7; color: #2d3142; background: #f4f5f7; padding: 0;
+  }
+  .hero {
+    background: linear-gradient(135deg, #1e1e2e 0%, #45475a 100%);
+    color: #fff; padding: 60px 40px; text-align: center;
+  }
+  .hero h1 { font-size: 2.4rem; margin-bottom: 12px; }
+  .hero p { font-size: 1.1rem; opacity: 0.85; }
+  .hero .badge {
+    display: inline-block; margin-top: 18px; padding: 6px 16px;
+    background: rgba(137,180,250,0.25); border: 1px solid #89b4fa;
+    border-radius: 20px; font-size: 0.9rem; color: #cdd6f4;
+  }
+  .container { max-width: 920px; margin: 0 auto; padding: 40px 24px; }
+  section { background: #fff; border-radius: 14px; padding: 32px 36px;
+    margin-bottom: 26px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+  h2 { font-size: 1.5rem; color: #1e1e2e; margin-bottom: 18px;
+    padding-bottom: 10px; border-bottom: 3px solid #89b4fa; display: inline-block; }
+  h3 { font-size: 1.15rem; color: #45475a; margin: 22px 0 10px; }
+  p { margin-bottom: 12px; }
+  ul, ol { margin: 10px 0 14px 22px; }
+  li { margin-bottom: 7px; }
+  code {
+    background: #eef0f3; color: #d6336c; padding: 2px 7px;
+    border-radius: 5px; font-family: "Consolas", monospace; font-size: 0.9em;
+  }
+  pre {
+    background: #1e1e2e; color: #cdd6f4; padding: 18px 20px;
+    border-radius: 10px; overflow-x: auto; margin: 12px 0; font-size: 0.88rem;
+  }
+  pre code { background: none; color: #cdd6f4; padding: 0; }
+  table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 0.93rem; }
+  th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid #e4e6eb; }
+  th { background: #f0f2f5; color: #1e1e2e; font-weight: 600; }
+  tr:hover td { background: #fafbfc; }
+  .tag { display:inline-block; padding:2px 10px; border-radius: 12px;
+    font-size:0.8rem; font-weight:600; }
+  .tag.ok { background:#d3f9d8; color:#2b8a3e; }
+  .tag.no { background:#ffe3e3; color:#c92a2a; }
+  .callout {
+    background: #eff6ff; border-left: 4px solid #89b4fa;
+    padding: 14px 18px; border-radius: 0 8px 8px 0; margin: 14px 0;
+  }
+  .callout.warn { background:#fff9db; border-color:#f59f00; }
+  .callout.tip { background:#ebfbee; border-color:#37b24d; }
+  .step-num {
+    display:inline-flex; align-items:center; justify-content:center;
+    width:26px; height:26px; background:#89b4fa; color:#fff;
+    border-radius:50%; font-weight:700; font-size:0.85rem; margin-right:8px;
+  }
+  .toc { columns: 2; }
+  .toc a { color:#1971c2; text-decoration:none; }
+  .toc a:hover { text-decoration: underline; }
+  footer { text-align:center; padding:30px; color:#868e96; font-size:0.85rem; }
+  .timeline-item { border-left:2px solid #dee2e6; padding:0 0 16px 20px; position:relative; }
+  .timeline-item::before {
+    content:''; position:absolute; left:-7px; top:4px; width:12px; height:12px;
+    background:#89b4fa; border-radius:50%; }
+  .timeline-item strong { color:#1e1e2e; }
+
+  /* ── 런처 화면 미리보기(목업) ── */
+  .preview-wrap { display:flex; flex-wrap:wrap; gap:28px; align-items:flex-start; justify-content:center; margin:18px 0; }
+  .win {
+    width:340px; border-radius:8px; overflow:hidden;
+    box-shadow:0 12px 40px rgba(0,0,0,0.35); border:1px solid #11111b;
+    background:#1e1e2e;
+  }
+  .win-titlebar {
+    display:flex; align-items:center; justify-content:space-between;
+    background:#11111b; padding:7px 12px; color:#bac2de; font-size:0.82rem;
+  }
+  .win-titlebar .dots { display:flex; gap:7px; }
+  .win-titlebar .dots span { width:11px; height:11px; border-radius:50%; }
+  .dot-min{background:#f9e2af;} .dot-max{background:#a6e3a1;} .dot-close{background:#f38ba8;}
+  .win-header { color:#cdd6f4; font-size:1rem; font-weight:700; text-align:center; padding:12px 0; }
+  .win-body { padding:4px 12px 8px; }
+  .win-row {
+    display:flex; align-items:center; justify-content:space-between;
+    background:#313244; border-radius:4px; padding:9px 11px; margin-bottom:6px;
+    cursor:pointer; transition:background .15s;
+  }
+  .win-row:hover { background:#3b3d52; }
+  .win-row .nm { color:#cdd6f4; font-size:0.9rem; }
+  .win-row .hk { color:#89b4fa; font-size:0.74rem; font-family:Consolas,monospace; }
+  .win-footer {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:10px 12px 12px; }
+  .win-footer .hint { color:#6c7086; font-size:0.72rem; }
+  .win-footer .btns { display:flex; gap:6px; }
+  .win-btn { border:none; border-radius:4px; padding:4px 10px; font-size:0.72rem; font-weight:600; cursor:pointer; }
+  .win-btn.gray { background:#45475a; color:#cdd6f4; }
+  .win-btn.quit { background:#f38ba8; color:#1e1e2e; }
+  /* 평상시 숨김 상태 표현 */
+  .hidden-state {
+    width:300px; border:2px dashed #ced4da; border-radius:10px;
+    padding:34px 20px; text-align:center; color:#868e96; background:#fafbfc;
+  }
+  .hidden-state .big { font-size:2.4rem; }
+  .key {
+    display:inline-block; background:#fff; border:1px solid #adb5bd;
+    border-bottom-width:3px; border-radius:6px; padding:3px 10px;
+    font-family:Consolas,monospace; font-size:0.85rem; color:#212529; margin:0 2px;
+  }
+  .flow-step { text-align:center; flex:1; min-width:150px; }
+  .flow-arrow { font-size:1.8rem; color:#adb5bd; align-self:center; }
+
+  /* ── 사용 흐름: 균일 카드 한 줄 정렬 ── */
+  .flow-row {
+    display:flex; flex-wrap:nowrap; align-items:stretch; justify-content:center;
+    gap:12px; margin:20px 0;
+  }
+  .flow-row .step {
+    flex:1 1 0; min-width:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; text-align:center;
+    background:#fafbfc; border:1px solid #e9ecef; border-radius:12px;
+    padding:22px 14px; min-height:150px;
+  }
+  .flow-row .step .ico { font-size:2.2rem; line-height:1; margin-bottom:10px; }
+  .flow-row .step .ttl { font-weight:700; color:#1e1e2e; margin-bottom:6px; }
+  .flow-row .step .desc { color:#868e96; font-size:0.82rem; }
+  .flow-row .arr { flex:0 0 auto; align-self:center; font-size:1.6rem; color:#adb5bd; }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <h1>⚡ VDI 단축키 런처</h1>
+  <p>웹사이트·프로그램·폴더를 전역 핫키와 런처 창으로 바로 실행하는 파이썬 도구</p>
+  <div class="badge">외부 라이브러리 0개 · 오프라인 VDI 대응 · 표준 라이브러리만 사용</div>
+</div>
+
+<div class="container">
+
+  <section>
+    <h2>📑 목차</h2>
+    <div class="toc">
+      <a href="#quickstart">★ 한눈에 보기 (사용 흐름)</a><br>
+      <a href="#overview">1. 프로젝트 개요</a><br>
+      <a href="#how">2. 동작 원리</a><br>
+      <a href="#files">3. 구성 파일</a><br>
+      <a href="#usage">4. 사용 방법</a><br>
+      <a href="#config">5. 설정(config.json) 작성법</a><br>
+      <a href="#hotkey">6. 핫키 표기법</a><br>
+      <a href="#lessons">7. 레슨 런 (Lessons Learned)</a><br>
+      <a href="#faq">8. 자주 묻는 질문</a><br>
+      <a href="#future">9. 추후 활용 방안</a>
+    </div>
+  </section>
+
+  <section id="quickstart">
+    <h2>★ 한눈에 보기 (사용 흐름)</h2>
+    <p>평상시에는 <strong>화면에 보이지 않고 숨어</strong> 있다가, 단축키를 누르면 런처 창이 뜨고,
+    <strong>종료 버튼</strong>으로 완전히 끌 수 있습니다.</p>
+
+    <div class="flow-row">
+      <div class="step">
+        <div class="ico">🙈</div>
+        <div class="ttl">평상시</div>
+        <div class="desc">백그라운드에 숨어있음<br>(화면에 안 보임)</div>
+      </div>
+
+      <div class="arr">▶</div>
+
+      <div class="step">
+        <div class="ico">⌨️</div>
+        <div class="ttl"><span class="key">Ctrl</span>+<span class="key">Alt</span>+<span class="key">Space</span></div>
+        <div class="desc">이 단축키를 누르면</div>
+      </div>
+
+      <div class="arr">▶</div>
+
+      <div class="step">
+        <div class="ico">⚡</div>
+        <div class="ttl" style="color:#37b24d;">런처 창이 뜸</div>
+        <div class="desc">아래 화면 참고 ↓</div>
+      </div>
+    </div>
+
+    <h3>실제 런처 화면 (미리보기)</h3>
+    <p style="color:#868e96; font-size:0.88rem;">※ 코드의 실제 색상·레이아웃을 그대로 재현한 화면입니다.</p>
+    <div class="preview-wrap">
+      <div class="win">
+        <div class="win-titlebar">
+          <span>VDI 런처</span>
+          <div class="dots"><span class="dot-min"></span><span class="dot-max"></span><span class="dot-close"></span></div>
+        </div>
+        <div class="win-header">⚡ VDI 단축키 런처</div>
+        <div class="win-body">
+          <div class="win-row"><span class="nm">&nbsp;&nbsp;1.&nbsp;&nbsp;Google 검색</span><span class="hk">전역: ctrl+alt+1</span></div>
+          <div class="win-row"><span class="nm">&nbsp;&nbsp;2.&nbsp;&nbsp;사내 포털</span><span class="hk">전역: ctrl+alt+2</span></div>
+          <div class="win-row"><span class="nm">&nbsp;&nbsp;3.&nbsp;&nbsp;Chrome</span><span class="hk">전역: ctrl+alt+3</span></div>
+          <div class="win-row"><span class="nm">&nbsp;&nbsp;4.&nbsp;&nbsp;CUBE</span><span class="hk">전역: ctrl+alt+4</span></div>
+          <div class="win-row"><span class="nm">&nbsp;&nbsp;5.&nbsp;&nbsp;공유 폴더</span><span class="hk">전역: ctrl+alt+5</span></div>
+        </div>
+        <div class="win-footer">
+          <span class="hint">숫자키 1~9 실행 · Esc 닫기</span>
+          <div class="btns">
+            <button class="win-btn gray">새로고침</button>
+            <button class="win-btn gray">설정 열기</button>
+            <button class="win-btn quit">종료</button>
+          </div>
+        </div>
+      </div>
+
+      <div style="max-width:300px;">
+        <h3 style="margin-top:0;">화면 사용법</h3>
+        <ul>
+          <li><strong>항목 클릭</strong> 또는 <strong>숫자키(1~9)</strong> → 해당 항목 실행</li>
+          <li><strong>전역: ...</strong> → 창을 안 띄워도 어디서든 그 핫키로 바로 실행</li>
+          <li><span class="key" style="font-size:0.75rem;">Esc</span> 또는 창 닫기 → <strong>숨기기</strong>(종료 아님)</li>
+          <li><strong style="color:#c92a2a;">종료</strong> 버튼 → 프로그램 완전 종료 (<span class="key" style="font-size:0.75rem;">Ctrl+Alt+Q</span> 도 가능)</li>
+          <li><strong>설정 열기</strong> → config.json 편집</li>
+          <li><strong>새로고침</strong> → 설정 변경 즉시 반영</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="callout warn">
+      <strong>중요:</strong> 창의 <strong>X(닫기)</strong>나 <span class="key" style="font-size:0.75rem;">Esc</span>는
+      <u>숨기기</u>만 합니다(핫키는 계속 동작). <strong>완전히 끄려면 빨간 "종료" 버튼</strong>을 누르세요.
+    </div>
+  </section>
+
+  <section id="overview">
+    <h2>1. 프로젝트 개요</h2>
+    <p>Windows VDI(가상 데스크톱) 환경에서 자주 쓰는 웹사이트, 프로그램, 폴더를
+    <strong>키보드 단축키 한 번</strong> 또는 <strong>작은 런처 창</strong>으로 즉시 실행하는 도구입니다.</p>
+    <h3>핵심 설계 원칙</h3>
+    <ul>
+      <li><strong>외부 라이브러리 0개</strong> — 파이썬 표준 라이브러리(<code>ctypes</code>, <code>tkinter</code>,
+        <code>webbrowser</code>, <code>subprocess</code>)만 사용</li>
+      <li><strong>오프라인 대응</strong> — wheel 다운로드/설치 불필요. 폐쇄망 VDI에서 파이썬만 있으면 동작</li>
+      <li><strong>관리자 권한 불필요</strong> — Win32 <code>RegisterHotKey</code>는 일반 권한으로 동작</li>
+      <li><strong>가벼움</strong> — RAM 약 30MB, idle 시 CPU 0%</li>
+    </ul>
+  </section>
+
+  <section id="how">
+    <h2>2. 동작 원리</h2>
+    <h3>① 전역 핫키 (Global Hotkey)</h3>
+    <p><code>ctypes</code>로 Win32 API <code>RegisterHotKey</code>를 직접 호출합니다.
+    백그라운드 스레드에서 메시지 루프(<code>GetMessageW</code>)를 돌며 <code>WM_HOTKEY</code> 메시지를 받아
+    등록된 콜백을 실행합니다.</p>
+    <h3>② 런처 창</h3>
+    <p><code>tkinter</code>로 만든 작은 창. <code>Ctrl+Alt+Space</code>로 띄우고 숫자키·클릭으로 실행합니다.
+    핫키 스레드와 UI 스레드 간 통신은 <code>queue.Queue</code>로 안전하게 처리합니다.</p>
+    <h3>③ 실행 메커니즘</h3>
+    <table>
+      <tr><th>종류</th><th>사용 함수</th><th>특징</th></tr>
+      <tr><td>url</td><td><code>webbrowser.open</code></td><td>기본 브라우저로 열기</td></tr>
+      <tr><td>program / file / folder</td><td><code>ShellExecuteW</code></td><td>App Paths·PATH·파일연결 해석, 이름만으로도 실행</td></tr>
+      <tr><td>command</td><td><code>subprocess.Popen</code></td><td>셸 명령 실행</td></tr>
+    </table>
+    <div class="callout tip">
+      <strong>핵심 포인트:</strong> 런처는 "관리자" 역할만 하고, 실제 프로그램은 각각 <strong>독립 프로세스</strong>로
+      실행됩니다. 따라서 런처와 다른 프로그램이 서로 영향 없이 동시에 돌아갑니다.
+    </div>
+  </section>
+
+  <section id="files">
+    <h2>3. 구성 파일</h2>
+    <table>
+      <tr><th>파일</th><th>역할</th></tr>
+      <tr><td><code>launcher.py</code></td><td>메인 — 런처 창(tkinter) + 실행 로직</td></tr>
+      <tr><td><code>hotkeys.py</code></td><td>전역 핫키 관리 (Win32 RegisterHotKey)</td></tr>
+      <tr><td><code>config.json</code></td><td>사용자 설정 — 실행 항목·핫키 정의</td></tr>
+      <tr><td><code>start_launcher.bat</code></td><td>pythonw로 콘솔 없이 백그라운드 실행</td></tr>
+      <tr><td><code>README.md</code></td><td>사용법·FAQ</td></tr>
+    </table>
+  </section>
+
+  <section id="usage">
+    <h2>4. 사용 방법</h2>
+    <ol>
+      <li><span class="step-num">1</span><strong>파일 배치</strong> — <code>vdi-launcher</code> 폴더를 VDI에 복사</li>
+      <li><span class="step-num">2</span><strong>설정 수정</strong> — <code>config.json</code>에 항목 작성</li>
+      <li><span class="step-num">3</span><strong>실행</strong> — <code>start_launcher.bat</code> 더블클릭</li>
+      <li><span class="step-num">4</span><strong>자동 시작(선택)</strong> — <code>Win+R</code> → <code>shell:startup</code> 폴더에 .bat 바로가기 복사</li>
+    </ol>
+    <h3>종료 방법</h3>
+    <ul>
+      <li>런처 창의 빨간 <strong>종료</strong> 버튼</li>
+      <li>전역 핫키 <code>Ctrl+Alt+Q</code> (quit_hotkey 설정 시)</li>
+      <li>명령어 <code>taskkill /f /im pythonw.exe</code></li>
+    </ul>
+  </section>
+
+  <section id="config">
+    <h2>5. 설정(config.json) 작성법</h2>
+<pre><code>{
+  "toggle_hotkey": "ctrl+alt+space",
+  "quit_hotkey": "ctrl+alt+q",
+  "items": [
+    { "name": "사내 포털", "type": "url",     "target": "https://portal.example.com", "hotkey": "ctrl+alt+1" },
+    { "name": "Chrome",   "type": "program", "target": "chrome",                     "hotkey": "ctrl+alt+2" },
+    { "name": "CUBE",     "type": "program", "target": "C:\\CUBE\\CUBE.exe",         "hotkey": "ctrl+alt+3", "admin": true },
+    { "name": "공유폴더", "type": "folder",  "target": "C:\\CUBE",                   "hotkey": "ctrl+alt+4" }
+  ]
+}</code></pre>
+    <div class="callout warn">
+      <strong>경로 작성 3대 규칙</strong>
+      <ul style="margin-bottom:0;">
+        <li><code>target</code>은 <strong>대괄호 없는 문자열</strong> — <code>"C:\\..."</code> (O) / <code>["C:\\..."]</code> (X)</li>
+        <li>역슬래시는 <strong>두 개</strong> — <code>C:\\CUBE\\CUBE.exe</code> (O) / <code>C://CUBE</code> (X)</li>
+        <li>폴더 위치는 <code>target</code>에 — <code>args</code>는 프로그램 실행 옵션 전용(폴더 아님)</li>
+      </ul>
+    </div>
+    <h3>type 종류</h3>
+    <table>
+      <tr><th>type</th><th>의미</th><th>target 예시</th></tr>
+      <tr><td><code>url</code></td><td>웹사이트</td><td><code>https://...</code></td></tr>
+      <tr><td><code>program</code></td><td>프로그램</td><td><code>chrome</code>, <code>C:\\CUBE\\CUBE.exe</code></td></tr>
+      <tr><td><code>folder</code></td><td>폴더 열기</td><td><code>C:\\CUBE</code></td></tr>
+      <tr><td><code>command</code></td><td>셸 명령</td><td><code>cmd /c ipconfig</code></td></tr>
+    </table>
+  </section>
+
+  <section id="hotkey">
+    <h2>6. 핫키 표기법</h2>
+    <p><code>+</code>로 조합. 수정자(<code>ctrl</code>, <code>alt</code>, <code>shift</code>, <code>win</code>) + 일반 키.</p>
+    <ul>
+      <li>일반 키: <code>a~z</code>, <code>0~9</code>, <code>f1~f12</code></li>
+      <li>특수 키: <code>space</code>, <code>enter</code>, <code>esc</code>, <code>tab</code>, <code>home</code>, <code>end</code>, 방향키 등</li>
+      <li>예: <code>ctrl+alt+1</code>, <code>ctrl+shift+p</code>, <code>win+f2</code></li>
+    </ul>
+    <div class="callout">
+      💡 핫키 하나에 <strong>수정자 1개 이상</strong> 권장. 단독 키는 Windows가 잘 잡지 못합니다.
+    </div>
+  </section>
+
+  <section id="lessons">
+    <h2>7. 레슨 런 (Lessons Learned)</h2>
+    <p>이 프로젝트를 만들며 겪은 문제와 해결 과정 — 같은 실수를 반복하지 않기 위한 기록.</p>
+
+    <div class="timeline-item">
+      <strong>① 오프라인 VDI = 외부 라이브러리 부담</strong><br>
+      <span class="tag no">문제</span> keyboard·pynput 같은 라이브러리는 wheel 오프라인 다운로드 필요 + 인증/안정성 부담<br>
+      <span class="tag ok">해결</span> ctypes로 Win32 API 직접 호출 → 표준 라이브러리만으로 구현, 설치 불필요
+    </div>
+
+    <div class="timeline-item">
+      <strong>② 프로그램 이름만으로 실행이 안 됨</strong><br>
+      <span class="tag no">문제</span> <code>subprocess.Popen</code>은 PATH 등록/전체 경로만 동작 → chrome 등 실패<br>
+      <span class="tag ok">해결</span> <code>ShellExecute</code>로 변경 → App Paths 레지스트리·PATH·파일연결까지 해석
+    </div>
+
+    <div class="timeline-item">
+      <strong>③ 슬래시 방향·따옴표 실수</strong><br>
+      <span class="tag no">문제</span> <code>C:/폴더/app.exe</code>처럼 <code>/</code>로 적으면 Windows가 못 찾음<br>
+      <span class="tag ok">해결</span> 경로 자동 보정(<code>/</code>→<code>\</code>, 따옴표 제거) 로직 추가
+    </div>
+
+    <div class="timeline-item">
+      <strong>④ 특정 exe가 실행되다 꺼짐</strong><br>
+      <span class="tag no">문제</span> 작업 폴더 미지정 → 상대경로 DLL/리소스 못 찾음<br>
+      <span class="tag ok">해결</span> exe의 폴더를 working directory로 지정 (더블클릭과 동일 환경)
+    </div>
+
+    <div class="timeline-item">
+      <strong>⑤ target에 대괄호·args에 폴더 넣는 혼동</strong><br>
+      <span class="tag no">문제</span> <code>"target": ["C://CUBE//CUBE.exe"]</code> — 대괄호=배열, 슬래시 오류<br>
+      <span class="tag ok">해결</span> target은 단일 문자열, args는 실행 옵션 전용임을 명확히 (문서·예시 보강)
+    </div>
+
+    <div class="timeline-item">
+      <strong>⑥ 종료 수단 부재</strong><br>
+      <span class="tag no">문제</span> 창 닫기는 숨기기만 → 작업관리자로만 종료 가능<br>
+      <span class="tag ok">해결</span> 종료 버튼 + 전역 종료 핫키(<code>Ctrl+Alt+Q</code>) 추가
+    </div>
+
+    <h3>핵심 교훈 요약</h3>
+    <ul>
+      <li><strong>제약(오프라인)을 먼저 파악</strong>하면 설계가 단순해진다 → "표준 라이브러리만" 결정</li>
+      <li><strong>Windows 실행은 ShellExecute가 정답</strong> — 탐색기 더블클릭과 동일한 동작</li>
+      <li><strong>사용자 입력은 너그럽게 보정</strong> — 슬래시·따옴표·공백 자동 처리</li>
+      <li><strong>오류 메시지를 명확하게</strong> — 오류 코드를 한글로 풀어 원인 안내</li>
+    </ul>
+  </section>
+
+  <section id="faq">
+    <h2>8. 자주 묻는 질문</h2>
+    <h3>RAM을 많이 잡아먹나요?</h3>
+    <p>아니요. 약 <strong>30MB</strong>로 매우 가볍습니다 (Chrome은 200~500MB). idle 시 CPU는 0%입니다.</p>
+    <h3>Python이 켜져있으면 다른 프로그램 못 돌리나요?</h3>
+    <p>전혀 상관없습니다. Python 프로세스는 런처 자체만 실행하고, 실행되는 프로그램은
+    각각 <strong>독립 프로세스</strong>로 시작됩니다. 동시 실행에 문제 없습니다.</p>
+    <h3>관리자 권한이 필요한가요?</h3>
+    <p>아니요. 다만 관리자 권한이 필요한 프로그램은 config에 <code>"admin": true</code>를 추가하세요.</p>
+    <h3>핫키가 안 먹어요</h3>
+    <p>다른 프로그램이 같은 조합을 쓰는 경우입니다. config에서 다른 조합으로 바꾸고 "새로고침"하세요.</p>
+  </section>
+
+  <section id="future">
+    <h2>9. 추후 활용 방안</h2>
+    <h3>기능 확장 아이디어</h3>
+    <table>
+      <tr><th>기능</th><th>설명</th><th>난이도</th></tr>
+      <tr><td>찾아보기 버튼</td><td>탐색기로 .exe 직접 선택 → 경로 자동 입력 (경로 입력 실수 제거)</td><td>낮음</td></tr>
+      <tr><td>숫자패드 지원</td><td>numpad0~9 키로 핫키 등록</td><td>낮음</td></tr>
+      <tr><td>시스템 트레이 아이콘</td><td>작업표시줄 트레이에서 우클릭 메뉴로 제어</td><td>중간</td></tr>
+      <tr><td>검색창</td><td>이름 입력 → 필터링 후 Enter 실행 (항목 많을 때)</td><td>중간</td></tr>
+      <tr><td>그룹/탭</td><td>업무별 항목 묶음 (개발/문서/사내시스템)</td><td>중간</td></tr>
+      <tr><td>한 핫키 다중 실행</td><td>출근 모드: 메일+메신저+포털 동시 실행</td><td>낮음</td></tr>
+      <tr><td>사용 통계</td><td>자주 쓰는 항목 자동 상단 정렬</td><td>높음</td></tr>
+    </table>
+
+    <h3>실무 적용 시나리오</h3>
+    <ul>
+      <li><strong>업무 시작 자동화</strong> — 한 핫키로 매일 쓰는 사내 시스템 일괄 실행</li>
+      <li><strong>부서 표준 배포</strong> — 팀 공용 config.json 배포로 단축키 환경 통일</li>
+      <li><strong>교육/온보딩</strong> — 신규 입사자에게 사내 시스템 바로가기 모음 제공</li>
+      <li><strong>반복 작업 단축</strong> — 자주 여는 공유 폴더·보고서 양식을 핫키화</li>
+    </ul>
+
+    <h3>기술 확장 방향</h3>
+    <ul>
+      <li><strong>크로스 플랫폼</strong> — Linux VDI 지원(X11 핫키) 추가로 환경 확대</li>
+      <li><strong>설정 GUI</strong> — config.json 직접 편집 대신 폼 기반 설정 화면</li>
+      <li><strong>매크로 연동</strong> — 단순 실행을 넘어 키 입력 자동화까지 확장</li>
+      <li><strong>프로파일 전환</strong> — 프로젝트별 단축키 세트 전환 기능</li>
+    </ul>
+
+    <div class="callout tip">
+      <strong>가장 추천하는 다음 스텝:</strong> "찾아보기 버튼" + "숫자패드 지원" — 둘 다 난이도가 낮으면서
+      경로 입력 실수를 없애고 사용 편의를 크게 높입니다.
+    </div>
+  </section>
+
+</div>
+
+<footer>
+  VDI 단축키 런처 · 스터디 자료 &nbsp;|&nbsp; 작성일 2026-06-23 &nbsp;|&nbsp;
+  Python 표준 라이브러리 기반 · 외부 의존성 0
+</footer>
+
+</body>
+</html>
