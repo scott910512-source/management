@@ -17,9 +17,11 @@ export default function Settings() {
   const [cnSizes, setCnSizes] = useState('');
   const [cnLocs, setCnLocs] = useState('');
   const [cnStats, setCnStats] = useState('');
+  const [cnContents, setCnContents] = useState('');
   const [newSize, setNewSize] = useState('');
   const [newLoc, setNewLoc] = useState('');
   const [newStat, setNewStat] = useState('');
+  const [newContent, setNewContent] = useState('');
   const [cnBusy, setCnBusy] = useState(false);
 
   useEffect(() => {
@@ -33,6 +35,7 @@ export default function Settings() {
       setCnSizes(s.canisterSizes || '5gal,50L,100L,200L');
       setCnLocs(s.canisterLocations || '2공장현장,3류창고,4류창고');
       setCnStats(s.canisterStatuses || '수령,사용중,사용완료,세정의뢰,사용금지');
+      setCnContents(s.canisterContents || '톨루엔,황산,활성탄,실링패드');
     });
   }, []);
 
@@ -59,8 +62,17 @@ export default function Settings() {
         canisterSizes: cnSizes,
         canisterLocations: cnLocs,
         canisterStatuses: cnStats,
+        canisterContents: cnContents,
       });
-      setSettings(d.settings);
+      const s = d.settings;
+      setSettings(s);
+      setCnSizes(s.canisterSizes);
+      setCnLocs(s.canisterLocations);
+      setCnStats(s.canisterStatuses);
+      setCnContents(s.canisterContents);
+      setCnDefSize(s.canisterDefaultSize);
+      setCnDefLoc(s.canisterDefaultLocation);
+      setCnDefStatus(s.canisterDefaultStatus);
       toast.ok('Canister 설정을 저장했습니다.');
     } catch (e) {
       toast.err(e.message);
@@ -114,11 +126,11 @@ export default function Settings() {
       </div>
 
       {/* Canister 기준정보 */}
-      <div className="card card-pad" style={{ maxWidth: 720 }}>
+      <div className="card card-pad" style={{ maxWidth: 960 }}>
         <h3 style={{ marginBottom: 4 }}>Canister 기준정보 관리</h3>
         <p className="hint" style={{ marginBottom: 20 }}>Canister 등록 시 사용할 사이즈·위치·상태 목록과 기본값을 관리합니다.</p>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 24, marginBottom: 24 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 24, marginBottom: 24 }}>
           {/* 사이즈 */}
           <div>
             <div style={{ fontWeight: 600, marginBottom: 10 }}>사이즈 목록</div>
@@ -189,6 +201,25 @@ export default function Settings() {
                 {toArr(cnStats).map(s => <option key={s} value={s}>{s}</option>)}
               </Select>
             </Field>
+          </div>
+
+          {/* 내용물 */}
+          <div>
+            <div style={{ fontWeight: 600, marginBottom: 10 }}>내용물 목록</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
+              {toArr(cnContents).map(s => (
+                <div key={s} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg2)', borderRadius: 6, padding: '4px 10px' }}>
+                  <span style={{ fontSize: 14 }}>{s}</span>
+                  {isAdmin && <button className="btn ghost sm" style={{ padding: '2px 8px', fontSize: 12 }} onClick={() => removeItem(cnContents, s, setCnContents)}>×</button>}
+                </div>
+              ))}
+            </div>
+            {isAdmin && (
+              <div className="form-row">
+                <TextInput placeholder="새 내용물 (예: 메탄올)" value={newContent} onChange={e => setNewContent(e.target.value)} />
+                <button className="btn sm secondary" onClick={() => addItem(cnContents, newContent, setCnContents, setNewContent)}>추가</button>
+              </div>
+            )}
           </div>
         </div>
 
