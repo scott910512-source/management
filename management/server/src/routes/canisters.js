@@ -190,6 +190,7 @@ router.post(
     if (!MOVE_TYPES.includes(type)) throw badRequest('구분은 반입/반출/상태변경 중 하나여야 합니다.');
     if (Number.isNaN(amount) || amount < 0) throw badRequest('무게는 0 이상의 숫자여야 합니다.');
 
+    const moveEnums = (req.body.location || req.body.status) ? await getDynamicEnums(req.plant) : null;
     const me = req.session.user.id;
     let snap;
     const item = await mutate('canisters', req.plant, (rows) => {
@@ -206,12 +207,12 @@ router.post(
         if (next === 0 && str(req.body.content) === '') r.content = '';
       }
       if (req.body.location !== undefined && req.body.location !== '') {
-        validateEnum('위치', str(req.body.location), LOCATIONS);
+        validateEnum('위치', str(req.body.location), moveEnums.locations);
         r.location = str(req.body.location);
         r.locationEtc = str(req.body.locationEtc);
       }
       if (req.body.status !== undefined && req.body.status !== '') {
-        validateEnum('상태', str(req.body.status), STATUSES);
+        validateEnum('상태', str(req.body.status), moveEnums.statuses);
         r.status = str(req.body.status);
         r.statusEtc = str(req.body.statusEtc);
       }

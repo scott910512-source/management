@@ -1,4 +1,3 @@
-'use strict';
 import { useState, useMemo } from 'react';
 import { api } from '../api';
 import { Modal, Field, TextInput, useToast } from './ui';

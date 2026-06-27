@@ -32,7 +32,8 @@ function computeWarnings({ items, raws, subs, canisters, threshold }) {
   const buildSafety = (cat, masters, rows, getName, getQty, label) => {
     for (const m of masters) {
       const total = rows.filter((r) => getName(r) === m.name).reduce((s, r) => s + (num(getQty(r)) || 0), 0);
-      const st = safetyStatus(total, m.safetyStock, threshold);
+      const itemThreshold = (m.warningPct && num(m.warningPct) > 0) ? num(m.warningPct) : threshold;
+      const st = safetyStatus(total, m.safetyStock, itemThreshold);
       if (st.below) {
         out.push({
           key: `safety:${cat}:${m.name}`,

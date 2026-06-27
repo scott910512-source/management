@@ -28,12 +28,20 @@ router.get(
     const [warnings, acks, dismissed, users] = await Promise.all([
       activeWarnings(req.plant), readTable('warning_acks', req.plant), readTable('warning_dismissed', req.plant), readTable('users'),
     ]);
-    const dismissedKeys = new Set(dismissed.map((d) => d.warningKey));
+    const dismissedMap = new Map();
+    for (const d of dismissed) {
+      const existing = dismissedMap.get(d.warningKey);
+      if (!existing || d.createdAt > existing.createdAt) dismissedMap.set(d.warningKey, d);
+    }
     const approved = users.filter((u) => u.status === 'approved');
     const totalUsers = approved.length;
 
     const items = warnings
-      .filter((w) => !dismissedKeys.has(w.key))
+      .filter((w) => {
+        const d = dismissedMap.get(w.key);
+        if (!d) return true;
+        return d.content !== w.content;
+      })
       .map((w) => {
         const ackedBy = acks.filter((a) => a.warningKey === w.key).map((a) => a.account);
         const uniqueAcked = new Set(ackedBy);
