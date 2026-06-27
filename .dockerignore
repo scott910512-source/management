@@ -1,0 +1,10 @@
+**/node_modules
+**/dist
+**/.git
+**/uploads
+**/*.db
+**/*.db-journal
+**/.env
+server/public
+client/dist
+*.log

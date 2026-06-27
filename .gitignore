@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.env
+*.local
+*.log
+
+# SQLite
+*.db
+*.db-journal
+
+# uploads
+server/uploads/
+uploads/
+
+# OS
+.DS_Store
