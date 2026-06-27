@@ -166,45 +166,140 @@ function ItemForm({ mode, initial, onClose, onSaved, onError }) {
 }
 
 function CanisterDefaultsCard({ toast }) {
-  const [meta, setMeta] = useState(null);
-  const [f, setF] = useState({ canisterDefaultSize: '', canisterDefaultLocation: '', canisterDefaultStatus: '' });
+  const [settings, setSettings] = useState(null);
+  const [cnSizes, setCnSizes] = useState('');
+  const [cnLocs, setCnLocs] = useState('');
+  const [cnStats, setCnStats] = useState('');
+  const [defSize, setDefSize] = useState('');
+  const [defLoc, setDefLoc] = useState('');
+  const [defStat, setDefStat] = useState('');
+  const [newSize, setNewSize] = useState('');
+  const [newLoc, setNewLoc] = useState('');
+  const [newStat, setNewStat] = useState('');
   const [busy, setBusy] = useState(false);
+
+  function toArr(str) { return (str || '').split(',').map(s => s.trim()).filter(Boolean); }
+
+  function addItem(current, newVal, setter, newSetter) {
+    const val = newVal.trim();
+    if (!val) return;
+    const arr = toArr(current);
+    if (arr.includes(val)) { toast.err('이미 존재하는 항목입니다.'); return; }
+    setter([...arr, val].join(','));
+    newSetter('');
+  }
+
+  function removeItem(current, item, setter) {
+    setter(toArr(current).filter(s => s !== item).join(','));
+  }
+
   useEffect(() => {
-    api.get('/meta').then(setMeta);
-    api.get('/settings').then((d) => setF({
-      canisterDefaultSize: d.settings.canisterDefaultSize,
-      canisterDefaultLocation: d.settings.canisterDefaultLocation,
-      canisterDefaultStatus: d.settings.canisterDefaultStatus,
-    }));
+    api.get('/settings').then((d) => {
+      const s = d.settings;
+      setSettings(s);
+      setCnSizes(s.canisterSizes || '5gal,50L,100L,200L');
+      setCnLocs(s.canisterLocations || '2공장현장,3류창고,4류창고');
+      setCnStats(s.canisterStatuses || '수령,사용중,사용완료,세정의뢰,사용금지');
+      setDefSize(s.canisterDefaultSize || '50L');
+      setDefLoc(s.canisterDefaultLocation || '2공장현장');
+      setDefStat(s.canisterDefaultStatus || '수령');
+    });
   }, []);
+
   async function save() {
     setBusy(true);
-    try { await api.patch('/settings', f); toast.ok('Canister 기본값을 저장했습니다.'); }
-    catch (e) { toast.err(e.message); } finally { setBusy(false); }
+    try {
+      await api.patch('/settings', {
+        canisterSizes: cnSizes,
+        canisterLocations: cnLocs,
+        canisterStatuses: cnStats,
+        canisterDefaultSize: defSize,
+        canisterDefaultLocation: defLoc,
+        canisterDefaultStatus: defStat,
+      });
+      toast.ok('Canister 기준정보를 저장했습니다.');
+    } catch (e) { toast.err(e.message); } finally { setBusy(false); }
   }
-  if (!meta) return null;
+
+  if (!settings) return null;
+
+  const colStyle = { display: 'flex', flexDirection: 'column', gap: 6 };
+  const tagStyle = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg2)', borderRadius: 6, padding: '4px 10px' };
+
   return (
     <div className="card card-pad" style={{ marginBottom: 16 }}>
-      <h3 style={{ marginBottom: 6 }}>Canister 기본값</h3>
-      <p className="hint" style={{ marginBottom: 14 }}>Canister 등록 시 자동 선택될 기본 사이즈·위치·상태입니다.</p>
-      <div className="form-row" style={{ maxWidth: 620 }}>
-        <Field label="기본 사이즈">
-          <Select value={f.canisterDefaultSize} onChange={(e) => setF((p) => ({ ...p, canisterDefaultSize: e.target.value }))}>
-            {meta.canisterSizes.map((s) => <option key={s} value={s}>{s}</option>)}
-          </Select>
-        </Field>
-        <Field label="기본 위치">
-          <Select value={f.canisterDefaultLocation} onChange={(e) => setF((p) => ({ ...p, canisterDefaultLocation: e.target.value }))}>
-            {meta.canisterLocations.map((s) => <option key={s} value={s}>{s}</option>)}
-          </Select>
-        </Field>
-        <Field label="기본 상태">
-          <Select value={f.canisterDefaultStatus} onChange={(e) => setF((p) => ({ ...p, canisterDefaultStatus: e.target.value }))}>
-            {meta.canisterStatuses.map((s) => <option key={s} value={s}>{s}</option>)}
-          </Select>
-        </Field>
+      <h3 style={{ marginBottom: 4 }}>Canister 기준정보 관리</h3>
+      <p className="hint" style={{ marginBottom: 16 }}>Canister 등록 시 사용할 사이즈·위치·상태 목록과 기본값을 관리합니다.</p>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 24, marginBottom: 20 }}>
+        {/* 사이즈 */}
+        <div>
+          <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 13 }}>사이즈 목록</div>
+          <div style={colStyle}>
+            {toArr(cnSizes).map(s => (
+              <div key={s} style={tagStyle}>
+                <span style={{ fontSize: 13 }}>{s}</span>
+                <button className="btn ghost sm" style={{ padding: '2px 8px', fontSize: 12 }} onClick={() => removeItem(cnSizes, s, setCnSizes)}>×</button>
+              </div>
+            ))}
+          </div>
+          <div className="form-row" style={{ marginTop: 8 }}>
+            <TextInput placeholder="새 사이즈 (예: 500L)" value={newSize} onChange={e => setNewSize(e.target.value)} />
+            <button className="btn sm secondary" onClick={() => addItem(cnSizes, newSize, setCnSizes, setNewSize)}>추가</button>
+          </div>
+          <Field label="기본값" style={{ marginTop: 10 }}>
+            <Select value={defSize} onChange={e => setDefSize(e.target.value)}>
+              {toArr(cnSizes).map(s => <option key={s} value={s}>{s}</option>)}
+            </Select>
+          </Field>
+        </div>
+
+        {/* 위치 */}
+        <div>
+          <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 13 }}>위치 목록</div>
+          <div style={colStyle}>
+            {toArr(cnLocs).map(s => (
+              <div key={s} style={tagStyle}>
+                <span style={{ fontSize: 13 }}>{s}</span>
+                <button className="btn ghost sm" style={{ padding: '2px 8px', fontSize: 12 }} onClick={() => removeItem(cnLocs, s, setCnLocs)}>×</button>
+              </div>
+            ))}
+          </div>
+          <div className="form-row" style={{ marginTop: 8 }}>
+            <TextInput placeholder="새 위치 (예: 1공장현장)" value={newLoc} onChange={e => setNewLoc(e.target.value)} />
+            <button className="btn sm secondary" onClick={() => addItem(cnLocs, newLoc, setCnLocs, setNewLoc)}>추가</button>
+          </div>
+          <Field label="기본값" style={{ marginTop: 10 }}>
+            <Select value={defLoc} onChange={e => setDefLoc(e.target.value)}>
+              {toArr(cnLocs).map(s => <option key={s} value={s}>{s}</option>)}
+            </Select>
+          </Field>
+        </div>
+
+        {/* 상태 */}
+        <div>
+          <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 13 }}>상태 목록</div>
+          <div style={colStyle}>
+            {toArr(cnStats).map(s => (
+              <div key={s} style={tagStyle}>
+                <span style={{ fontSize: 13 }}>{s}</span>
+                <button className="btn ghost sm" style={{ padding: '2px 8px', fontSize: 12 }} onClick={() => removeItem(cnStats, s, setCnStats)}>×</button>
+              </div>
+            ))}
+          </div>
+          <div className="form-row" style={{ marginTop: 8 }}>
+            <TextInput placeholder="새 상태 (예: 검사중)" value={newStat} onChange={e => setNewStat(e.target.value)} />
+            <button className="btn sm secondary" onClick={() => addItem(cnStats, newStat, setCnStats, setNewStat)}>추가</button>
+          </div>
+          <Field label="기본값" style={{ marginTop: 10 }}>
+            <Select value={defStat} onChange={e => setDefStat(e.target.value)}>
+              {toArr(cnStats).map(s => <option key={s} value={s}>{s}</option>)}
+            </Select>
+          </Field>
+        </div>
       </div>
-      <button className="btn" onClick={save} disabled={busy}>{busy ? '저장 중…' : '저장'}</button>
+
+      <button className="btn" onClick={save} disabled={busy}>{busy ? '저장 중…' : 'Canister 기준정보 저장'}</button>
     </div>
   );
 }

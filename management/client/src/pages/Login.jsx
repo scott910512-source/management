@@ -30,7 +30,15 @@ export default function Login() {
   return (
     <div className="auth-shell">
       <div className="auth-card card card-pad">
-        <div className="auth-logo">化</div>
+        <div className="auth-logo">
+          <svg viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg" style={{width:'100%',height:'100%'}}>
+            <polygon points="4,24 28,8 52,24" fill="rgba(255,255,255,0.2)" stroke="#fff" strokeWidth="3" strokeLinejoin="round"/>
+            <rect x="4" y="24" width="48" height="26" rx="2" stroke="#fff" strokeWidth="3"/>
+            <rect x="21" y="34" width="14" height="16" rx="2" fill="#fff"/>
+            <rect x="6" y="30" width="11" height="9" rx="1" fill="rgba(255,255,255,0.7)"/>
+            <rect x="39" y="30" width="11" height="9" rx="1" fill="rgba(255,255,255,0.7)"/>
+          </svg>
+        </div>
         <h2>수불관리 시스템</h2>
         <p className="sub">화학공장 원·부재료 / Canister 관리</p>
         <form onSubmit={submit}>
