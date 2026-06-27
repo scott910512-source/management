@@ -6,6 +6,7 @@ import { Modal, Field, TextInput, Select, useToast, ConfirmDialog, Empty, Loadin
 import { UnitInput, ItemSelect, expandLot } from '../components/inputs';
 import { TrendModal } from '../components/TrendModal';
 import { UseModal } from '../components/UseModal';
+import { BulkUseModal } from '../components/BulkUseModal';
 
 const blank = { name: '', receivedDate: '', lotNo: '', vendor: '', unit: 'kg', weight: '', note: '', pkgCount: '', pkgSize: '', pkgUnit: '', pkgType: '' };
 const today = () => new Date().toISOString().slice(0, 10);
@@ -34,6 +35,7 @@ export default function SubMaterials() {
   const [showAll, setShowAll] = useState(false);
   const [trend, setTrend] = useState(false);
   const [useOpen, setUseOpen] = useState(false);
+  const [bulkOpen, setBulkOpen] = useState(false);
   const [low, setLow] = useState(new Set());
   const [edit, setEdit] = useState(null);
   const [tx, setTx] = useState(null);
@@ -78,6 +80,7 @@ export default function SubMaterials() {
         <div className="btn-row">
           <button className="btn secondary sm" onClick={() => setTrend(true)}>📈 사용량 분석</button>
           <button className="btn secondary sm" onClick={exportCsv}>⬇ CSV</button>
+          {canWrite && <button className="btn secondary sm" onClick={() => setBulkOpen(true)}>− 일괄 출고</button>}
           {canWrite && <button className="btn secondary sm" onClick={() => setUseOpen(true)}>− 부재료 사용</button>}
           {canWrite && <button className="btn sm" onClick={() => setEdit({ mode: 'create', data: { ...blank, receivedDate: today() } })}>+ 부재료 입고</button>}
         </div>
@@ -234,6 +237,14 @@ export default function SubMaterials() {
         />
       )}
       {trend && <TrendModal category="sub" title="부재료 사용량 분석" onClose={() => setTrend(false)} />}
+      {bulkOpen && (
+        <BulkUseModal
+          title="부재료 일괄 출고" base="sub-materials" items={items || []} nameField="name" qtyField="weight"
+          onClose={() => setBulkOpen(false)}
+          onSaved={(msg) => { setBulkOpen(false); load(); toast.ok(msg); }}
+          onError={(m) => toast.err(m)}
+        />
+      )}
       {useOpen && (
         <UseModal
           title="부재료 사용 (출고)" base="sub-materials" items={items || []} nameField="name" qtyField="weight"
@@ -248,6 +259,7 @@ export default function SubMaterials() {
 
 function SubForm({ mode, initial, onClose, onSaved, onError }) {
   const [f, setF] = useState({ ...blank, ...initial });
+  const [lotPattern, setLotPattern] = useState('');
   const [busy, setBusy] = useState(false);
   const set = (k, v) => setF((p) => ({ ...p, [k]: v }));
   const hasPkg = !!f.pkgType;
@@ -286,23 +298,29 @@ function SubForm({ mode, initial, onClose, onSaved, onError }) {
     >
       <Field label="품목" required hint="목록에서 선택하거나 '기타'로 직접 입력">
         {mode === 'create' ? (
-          <ItemSelect category="sub" value={f.name} onChange={(name, m) => setF((p) => ({
-            ...p, name,
-            unit: m?.unit || p.unit,
-            vendor: m?.vendor || p.vendor,
-            weight: p.weight === '' && m?.defaultQty ? m.defaultQty : p.weight,
-            lotNo: p.lotNo === '' && m?.lotPattern ? expandLot(m.lotPattern) : p.lotNo,
-            pkgType: m?.pkgType || '',
-            pkgSize: m?.pkgSize || '',
-            pkgUnit: m?.pkgUnit || '',
-          }))} />
+          <ItemSelect category="sub" value={f.name} onChange={(name, m) => {
+            setLotPattern(m?.lotPattern || '');
+            setF((p) => ({
+              ...p, name,
+              unit: m?.unit || p.unit,
+              vendor: m?.vendor || p.vendor,
+              weight: p.weight === '' && m?.defaultQty ? m.defaultQty : p.weight,
+              lotNo: m?.lotPattern ? expandLot(m.lotPattern) : p.lotNo,
+              pkgType: m?.pkgType || '',
+              pkgSize: m?.pkgSize || '',
+              pkgUnit: m?.pkgUnit || '',
+            }));
+          }} />
         ) : (
           <TextInput value={f.name} onChange={(e) => set('name', e.target.value)} />
         )}
       </Field>
       <div className="form-row">
         <Field label="Lot No" required>
-          <TextInput value={f.lotNo} onChange={(e) => set('lotNo', e.target.value)} placeholder="예: L-2026-001" />
+          <div style={{ display: 'flex', gap: 6 }}>
+            <TextInput value={f.lotNo} onChange={(e) => set('lotNo', e.target.value)} placeholder="예: L-2026-001" />
+            {lotPattern && <button type="button" className="btn secondary sm" style={{ whiteSpace: 'nowrap' }} onClick={() => set('lotNo', expandLot(lotPattern))}>↻ 자동생성</button>}
+          </div>
         </Field>
         <Field label="입고일">
           <TextInput type="date" value={f.receivedDate} onChange={(e) => set('receivedDate', e.target.value)} />

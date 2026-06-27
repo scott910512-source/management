@@ -131,7 +131,7 @@ export default function Dashboard() {
                     <Fragment key={g.product}>
                       <tr className="group-row"><td colSpan={7}>🏷 {g.product}</td></tr>
                       {g.rows.map((r) => (
-                        <tr key={r.name} className={r.below ? 'row-low' : ''} style={{ cursor: 'pointer' }} onClick={() => navigate(matPath)}>
+                        <tr key={r.name} className={r.below ? 'row-low' : ''} style={{ cursor: 'pointer' }} onClick={() => navigate(`${matPath}?q=${encodeURIComponent(r.name)}`)}>
                           <td><b className="inline-link">{r.name}</b></td>
                           <td className="num">{r.lots}</td>
                           <td className="num"><b>{r.current.toLocaleString()}</b></td>

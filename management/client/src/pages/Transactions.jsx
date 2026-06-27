@@ -16,6 +16,15 @@ export default function Transactions() {
   const [f, setF] = useState({ materialType: '', type: '', q: '', from: '', to: '', sort: 'category' });
   const set = (k, v) => setF((p) => ({ ...p, [k]: v }));
 
+  function setMonth(offset) {
+    const d = new Date();
+    d.setMonth(d.getMonth() + offset);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const last = new Date(y, d.getMonth() + 1, 0).getDate();
+    setF((p) => ({ ...p, from: `${y}-${m}-01`, to: `${y}-${m}-${last}` }));
+  }
+
   const params = () => {
     const p = new URLSearchParams();
     Object.entries(f).forEach(([k, v]) => v && p.set(k, v));
@@ -62,6 +71,9 @@ export default function Transactions() {
           <input placeholder="품목/Lot/내용물 검색" value={f.q} onChange={(e) => set('q', e.target.value)} />
         </div>
         <div className="spacer" />
+        <button className="btn secondary sm" onClick={() => setMonth(-1)}>지난달</button>
+        <button className="btn secondary sm" onClick={() => setMonth(0)}>이번달</button>
+        <button className="btn secondary sm" onClick={() => setF((p) => ({ ...p, from: '', to: '' }))}>전체</button>
         <input className="input" type="date" style={{ width: 145 }} value={f.from} onChange={(e) => set('from', e.target.value)} />
         <span className="muted">~</span>
         <input className="input" type="date" style={{ width: 145 }} value={f.to} onChange={(e) => set('to', e.target.value)} />
