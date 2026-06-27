@@ -1,0 +1,28 @@
+{
+  "name": "chem-inventory-client",
+  "version": "1.0.0",
+  "private": true,
+  "description": "화학공장 수불관리 시스템 - 프론트엔드 (React + Vite, Apple 스타일 UI)",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.2"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.4.8",
+    "@testing-library/react": "^16.0.1",
+    "@testing-library/user-event": "^14.5.2",
+    "@vitejs/plugin-react": "^4.3.1",
+    "jsdom": "^24.1.3",
+    "vite": "^5.4.8",
+    "vitest": "^2.1.2"
+  }
+}

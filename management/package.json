@@ -1,0 +1,19 @@
+{
+  "name": "chem-inventory",
+  "version": "1.0.0",
+  "private": true,
+  "description": "화학공장 수불관리 시스템 (원재료·부재료·Canister) — React + Express + CSV 저장",
+  "scripts": {
+    "setup": "npm --prefix server install && npm --prefix client install",
+    "dev": "concurrently -n server,client -c blue,magenta \"npm --prefix server run dev\" \"npm --prefix client run dev\"",
+    "dev:server": "npm --prefix server run dev",
+    "dev:client": "npm --prefix client run dev",
+    "build": "npm --prefix client run build",
+    "start": "npm --prefix server start",
+    "seed": "npm --prefix server run seed",
+    "test": "npm --prefix server test && npm --prefix client test"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.1"
+  }
+}

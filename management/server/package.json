@@ -1,0 +1,22 @@
+{
+  "name": "chem-inventory-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "화학공장 수불관리 시스템 - 백엔드 (Express + CSV 저장)",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "seed": "node src/lib/seed.js --force",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "express": "^4.19.2",
+    "express-session": "^1.18.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "supertest": "^7.0.0"
+  }
+}
