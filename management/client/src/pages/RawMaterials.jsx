@@ -70,7 +70,7 @@ export default function RawMaterials() {
     <>
       {/* ===== 원재료 현황 요약 ===== */}
       <div className="card" style={{ marginBottom: 16 }}>
-        <div className="card-head"><h3>원재료 현황</h3>{summary && <Badge>경고기준 {summary.threshold}%</Badge>}</div>
+        <div className="card-head"><h3>원재료 현황</h3></div>
         <div className="table-wrap">
           {!summary ? (
             <Loading />
@@ -97,7 +97,7 @@ export default function RawMaterials() {
                     <td className="num">
                       {s.level == null ? <span className="muted">–</span> : <b style={{ color: s.below ? 'var(--red)' : 'var(--green)' }}>{s.level}%</b>}
                     </td>
-                    <td className="num muted">{s.safetyStock ? s.safetyStock.toLocaleString() : '–'}</td>
+                    <td className="num muted">{s.safetyStock ? s.safetyStock.toLocaleString() : '–'}{s.warningPct ? <span className="muted" style={{fontSize:11}}> ({s.warningPct}%)</span> : ''}</td>
                     <td className="num muted">{s.lots}</td>
                     <td className="muted">{s.lastReceived || '–'}</td>
                     <td className="muted">{s.lastUsed || '–'}</td>

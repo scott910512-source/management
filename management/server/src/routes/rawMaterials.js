@@ -49,7 +49,7 @@ router.get(
       readTable('transactions', req.plant),
       readSettings(req.plant),
     ]);
-    const threshold = num(settings.safetyRatioPercent) || 100;
+    const globalThreshold = num(settings.safetyRatioPercent) || 100;
     const masters = items.filter((i) => i.category === 'raw');
 
     // 품목명 기준 집계 (마스터에 없는 '기타' 품목도 포함)
@@ -61,14 +61,16 @@ router.get(
       const total = lots.reduce((s, r) => s + (num(r.quantity) || 0), 0);
       const safety = master ? num(master.safetyStock) || 0 : 0;
       const level = safety > 0 ? Math.round((total / safety) * 100) : null;
+      const threshold = (master && master.warningPct) ? num(master.warningPct) : globalThreshold;
       const below = safety > 0 && total < safety * (threshold / 100);
+      const warningPct = master ? (master.warningPct || '') : '';
       const lastReceived = lots.reduce((d, r) => (r.receivedDate > d ? r.receivedDate : d), '');
       const activeLots = lots.filter((r) => (num(r.quantity) || 0) > 0);
       const oldestLot = activeLots.reduce((pick, r) => (!pick || r.receivedDate < pick.receivedDate ? r : pick), null);
       const totalPkgCount = lots.reduce((s, r) => s + (num(r.pkgCount) || 0), 0);
       const used = txns.filter((t) => t.materialType === 'raw' && t.materialName === name && t.type === '출고');
       const lastUsed = used.reduce((d, t) => (t.createdAt > d ? t.createdAt : d), '');
-      return { name, product: master ? master.product || '' : '', unit, totalQuantity: total, safetyStock: safety, level, below, lots: lots.length, lastReceived, lastUsed: lastUsed ? lastUsed.slice(0, 10) : '', isMaster: !!master, oldestLotNo: oldestLot ? oldestLot.lotNo : '', oldestDate: oldestLot ? oldestLot.receivedDate : '', totalPkgCount };
+      return { name, product: master ? master.product || '' : '', unit, totalQuantity: total, safetyStock: safety, level, below, warningPct, lots: lots.length, lastReceived, lastUsed: lastUsed ? lastUsed.slice(0, 10) : '', isMaster: !!master, oldestLotNo: oldestLot ? oldestLot.lotNo : '', oldestDate: oldestLot ? oldestLot.receivedDate : '', totalPkgCount };
     });
     summary.sort((a, b) => {
       const pa = a.product || '~';
@@ -76,7 +78,7 @@ router.get(
       if (pa !== pb) return pa < pb ? -1 : 1;
       return a.name.localeCompare(b.name);
     });
-    res.json({ items: summary, threshold });
+    res.json({ items: summary });
   }),
 );
 

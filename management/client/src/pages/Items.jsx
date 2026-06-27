@@ -3,7 +3,7 @@ import { api } from '../api';
 import { Modal, Field, TextInput, Select, useToast, ConfirmDialog, Empty, Loading, Badge } from '../components/ui';
 import { UnitInput } from '../components/inputs';
 
-const blank = { category: 'raw', name: '', unit: 'kg', safetyStock: '', vendor: '', product: '', defaultQty: '', lotPattern: '', pkgSize: '', pkgUnit: '', pkgType: '', note: '' };
+const blank = { category: 'raw', name: '', unit: 'kg', safetyStock: '', warningPct: '', vendor: '', product: '', defaultQty: '', lotPattern: '', pkgSize: '', pkgUnit: '', pkgType: '', note: '' };
 
 export default function Items() {
   const toast = useToast();
@@ -22,8 +22,6 @@ export default function Items() {
 
   return (
     <>
-      <CanisterDefaultsCard toast={toast} />
-
       <div className="page-head" style={{ marginTop: 8 }}>
         <div className="desc">원·부재료의 <b>품목</b>과 <b>안전재고 목표값</b>을 관리합니다. 사용자는 등록 시 이 목록에서 품목을 선택합니다.</div>
         <button className="btn sm" onClick={() => setEdit({ mode: 'create', data: { ...blank, category: cat } })}>+ 품목 등록</button>
@@ -49,6 +47,7 @@ export default function Items() {
                 <th>제품(사용처)</th>
                 <th>단위</th>
                 <th className="num">안전재고</th>
+                <th className="num">경고기준</th>
                 <th className="num">기본수량</th>
                 <th>Package</th>
                 <th>Lot 양식</th>
@@ -63,6 +62,7 @@ export default function Items() {
                   <td>{it.product ? <Badge color={it.product === '공통' ? 'green' : 'blue'}>{it.product}</Badge> : <span className="muted">–</span>}</td>
                   <td><Badge>{it.unit}</Badge></td>
                   <td className="num">{Number(it.safetyStock).toLocaleString()}</td>
+                  <td className="num">{it.warningPct ? <Badge color="orange">{it.warningPct}%</Badge> : <span className="muted">–</span>}</td>
                   <td className="num muted">{it.defaultQty || '–'}</td>
                   <td className="muted">{it.pkgType ? `${it.pkgSize}${it.pkgUnit}/${it.pkgType}` : '–'}</td>
                   <td className="muted">{it.lotPattern || '–'}</td>
@@ -89,6 +89,8 @@ export default function Items() {
           onError={(m) => toast.err(m)}
         />
       )}
+      <CanisterDefaultsCard toast={toast} />
+
       {del && (
         <ConfirmDialog
           title="품목 삭제"
@@ -113,7 +115,7 @@ function ItemForm({ mode, initial, onClose, onSaved, onError }) {
     if (!f.name.trim()) return onError('품목명을 입력하세요.');
     setBusy(true);
     try {
-      const payload = { category: f.category, name: f.name.trim(), unit: f.unit, safetyStock: f.safetyStock === '' ? 0 : Number(f.safetyStock), vendor: f.vendor, product: f.product, defaultQty: f.defaultQty, lotPattern: f.lotPattern, pkgSize: f.pkgSize, pkgUnit: f.pkgUnit, pkgType: f.pkgType, note: f.note };
+      const payload = { category: f.category, name: f.name.trim(), unit: f.unit, safetyStock: f.safetyStock === '' ? 0 : Number(f.safetyStock), warningPct: f.warningPct, vendor: f.vendor, product: f.product, defaultQty: f.defaultQty, lotPattern: f.lotPattern, pkgSize: f.pkgSize, pkgUnit: f.pkgUnit, pkgType: f.pkgType, note: f.note };
       if (mode === 'create') await api.post('/items', payload);
       else await api.patch('/items/' + initial.id, payload);
       onSaved();
@@ -172,8 +174,11 @@ function ItemForm({ mode, initial, onClose, onSaved, onError }) {
         <Field label="단위" required>
           <UnitInput value={f.unit} onChange={(v) => set('unit', v)} />
         </Field>
-        <Field label="안전재고 목표값" hint="이 값 대비 % 로 재고수준 표시">
+        <Field label="안전재고 목표값">
           <TextInput type="number" value={f.safetyStock} onChange={(e) => set('safetyStock', e.target.value)} placeholder="0" />
+        </Field>
+        <Field label="경고기준 %" hint="재고수준이 이 % 미만이면 경고 표시 (미설정 시 전역설정 사용)">
+          <TextInput type="number" value={f.warningPct} onChange={(e) => set('warningPct', e.target.value)} placeholder="예: 80" />
         </Field>
       </div>
       <Field label="제품(사용처)" hint="원재료=사용 제품 / 부재료=공통 또는 제품">

@@ -42,7 +42,8 @@ router.post(
       if (rows.some((r) => r.category === category && r.name === name)) throw badRequest('이미 등록된 품목입니다.');
       const row = {
         id: newId('it'), category, name, unit,
-        safetyStock: String(safetyStock), vendor: str(req.body.vendor),
+        safetyStock: String(safetyStock), warningPct: str(req.body.warningPct),
+        vendor: str(req.body.vendor),
         product: str(req.body.product), defaultQty: str(req.body.defaultQty), lotPattern: str(req.body.lotPattern),
         pkgSize: str(req.body.pkgSize), pkgUnit: str(req.body.pkgUnit), pkgType: str(req.body.pkgType),
         note: str(req.body.note),
@@ -80,6 +81,7 @@ router.patch(
         if (Number.isNaN(s) || s < 0) throw badRequest('안전재고 목표값은 0 이상의 숫자여야 합니다.');
         r.safetyStock = String(s);
       }
+      if (req.body.warningPct !== undefined) r.warningPct = str(req.body.warningPct);
       if (req.body.pkgSize !== undefined) r.pkgSize = str(req.body.pkgSize);
       if (req.body.pkgUnit !== undefined) r.pkgUnit = str(req.body.pkgUnit);
       if (req.body.pkgType !== undefined) r.pkgType = str(req.body.pkgType);
