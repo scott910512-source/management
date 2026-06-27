@@ -7,7 +7,7 @@ import { UnitInput, ItemSelect, expandLot } from '../components/inputs';
 import { TrendModal } from '../components/TrendModal';
 import { UseModal } from '../components/UseModal';
 
-const blank = { name: '', receivedDate: '', lotNo: '', vendor: '', unit: 'kg', weight: '', note: '' };
+const blank = { name: '', receivedDate: '', lotNo: '', vendor: '', unit: 'kg', weight: '', note: '', pkgCount: '', pkgSize: '', pkgUnit: '', pkgType: '' };
 const today = () => new Date().toISOString().slice(0, 10);
 
 function groupByName(rows) {
@@ -122,13 +122,30 @@ export default function SubMaterials() {
                 </tr>
               </thead>
               <tbody>
-                {groupByName(items).map((g) => (
+                {groupByName(items).map((g) => {
+                  const totalW = g.lots.reduce((s, r) => s + (Number(r.weight) || 0), 0);
+                  const unit = g.lots[0]?.unit || '';
+                  const totalPkg = g.lots.reduce((s, r) => s + (Number(r.pkgCount) || 0), 0);
+                  const pkgType = g.lots.find(r => r.pkgCount)?.pkgType || '';
+                  const oldest = g.lots.reduce((pick, r) => (!pick || (r.receivedDate && r.receivedDate < pick.receivedDate) ? r : pick), null);
+                  return (
                   <Fragment key={g.name}>
-                    <tr className={`group-row ${low.has(g.name) ? 'row-low' : ''}`}><td colSpan={7}>📦 {g.name} · {g.lots.length} Lot {low.has(g.name) && <span className="badge red" style={{ marginLeft: 6 }}>안전재고 부족</span>}</td></tr>
+                    <tr className={`group-row ${low.has(g.name) ? 'row-low' : ''}`}>
+                      <td colSpan={7}>
+                        📦 <b>{g.name}</b> · {g.lots.length} Lot
+                        {' '}<span className="muted">· 총 <b>{totalW.toLocaleString()}{unit}</b>{totalPkg > 0 && ` (${totalPkg}${pkgType})`}</span>
+                        {oldest && <span className="muted"> · 최초입고 {oldest.receivedDate} · <span style={{color:'var(--blue)'}}>{oldest.lotNo}</span></span>}
+                        {low.has(g.name) && <span className="badge red" style={{ marginLeft: 6 }}>안전재고 부족</span>}
+                      </td>
+                    </tr>
                     {g.lots.map((r) => (
                       <tr key={r.id}>
                         <td style={{ paddingLeft: 24 }}><Badge color="blue">{r.lotNo}</Badge></td>
-                        <td className="num"><b>{Number(r.weight).toLocaleString()}</b> <span className="muted">/ {Number(r.initialWeight).toLocaleString()}{r.unit}</span></td>
+                        <td className="num">
+                          {r.pkgCount && Number(r.pkgCount) > 0
+                            ? <><b>{Number(r.pkgCount)}</b><span className="muted">{r.pkgType || 'pkg'}</span> <span className="muted">({Number(r.weight).toLocaleString()} / {Number(r.initialWeight).toLocaleString()}{r.unit})</span></>
+                            : <><b>{Number(r.weight).toLocaleString()}</b> <span className="muted">/ {Number(r.initialWeight).toLocaleString()}{r.unit}</span></>}
+                        </td>
                         <td className="muted">{r.vendor || '–'}</td>
                         <td className="muted">{r.receivedDate || '–'}</td>
                         <td className="muted">{r.note || '–'}</td>
@@ -144,7 +161,8 @@ export default function SubMaterials() {
                       </tr>
                     ))}
                   </Fragment>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           )}
@@ -231,6 +249,8 @@ function SubForm({ mode, initial, onClose, onSaved, onError }) {
   const [f, setF] = useState({ ...blank, ...initial });
   const [busy, setBusy] = useState(false);
   const set = (k, v) => setF((p) => ({ ...p, [k]: v }));
+  const hasPkg = !!f.pkgType;
+  const pkgQty = hasPkg && f.pkgCount && f.pkgSize ? Number(f.pkgCount) * Number(f.pkgSize) : null;
 
   async function submit() {
     if (!f.name.trim()) return onError('품목을 선택하거나 입력하세요.');
@@ -239,7 +259,12 @@ function SubForm({ mode, initial, onClose, onSaved, onError }) {
     try {
       const payload = { name: f.name.trim(), receivedDate: f.receivedDate, lotNo: f.lotNo.trim(), vendor: f.vendor, unit: f.unit, note: f.note };
       if (mode === 'create') {
-        payload.weight = f.weight === '' ? 0 : Number(f.weight);
+        if (hasPkg && f.pkgCount) {
+          payload.pkgCount = Number(f.pkgCount);
+          payload.pkgSize = Number(f.pkgSize);
+        } else {
+          payload.weight = f.weight === '' ? 0 : Number(f.weight);
+        }
         await api.post('/sub-materials', payload);
       } else {
         payload.weight = Number(f.weight);
@@ -266,6 +291,9 @@ function SubForm({ mode, initial, onClose, onSaved, onError }) {
             vendor: m?.vendor || p.vendor,
             weight: p.weight === '' && m?.defaultQty ? m.defaultQty : p.weight,
             lotNo: p.lotNo === '' && m?.lotPattern ? expandLot(m.lotPattern) : p.lotNo,
+            pkgType: m?.pkgType || '',
+            pkgSize: m?.pkgSize || '',
+            pkgUnit: m?.pkgUnit || '',
           }))} />
         ) : (
           <TextInput value={f.name} onChange={(e) => set('name', e.target.value)} />
@@ -280,13 +308,22 @@ function SubForm({ mode, initial, onClose, onSaved, onError }) {
         </Field>
       </div>
       <div className="form-row">
-        <Field label={mode === 'create' ? '무게(입고)' : '잔량'} required>
-          <TextInput type="number" value={f.weight} onChange={(e) => set('weight', e.target.value)} placeholder="0" />
-        </Field>
+        {mode === 'create' && hasPkg ? (
+          <Field label={`수량 (${f.pkgType})`} hint={f.pkgSize ? `1${f.pkgType} = ${f.pkgSize}${f.pkgUnit || f.unit}` : ''}>
+            <TextInput type="number" value={f.pkgCount} onChange={(e) => set('pkgCount', e.target.value)} placeholder="예: 2" />
+          </Field>
+        ) : (
+          <Field label={mode === 'create' ? '무게(입고)' : '잔량'} required>
+            <TextInput type="number" value={f.weight} onChange={(e) => set('weight', e.target.value)} placeholder="0" />
+          </Field>
+        )}
         <Field label="단위" required>
           <UnitInput value={f.unit} onChange={(v) => set('unit', v)} />
         </Field>
       </div>
+      {mode === 'create' && hasPkg && pkgQty !== null && (
+        <div className="hint" style={{ marginBottom: 8 }}>총 수량: <b>{pkgQty.toLocaleString()}{f.pkgUnit || f.unit}</b> ({f.pkgCount}{f.pkgType} × {f.pkgSize}{f.pkgUnit || f.unit})</div>
+      )}
       <Field label="업체명">
         <TextInput value={f.vendor} onChange={(e) => set('vendor', e.target.value)} placeholder="예: 대정화학" />
       </Field>

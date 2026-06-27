@@ -63,9 +63,12 @@ router.get(
       const level = safety > 0 ? Math.round((total / safety) * 100) : null;
       const below = safety > 0 && total < safety * (threshold / 100);
       const lastReceived = lots.reduce((d, r) => (r.receivedDate > d ? r.receivedDate : d), '');
+      const activeLots = lots.filter((r) => (num(r.quantity) || 0) > 0);
+      const oldestLot = activeLots.reduce((pick, r) => (!pick || r.receivedDate < pick.receivedDate ? r : pick), null);
+      const totalPkgCount = lots.reduce((s, r) => s + (num(r.pkgCount) || 0), 0);
       const used = txns.filter((t) => t.materialType === 'raw' && t.materialName === name && t.type === '출고');
       const lastUsed = used.reduce((d, t) => (t.createdAt > d ? t.createdAt : d), '');
-      return { name, product: master ? master.product || '' : '', unit, totalQuantity: total, safetyStock: safety, level, below, lots: lots.length, lastReceived, lastUsed: lastUsed ? lastUsed.slice(0, 10) : '', isMaster: !!master };
+      return { name, product: master ? master.product || '' : '', unit, totalQuantity: total, safetyStock: safety, level, below, lots: lots.length, lastReceived, lastUsed: lastUsed ? lastUsed.slice(0, 10) : '', isMaster: !!master, oldestLotNo: oldestLot ? oldestLot.lotNo : '', oldestDate: oldestLot ? oldestLot.receivedDate : '', totalPkgCount };
     });
     summary.sort((a, b) => {
       const pa = a.product || '~';
@@ -94,11 +97,15 @@ router.post(
     const unit = str(req.body.unit);
     const lotNo = str(req.body.lotNo);
     const receivedDate = str(req.body.receivedDate);
-    const quantity = num(req.body.quantity);
+    const pkgCount = req.body.pkgCount !== undefined && req.body.pkgCount !== '' ? num(req.body.pkgCount) : null;
+    const pkgSize = req.body.pkgSize !== undefined && req.body.pkgSize !== '' ? num(req.body.pkgSize) : null;
+    // Package 수량이 있으면 자동 계산, 없으면 직접 입력값 사용
+    const rawQty = (pkgCount !== null && pkgSize !== null) ? pkgCount * pkgSize : num(req.body.quantity);
+    const quantity = rawQty;
     // 필수값 검증
     if (!itemName) throw badRequest('품목을 선택하거나 입력하세요.');
     if (!lotNo) throw badRequest('Lot No는 필수 입력입니다.');
-    if (req.body.quantity === '' || req.body.quantity === undefined || Number.isNaN(quantity) || quantity <= 0) throw badRequest('수량은 필수이며 0보다 큰 숫자여야 합니다.');
+    if (Number.isNaN(quantity) || quantity <= 0) throw badRequest('수량은 필수이며 0보다 큰 숫자여야 합니다.');
     if (!unit) throw badRequest('단위는 필수 입력입니다.');
     if (!receivedDate) throw badRequest('입고일은 필수 입력입니다.');
 
@@ -107,6 +114,7 @@ router.post(
       if (rows.some((r) => r.itemName === itemName && r.lotNo === lotNo)) throw badRequest('동일 품목/Lot No가 이미 존재합니다.');
       const row = {
         id: newId('rm'), itemName, lotNo, quantity: String(quantity), unit,
+        pkgCount: pkgCount !== null ? String(pkgCount) : '',
         vendor: str(req.body.vendor), receivedDate: str(req.body.receivedDate), note: str(req.body.note),
         createdBy: me, createdAt: now(), updatedBy: me, updatedAt: now(),
       };

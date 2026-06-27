@@ -3,7 +3,7 @@ import { api } from '../api';
 import { Modal, Field, TextInput, Select, useToast, ConfirmDialog, Empty, Loading, Badge } from '../components/ui';
 import { UnitInput } from '../components/inputs';
 
-const blank = { category: 'raw', name: '', unit: 'kg', safetyStock: '', vendor: '', product: '', defaultQty: '', lotPattern: '', note: '' };
+const blank = { category: 'raw', name: '', unit: 'kg', safetyStock: '', vendor: '', product: '', defaultQty: '', lotPattern: '', pkgSize: '', pkgUnit: '', pkgType: '', note: '' };
 
 export default function Items() {
   const toast = useToast();
@@ -50,6 +50,7 @@ export default function Items() {
                 <th>단위</th>
                 <th className="num">안전재고</th>
                 <th className="num">기본수량</th>
+                <th>Package</th>
                 <th>Lot 양식</th>
                 <th>기본 업체명</th>
                 <th style={{ width: 1 }}></th>
@@ -63,6 +64,7 @@ export default function Items() {
                   <td><Badge>{it.unit}</Badge></td>
                   <td className="num">{Number(it.safetyStock).toLocaleString()}</td>
                   <td className="num muted">{it.defaultQty || '–'}</td>
+                  <td className="muted">{it.pkgType ? `${it.pkgSize}${it.pkgUnit}/${it.pkgType}` : '–'}</td>
                   <td className="muted">{it.lotPattern || '–'}</td>
                   <td className="muted">{it.vendor || '–'}</td>
                   <td>
@@ -111,7 +113,7 @@ function ItemForm({ mode, initial, onClose, onSaved, onError }) {
     if (!f.name.trim()) return onError('품목명을 입력하세요.');
     setBusy(true);
     try {
-      const payload = { category: f.category, name: f.name.trim(), unit: f.unit, safetyStock: f.safetyStock === '' ? 0 : Number(f.safetyStock), vendor: f.vendor, product: f.product, defaultQty: f.defaultQty, lotPattern: f.lotPattern, note: f.note };
+      const payload = { category: f.category, name: f.name.trim(), unit: f.unit, safetyStock: f.safetyStock === '' ? 0 : Number(f.safetyStock), vendor: f.vendor, product: f.product, defaultQty: f.defaultQty, lotPattern: f.lotPattern, pkgSize: f.pkgSize, pkgUnit: f.pkgUnit, pkgType: f.pkgType, note: f.note };
       if (mode === 'create') await api.post('/items', payload);
       else await api.patch('/items/' + initial.id, payload);
       onSaved();
@@ -158,6 +160,17 @@ function ItemForm({ mode, initial, onClose, onSaved, onError }) {
       <Field label="기본 업체명" hint="원/부재료 등록 시 자동 입력(수정 가능)">
         <TextInput value={f.vendor} onChange={(e) => set('vendor', e.target.value)} placeholder="예: (주)한솔케미칼" />
       </Field>
+      <div className="form-row">
+        <Field label="Package 종류" hint="예: drum, can, set, ea">
+          <TextInput value={f.pkgType} onChange={(e) => set('pkgType', e.target.value)} placeholder="예: drum" />
+        </Field>
+        <Field label="Package 당 수량" hint="예: 200">
+          <TextInput type="number" value={f.pkgSize} onChange={(e) => set('pkgSize', e.target.value)} placeholder="예: 200" />
+        </Field>
+        <Field label="Package 단위" hint="예: L, kg">
+          <TextInput value={f.pkgUnit} onChange={(e) => set('pkgUnit', e.target.value)} placeholder="예: L" />
+        </Field>
+      </div>
       <Field label="비고">
         <TextInput value={f.note} onChange={(e) => set('note', e.target.value)} placeholder="선택 입력" />
       </Field>

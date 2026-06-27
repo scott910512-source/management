@@ -52,7 +52,14 @@ router.get(
       g.items.push(r);
     }
     const groups = Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
-    for (const g of groups) g.items.sort((a, b) => (a.receivedDate > b.receivedDate ? 1 : -1));
+    for (const g of groups) {
+      g.items.sort((a, b) => (a.receivedDate > b.receivedDate ? 1 : -1));
+      const active = g.items.filter((r) => (num(r.weight) || 0) > 0);
+      const oldest = active[0] || g.items[0];
+      g.oldestLotNo = oldest ? oldest.lotNo : '';
+      g.oldestDate = oldest ? oldest.receivedDate : '';
+      g.totalPkgCount = g.items.reduce((s, r) => s + (num(r.pkgCount) || 0), 0);
+    }
     res.json({ items: groups });
   }),
 );
@@ -73,12 +80,14 @@ router.post(
   asyncHandler(async (req, res) => {
     const name = str(req.body.name);
     const unit = str(req.body.unit);
-    const weight = num(req.body.weight);
     const lotNo = str(req.body.lotNo);
     const receivedDate = str(req.body.receivedDate);
+    const pkgCount = req.body.pkgCount !== undefined && req.body.pkgCount !== '' ? num(req.body.pkgCount) : null;
+    const pkgSize = req.body.pkgSize !== undefined && req.body.pkgSize !== '' ? num(req.body.pkgSize) : null;
+    const weight = (pkgCount !== null && pkgSize !== null) ? pkgCount * pkgSize : num(req.body.weight);
     if (!name) throw badRequest('품목을 선택하거나 입력하세요.');
     if (!lotNo) throw badRequest('Lot No는 필수 입력입니다.');
-    if (req.body.weight === '' || req.body.weight === undefined || Number.isNaN(weight) || weight <= 0) throw badRequest('무게(수량)는 필수이며 0보다 큰 숫자여야 합니다.');
+    if (Number.isNaN(weight) || weight <= 0) throw badRequest('무게(수량)는 필수이며 0보다 큰 숫자여야 합니다.');
     if (!unit) throw badRequest('단위는 필수 입력입니다.');
     if (!receivedDate) throw badRequest('입고일은 필수 입력입니다.');
 
@@ -94,6 +103,7 @@ router.post(
         lotNo,
         vendor: str(req.body.vendor),
         unit,
+        pkgCount: pkgCount !== null ? String(pkgCount) : '',
         initialWeight: String(weight),
         weight: String(weight),
         note: str(req.body.note),

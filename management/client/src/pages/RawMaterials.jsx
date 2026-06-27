@@ -7,7 +7,7 @@ import { UnitInput, ItemSelect, expandLot } from '../components/inputs';
 import { TrendModal } from '../components/TrendModal';
 import { UseModal } from '../components/UseModal';
 
-const blank = { itemName: '', lotNo: '', quantity: '', unit: 'kg', vendor: '', receivedDate: '', note: '' };
+const blank = { itemName: '', lotNo: '', quantity: '', unit: 'kg', vendor: '', receivedDate: '', note: '', pkgCount: '', pkgSize: '', pkgUnit: '', pkgType: '' };
 const today = () => new Date().toISOString().slice(0, 10);
 
 /** 행 배열을 품목명(itemName) 기준으로 묶는다(입력 순서 유지). */
@@ -150,15 +150,30 @@ export default function RawMaterials() {
               </tr>
             </thead>
             <tbody>
-              {groupByItem(items, 'itemName').map((g) => (
+              {groupByItem(items, 'itemName').map((g) => {
+                const totalQty = g.lots.reduce((s, r) => s + (Number(r.quantity) || 0), 0);
+                const unit = g.lots[0]?.unit || '';
+                const totalPkg = g.lots.reduce((s, r) => s + (Number(r.pkgCount) || 0), 0);
+                const pkgType = g.lots.find(r => r.pkgCount)?.pkgType || '';
+                const oldest = g.lots.reduce((pick, r) => (!pick || (r.receivedDate && r.receivedDate < pick.receivedDate) ? r : pick), null);
+                return (
                 <Fragment key={g.name}>
                   <tr className={`group-row ${lowSet.has(g.name) ? 'row-low' : ''}`}>
-                    <td colSpan={8}>📦 {g.name} · {g.lots.length} Lot {lowSet.has(g.name) && <span className="badge red" style={{ marginLeft: 6 }}>안전재고 부족</span>}</td>
+                    <td colSpan={8}>
+                      📦 <b>{g.name}</b> · {g.lots.length} Lot
+                      {' '}<span className="muted">· 총 <b>{totalQty.toLocaleString()}{unit}</b>{totalPkg > 0 && ` (${totalPkg}${pkgType})`}</span>
+                      {oldest && <span className="muted"> · 최초입고 {oldest.receivedDate} · <span style={{color:'var(--blue)'}}>{oldest.lotNo}</span></span>}
+                      {lowSet.has(g.name) && <span className="badge red" style={{ marginLeft: 6 }}>안전재고 부족</span>}
+                    </td>
                   </tr>
                   {g.lots.map((r) => (
                     <tr key={r.id}>
                       <td style={{ paddingLeft: 24 }}><Badge color="blue">{r.lotNo}</Badge></td>
-                      <td className="num">{Number(r.quantity).toLocaleString()}</td>
+                      <td className="num">
+                        {r.pkgCount && Number(r.pkgCount) > 0
+                          ? <><b>{Number(r.pkgCount).toLocaleString()}</b><span className="muted">{r.pkgType || 'pkg'}</span> <span className="muted">({Number(r.quantity).toLocaleString()}{r.unit})</span></>
+                          : <>{Number(r.quantity).toLocaleString()}</>}
+                      </td>
                       <td className="muted">{r.unit}</td>
                       <td className="muted">{r.vendor || '–'}</td>
                       <td className="muted">{r.receivedDate || '–'}</td>
@@ -175,7 +190,8 @@ export default function RawMaterials() {
                     </tr>
                   ))}
                 </Fragment>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         )}
@@ -221,6 +237,8 @@ function RawForm({ mode, initial, onClose, onSaved, onError }) {
   const [f, setF] = useState({ ...blank, ...initial });
   const [busy, setBusy] = useState(false);
   const set = (k, v) => setF((p) => ({ ...p, [k]: v }));
+  const hasPkg = !!f.pkgType;
+  const pkgQty = hasPkg && f.pkgCount && f.pkgSize ? Number(f.pkgCount) * Number(f.pkgSize) : null;
 
   async function submit() {
     if (!f.itemName.trim()) return onError('품목을 선택하거나 입력하세요.');
@@ -229,7 +247,12 @@ function RawForm({ mode, initial, onClose, onSaved, onError }) {
     try {
       const payload = { itemName: f.itemName.trim(), lotNo: f.lotNo.trim(), unit: f.unit, vendor: f.vendor, receivedDate: f.receivedDate, note: f.note };
       if (mode === 'create') {
-        payload.quantity = f.quantity === '' ? 0 : Number(f.quantity);
+        if (hasPkg && f.pkgCount) {
+          payload.pkgCount = Number(f.pkgCount);
+          payload.pkgSize = Number(f.pkgSize);
+        } else {
+          payload.quantity = f.quantity === '' ? 0 : Number(f.quantity);
+        }
         await api.post('/raw-materials', payload);
       } else {
         await api.patch('/raw-materials/' + initial.id, payload);
@@ -256,6 +279,9 @@ function RawForm({ mode, initial, onClose, onSaved, onError }) {
             vendor: m?.vendor || p.vendor,
             quantity: p.quantity === '' && m?.defaultQty ? m.defaultQty : p.quantity,
             lotNo: p.lotNo === '' && m?.lotPattern ? expandLot(m.lotPattern) : p.lotNo,
+            pkgType: m?.pkgType || '',
+            pkgSize: m?.pkgSize || '',
+            pkgUnit: m?.pkgUnit || '',
           }))} />
         ) : (
           <TextInput value={f.itemName} onChange={(e) => set('itemName', e.target.value)} />
@@ -265,12 +291,19 @@ function RawForm({ mode, initial, onClose, onSaved, onError }) {
         <Field label="Lot No" required>
           <TextInput value={f.lotNo} onChange={(e) => set('lotNo', e.target.value)} placeholder="예: T-2026-003" />
         </Field>
-        {mode === 'create' && (
+        {mode === 'create' && hasPkg ? (
+          <Field label={`수량 (${f.pkgType})`} hint={f.pkgSize ? `1${f.pkgType} = ${f.pkgSize}${f.pkgUnit || f.unit}` : ''}>
+            <TextInput type="number" value={f.pkgCount} onChange={(e) => set('pkgCount', e.target.value)} placeholder="예: 2" autoFocus />
+          </Field>
+        ) : mode === 'create' ? (
           <Field label="수량">
             <TextInput type="number" value={f.quantity} onChange={(e) => set('quantity', e.target.value)} placeholder="0" />
           </Field>
-        )}
+        ) : null}
       </div>
+      {mode === 'create' && hasPkg && pkgQty !== null && (
+        <div className="hint" style={{ marginBottom: 8 }}>총 수량: <b>{pkgQty.toLocaleString()}{f.pkgUnit || f.unit}</b> ({f.pkgCount}{f.pkgType} × {f.pkgSize}{f.pkgUnit || f.unit})</div>
+      )}
       <div className="form-row">
         <Field label="단위" required>
           <UnitInput value={f.unit} onChange={(v) => set('unit', v)} />

@@ -44,6 +44,7 @@ router.post(
         id: newId('it'), category, name, unit,
         safetyStock: String(safetyStock), vendor: str(req.body.vendor),
         product: str(req.body.product), defaultQty: str(req.body.defaultQty), lotPattern: str(req.body.lotPattern),
+        pkgSize: str(req.body.pkgSize), pkgUnit: str(req.body.pkgUnit), pkgType: str(req.body.pkgType),
         note: str(req.body.note),
         createdBy: me, createdAt: now(), updatedBy: me, updatedAt: now(),
       };
@@ -79,6 +80,9 @@ router.patch(
         if (Number.isNaN(s) || s < 0) throw badRequest('안전재고 목표값은 0 이상의 숫자여야 합니다.');
         r.safetyStock = String(s);
       }
+      if (req.body.pkgSize !== undefined) r.pkgSize = str(req.body.pkgSize);
+      if (req.body.pkgUnit !== undefined) r.pkgUnit = str(req.body.pkgUnit);
+      if (req.body.pkgType !== undefined) r.pkgType = str(req.body.pkgType);
       if (req.body.note !== undefined) r.note = str(req.body.note);
       r.updatedBy = me;
       r.updatedAt = now();
