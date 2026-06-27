@@ -1,0 +1,9 @@
+﻿id,category,name,unit,safetyStock,vendor,product,defaultQty,lotPattern,note,createdBy,createdAt,updatedBy,updatedAt
+P2_r01,raw,톨루엔,kg,1000,(주)한솔케미칼,A제품,800,TOL-{YYYY}-,,admin,2026-06-01T00:00:00.000Z,admin,2026-06-01T00:00:00.000Z
+P2_r02,raw,촉매펠릿,ea,400,동성하이켐,A제품,300,CAT-{YYYY}-,,admin,2026-06-01T00:00:00.000Z,admin,2026-06-01T00:00:00.000Z
+P2_r03,raw,황산,L,300,대정화학,B제품,500,SUL-{YYYY}-,,admin,2026-06-01T00:00:00.000Z,admin,2026-06-01T00:00:00.000Z
+P2_r04,raw,아세톤,kg,500,(주)한솔케미칼,B제품,400,ACE-{YYYY}-,,admin,2026-06-01T00:00:00.000Z,admin,2026-06-01T00:00:00.000Z
+P2_r05,raw,에탄올,L,600,대정화학,C제품,550,ETH-{YYYY}-,,admin,2026-06-01T00:00:00.000Z,admin,2026-06-01T00:00:00.000Z
+P2_s01,sub,실링패드,kg,40,(주)한솔케미칼,공통,25,SEA-{YYYY}-,,admin,2026-06-01T00:00:00.000Z,admin,2026-06-01T00:00:00.000Z
+P2_s02,sub,활성탄,kg,60,대정화학,공통,50,ACT-{YYYY}-,,admin,2026-06-01T00:00:00.000Z,admin,2026-06-01T00:00:00.000Z
+P2_s03,sub,필터백,ea,200,동성하이켐,공통,100,FLT-{YYYY}-,,admin,2026-06-01T00:00:00.000Z,admin,2026-06-01T00:00:00.000Z

@@ -57,10 +57,10 @@ router.post(
     const users = await readTable('users');
     const user = users.find((u) => u.id === id);
     if (!user || !bcrypt.compareSync(password, user.passwordHash)) {
-      throw badRequest('아이디 또는 비밀번호가 올바르지 않습니다.');
+      return res.status(401).json({ error: '아이디 또는 비밀번호가 올바르지 않습니다.' });
     }
-    if (user.status === 'pending') throw badRequest('가입 승인 대기 중입니다. 관리자에게 문의하세요.');
-    if (user.status !== 'approved') throw badRequest('사용이 제한된 계정입니다. 관리자에게 문의하세요.');
+    if (user.status === 'pending') return res.status(403).json({ error: '가입 승인 대기 중입니다. 관리자에게 문의하세요.' });
+    if (user.status !== 'approved') return res.status(403).json({ error: '사용이 제한된 계정입니다. 관리자에게 문의하세요.' });
 
     req.session.user = { id: user.id, name: user.name, role: user.role, plant: user.plant, plantScope: user.plantScope };
     res.json({ user: publicUser(user), plants: allowedPlants(user) });

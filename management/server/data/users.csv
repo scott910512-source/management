@@ -1,0 +1,14 @@
+﻿id,passwordHash,name,role,status,plant,plantScope,createdAt,approvedAt,approvedBy
+admin,$2a$10$0h9FJ.GK.mfMNYjSTYMj4eRkZ2ZGmjKp2wKSX2CISBrVkMvc/dIuu,통합관리자,admin,approved,2공장,all,2026-06-01T00:00:00.000Z,2026-06-01T00:00:00.000Z,system
+admin1,$2a$10$WRAWeSgN6IiBrXVoo.XBe.zoF21DztjSYLZrF7g/7bO462OehJYy.,1공장 관리자,admin,approved,1공장,1공장,2026-06-01T00:00:00.000Z,2026-06-01T00:00:00.000Z,system
+admin2,$2a$10$sVC6wlD.ecXyohhrQ7fvzu42PqvLy0X7QnXxiCEG1cHVtBb/6HAgq,2공장 관리자,admin,approved,2공장,2공장,2026-06-01T00:00:00.000Z,2026-06-01T00:00:00.000Z,system
+team1,$2a$10$J6cmycgX6u/XR20tHbzEgem7mYMdP81ScPyM6BKVMquJNWyaPrDoO,팀관리자(팀장),viewer,approved,2공장,all,2026-06-01T00:00:00.000Z,2026-06-01T00:00:00.000Z,system
+user1,$2a$10$cOJ/WQe9rIEG0QRjqr3qZer5/ON1oAgQbIJhpPPrfmA5Z82M2jGLy,홍길동(2공장),user,approved,2공장,2공장,2026-06-01T00:00:00.000Z,2026-06-01T00:00:00.000Z,admin
+user2,$2a$10$/6ytNGrLdNhI8m/KS5/WKO/p5e9oViERV2Xw2eeh0u/2GxP1OJ0p.,김영희(1공장),user,approved,1공장,1공장,2026-06-01T00:00:00.000Z,2026-06-01T00:00:00.000Z,admin
+user3,$2a$10$CgrWKU7kAOHeJKu4zh67oe1SxvVeiK.bcvJldRC7Tk0kw.8jENDsy,박민수(1공장),user,approved,1공장,1공장,2026-06-01T00:00:00.000Z,2026-06-01T00:00:00.000Z,admin
+user4,$2a$10$f/dud5f7ipgANbVu2y3oaubyN9k08BPwdz5XqTcEMxVfnJu1UKzc6,이지영(1공장),user,approved,1공장,1공장,2026-06-01T00:00:00.000Z,2026-06-01T00:00:00.000Z,admin
+user5,$2a$10$mqNstYcABbIsJdJvBBhunOgZ2ZmLhHRSprguMx2VaT4Ozab6F0hoS,최강민(2공장),user,approved,2공장,2공장,2026-06-01T00:00:00.000Z,2026-06-01T00:00:00.000Z,admin
+user6,$2a$10$uebWzmZjjh.n3gvcTMvRw.4Dor7ZBQ.4UxXR5nJq7C05./oCi3nHe,정수빈(2공장),user,approved,2공장,2공장,2026-06-01T00:00:00.000Z,2026-06-01T00:00:00.000Z,admin
+user7,$2a$10$45E9R3ri0As9v/9oj1hRtuqsrXY5znijOjogLBZ3TFrLIZFo9h8Wu,한도현(1공장),user,approved,1공장,1공장,2026-06-01T00:00:00.000Z,2026-06-01T00:00:00.000Z,admin
+user8,$2a$10$d2lgMU5Jmi5dHCBhNbAgo..OAk.KX0YD8Hqp4M6Tw.SuB9TEJ/Fge,오예린(2공장),user,approved,2공장,2공장,2026-06-01T00:00:00.000Z,2026-06-01T00:00:00.000Z,admin
+viewer2,$2a$10$nAkB620WPZ6rrOvsIRkvteJIrgsTsYdshoILuVS3Oy/wWPo/o.zfK,부팀장(전체),viewer,approved,1공장,all,2026-06-01T00:00:00.000Z,2026-06-01T00:00:00.000Z,admin

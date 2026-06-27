@@ -5,7 +5,7 @@ const { mutate, readTable, headersOf } = require('../lib/store');
 const { asyncHandler, str, num, badRequest, notFound, sendCsv } = require('../lib/http');
 const { newId, now } = require('../lib/ids');
 const { appendTransaction } = require('../lib/tx');
-const { requireAuth, requireAdmin } = require('../middleware/auth');
+const { requireAuth, requireAdmin, requireWrite } = require('../middleware/auth');
 const { resolvePlant } = require('../middleware/plant');
 
 const router = express.Router();
@@ -124,6 +124,7 @@ router.get(
 // Canister 등록 (+ 등록 이력)
 router.post(
   '/',
+  requireWrite,
   asyncHandler(async (req, res) => {
     const canisterNo = str(req.body.canisterNo);
     const size = str(req.body.size);
@@ -170,6 +171,7 @@ router.post(
 // Canister 이력 등록(반입/반출/상태변경) — 내용물 수불
 router.post(
   '/:id/move',
+  requireWrite,
   asyncHandler(async (req, res) => {
     const type = str(req.body.type);
     const amount = req.body.weight === '' || req.body.weight === undefined ? 0 : num(req.body.weight);

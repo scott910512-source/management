@@ -6,7 +6,7 @@ const { asyncHandler, str, num, badRequest, notFound, sendCsv } = require('../li
 const { newId, now } = require('../lib/ids');
 const { appendTransaction } = require('../lib/tx');
 const { appendAnomaly, findEarlierLot } = require('../lib/anomaly');
-const { requireAuth, requireAdmin } = require('../middleware/auth');
+const { requireAuth, requireAdmin, requireWrite } = require('../middleware/auth');
 const { resolvePlant } = require('../middleware/plant');
 
 const router = express.Router();
@@ -69,6 +69,7 @@ router.get(
 // 등록
 router.post(
   '/',
+  requireWrite,
   asyncHandler(async (req, res) => {
     const name = str(req.body.name);
     const unit = str(req.body.unit);
@@ -117,6 +118,7 @@ router.post(
 // 수정
 router.patch(
   '/:id',
+  requireWrite,
   asyncHandler(async (req, res) => {
     const me = req.session.user.id;
     const item = await mutate('sub_materials', req.plant, (rows) => {
@@ -141,6 +143,7 @@ router.patch(
 // 수불(입고/출고=소진) → 무게 증감 + 내역 기록
 router.post(
   '/:id/transaction',
+  requireWrite,
   asyncHandler(async (req, res) => {
     const type = str(req.body.type);
     const qty = num(req.body.quantity);
