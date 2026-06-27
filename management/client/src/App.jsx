@@ -45,7 +45,7 @@ function Sidebar() {
           </svg>
         </div>
         <div>
-          <div className="brand-title">수불관리</div>
+          <div className="brand-title">StockPilot</div>
           <div className="brand-sub">화학공장 운영관리</div>
         </div>
       </div>

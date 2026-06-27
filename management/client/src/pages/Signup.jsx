@@ -43,7 +43,7 @@ export default function Signup() {
             <rect x="39" y="30" width="11" height="9" rx="1" fill="rgba(255,255,255,0.7)"/>
           </svg>
         </div>
-        <h2>사용 신청</h2>
+        <h2>StockPilot</h2>
         <p className="sub">신청 후 관리자 승인이 완료되면 로그인할 수 있습니다.</p>
         <form onSubmit={submit}>
           <Field label="아이디" required hint="영문/숫자 3~20자">

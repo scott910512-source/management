@@ -39,7 +39,7 @@ export default function Login() {
             <rect x="39" y="30" width="11" height="9" rx="1" fill="rgba(255,255,255,0.7)"/>
           </svg>
         </div>
-        <h2>수불관리 시스템</h2>
+        <h2>StockPilot</h2>
         <p className="sub">화학공장 원·부재료 / Canister 관리</p>
         <form onSubmit={submit}>
           <Field label="아이디" required>
