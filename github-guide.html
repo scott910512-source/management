@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GitHub 브랜치 / 작업 / 머지 가이드</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #000;
+      --surface: #111;
+      --surface2: #1a1a1a;
+      --border: #2a2a2a;
+      --accent: #0071e3;
+      --accent2: #30d158;
+      --accent3: #ff9f0a;
+      --accent4: #ff375f;
+      --text: #f5f5f7;
+      --text2: #a1a1a6;
+      --text3: #6e6e73;
+      --code-bg: #1c1c1e;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* NAV */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      background: rgba(0,0,0,0.72);
+      backdrop-filter: saturate(180%) blur(20px);
+      -webkit-backdrop-filter: saturate(180%) blur(20px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 40px;
+      height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    nav .logo {
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: -0.3px;
+      color: var(--text);
+    }
+    nav .logo span { color: var(--accent); }
+    nav ul {
+      list-style: none;
+      display: flex;
+      gap: 32px;
+    }
+    nav ul a {
+      text-decoration: none;
+      color: var(--text2);
+      font-size: 13px;
+      transition: color 0.2s;
+    }
+    nav ul a:hover { color: var(--text); }
+
+    /* HERO */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 100px 40px 80px;
+      background: radial-gradient(ellipse 80% 60% at 50% 0%, #0a1628 0%, #000 70%);
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: -200px; left: 50%;
+      transform: translateX(-50%);
+      width: 800px; height: 800px;
+      background: radial-gradient(circle, rgba(0,113,227,0.12) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .hero .eyebrow {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 20px;
+    }
+    .hero h1 {
+      font-size: clamp(42px, 7vw, 80px);
+      font-weight: 700;
+      letter-spacing: -2px;
+      line-height: 1.05;
+      background: linear-gradient(135deg, #fff 30%, #a1a1a6 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 24px;
+    }
+    .hero p {
+      font-size: clamp(17px, 2.5vw, 22px);
+      color: var(--text2);
+      max-width: 600px;
+      letter-spacing: -0.2px;
+    }
+    .hero .badge-row {
+      display: flex;
+      gap: 12px;
+      margin-top: 40px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .badge {
+      padding: 8px 18px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+      border: 1px solid;
+    }
+    .badge-blue  { color: var(--accent);  border-color: rgba(0,113,227,0.4);  background: rgba(0,113,227,0.1); }
+    .badge-green { color: var(--accent2); border-color: rgba(48,209,88,0.4);  background: rgba(48,209,88,0.1); }
+    .badge-orange{ color: var(--accent3); border-color: rgba(255,159,10,0.4); background: rgba(255,159,10,0.1); }
+    .badge-red   { color: var(--accent4); border-color: rgba(255,55,95,0.4);  background: rgba(255,55,95,0.1); }
+
+    /* SECTIONS */
+    section {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 100px 40px;
+    }
+    section + section { padding-top: 0; }
+
+    .section-eyebrow {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 12px;
+    }
+    h2 {
+      font-size: clamp(30px, 5vw, 48px);
+      font-weight: 700;
+      letter-spacing: -1.5px;
+      line-height: 1.1;
+      margin-bottom: 16px;
+    }
+    .section-sub {
+      font-size: 18px;
+      color: var(--text2);
+      margin-bottom: 48px;
+      max-width: 560px;
+    }
+
+    /* CARDS */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 2px;
+      background: var(--border);
+      border-radius: 20px;
+      overflow: hidden;
+    }
+    .card {
+      background: var(--surface);
+      padding: 36px 32px;
+      transition: background 0.2s;
+    }
+    .card:hover { background: var(--surface2); }
+    .card .icon {
+      width: 44px; height: 44px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      margin-bottom: 20px;
+    }
+    .icon-blue   { background: rgba(0,113,227,0.15); }
+    .icon-green  { background: rgba(48,209,88,0.15); }
+    .icon-orange { background: rgba(255,159,10,0.15); }
+    .icon-red    { background: rgba(255,55,95,0.15); }
+    .icon-purple { background: rgba(191,90,242,0.15); }
+    .icon-cyan   { background: rgba(90,200,250,0.15); }
+    .card h3 {
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: -0.3px;
+      margin-bottom: 8px;
+    }
+    .card p {
+      font-size: 14px;
+      color: var(--text2);
+      line-height: 1.6;
+    }
+
+    /* DIAGRAM */
+    .diagram {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 40px;
+      margin-bottom: 48px;
+      overflow-x: auto;
+    }
+    .branch-diagram {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      min-width: 560px;
+    }
+    .branch-row {
+      display: flex;
+      align-items: center;
+      gap: 0;
+    }
+    .branch-label {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      width: 180px;
+      flex-shrink: 0;
+      color: var(--text2);
+    }
+    .branch-line {
+      flex: 1;
+      height: 3px;
+      border-radius: 2px;
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    .branch-main { background: linear-gradient(90deg, var(--accent), #5ac8fa); }
+    .branch-feat1 { background: linear-gradient(90deg, var(--accent2), #34c759); }
+    .branch-feat2 { background: linear-gradient(90deg, var(--accent3), #ff6b00); }
+    .dot {
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      background: #fff;
+      flex-shrink: 0;
+      box-shadow: 0 0 8px rgba(255,255,255,0.5);
+    }
+    .dot-gap { flex: 0 0 8px; }
+    .arrow {
+      width: 0; height: 0;
+      border-top: 7px solid transparent;
+      border-bottom: 7px solid transparent;
+    }
+    .arrow-blue { border-left: 12px solid #5ac8fa; }
+    .arrow-green { border-left: 12px solid #34c759; }
+    .arrow-orange { border-left: 12px solid #ff6b00; }
+    .branch-fork {
+      width: 28px; height: 28px;
+      border-left: 3px solid var(--border);
+      border-bottom: 3px solid var(--border);
+      border-radius: 0 0 0 8px;
+      margin-left: 180px;
+      margin-bottom: -6px;
+      margin-top: 6px;
+    }
+
+    /* CODE BLOCKS */
+    .code-wrap {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      margin-bottom: 24px;
+    }
+    .code-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(255,255,255,0.03);
+    }
+    .dot-red    { width:12px;height:12px;border-radius:50%;background:#ff5f57;flex-shrink:0; }
+    .dot-yellow { width:12px;height:12px;border-radius:50%;background:#febc2e;flex-shrink:0; }
+    .dot-green2 { width:12px;height:12px;border-radius:50%;background:#28c840;flex-shrink:0; }
+    .code-title { font-size: 12px; color: var(--text3); margin-left: 8px; font-family: "SF Mono", monospace; }
+    pre {
+      padding: 24px;
+      font-family: "SF Mono", "Fira Code", "Menlo", monospace;
+      font-size: 13.5px;
+      line-height: 1.9;
+      overflow-x: auto;
+    }
+    .c-comment { color: #6e6e73; }
+    .c-cmd     { color: #5ac8fa; }
+    .c-str     { color: var(--accent2); }
+    .c-key     { color: var(--accent3); }
+    .c-branch  { color: #bf5af2; }
+    .c-num     { color: var(--accent4); }
+
+    /* STEPS */
+    .steps {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      background: var(--border);
+      border-radius: 20px;
+      overflow: hidden;
+    }
+    .step {
+      background: var(--surface);
+      padding: 28px 32px;
+      display: flex;
+      align-items: flex-start;
+      gap: 24px;
+      transition: background 0.2s;
+    }
+    .step:hover { background: var(--surface2); }
+    .step-num {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--accent);
+      background: rgba(0,113,227,0.12);
+      border: 1px solid rgba(0,113,227,0.25);
+      border-radius: 50%;
+      width: 32px; height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .step-content h3 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 4px;
+      letter-spacing: -0.2px;
+    }
+    .step-content p {
+      font-size: 14px;
+      color: var(--text2);
+    }
+    .step-content code {
+      font-family: "SF Mono", monospace;
+      font-size: 12px;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      padding: 2px 8px;
+      border-radius: 6px;
+      color: var(--accent2);
+    }
+
+    /* TABLE */
+    .table-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+    table { width: 100%; border-collapse: collapse; }
+    thead { background: rgba(255,255,255,0.04); }
+    th {
+      padding: 14px 20px;
+      text-align: left;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--text3);
+      border-bottom: 1px solid var(--border);
+    }
+    td {
+      padding: 16px 20px;
+      font-size: 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+    td:first-child { font-family: "SF Mono", monospace; font-size: 13px; }
+    .tag {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .tag-blue   { color: var(--accent);  background: rgba(0,113,227,0.12); }
+    .tag-green  { color: var(--accent2); background: rgba(48,209,88,0.12); }
+    .tag-orange { color: var(--accent3); background: rgba(255,159,10,0.12); }
+    .tag-red    { color: var(--accent4); background: rgba(255,55,95,0.12); }
+    .tag-purple { color: #bf5af2; background: rgba(191,90,242,0.12); }
+    .tag-cyan   { color: #5ac8fa; background: rgba(90,200,250,0.12); }
+
+    /* CONFLICT */
+    .conflict-block {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      margin-bottom: 24px;
+    }
+    .conflict-line {
+      padding: 10px 24px;
+      font-family: "SF Mono", monospace;
+      font-size: 13px;
+      line-height: 1.8;
+    }
+    .c-head { background: rgba(255,55,95,0.12); color: var(--accent4); }
+    .c-a    { background: rgba(255,55,95,0.05); color: #ff8fab; }
+    .c-sep  { background: rgba(255,255,255,0.04); color: var(--text3); }
+    .c-b    { background: rgba(48,209,88,0.05); color: #69db7c; }
+    .c-tail { background: rgba(48,209,88,0.12); color: var(--accent2); }
+
+    /* TIPS */
+    .tip-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+    }
+    .tip {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+    }
+    .tip .tip-icon { font-size: 28px; margin-bottom: 16px; }
+    .tip h3 { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
+    .tip p { font-size: 13px; color: var(--text2); line-height: 1.6; }
+
+    /* SUMMARY TABLE */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 2px;
+      background: var(--border);
+      border-radius: 20px;
+      overflow: hidden;
+    }
+    .summary-item {
+      background: var(--surface);
+      padding: 30px 28px;
+    }
+    .summary-item .s-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--text3);
+      margin-bottom: 10px;
+    }
+    .summary-item .s-name {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      margin-bottom: 8px;
+    }
+    .summary-item .s-desc {
+      font-size: 13px;
+      color: var(--text2);
+      line-height: 1.6;
+    }
+
+    /* FOOTER */
+    footer {
+      text-align: center;
+      padding: 60px 40px;
+      border-top: 1px solid var(--border);
+      color: var(--text3);
+      font-size: 13px;
+    }
+    footer span { color: var(--text2); }
+
+    /* DIVIDER */
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 0 40px;
+    }
+
+    @media (max-width: 640px) {
+      nav ul { display: none; }
+      section { padding: 72px 24px; }
+      .diagram { padding: 24px; }
+      h2 { letter-spacing: -1px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="logo">Git<span>Hub</span> Guide</div>
+  <ul>
+    <li><a href="#branch">브랜치</a></li>
+    <li><a href="#commit">작업</a></li>
+    <li><a href="#merge">머지</a></li>
+    <li><a href="#conflict">충돌</a></li>
+    <li><a href="#summary">요약</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <p class="eyebrow">GitHub 협업 워크플로우</p>
+  <h1>브랜치 · 작업 · 머지<br>완벽 가이드</h1>
+  <p>저장소는 프로젝트, 브랜치는 소작업 공간, 머지로 취합 — 협업의 핵심 흐름을 한눈에.</p>
+  <div class="badge-row">
+    <span class="badge badge-blue">Branch</span>
+    <span class="badge badge-green">Commit</span>
+    <span class="badge badge-orange">Pull Request</span>
+    <span class="badge badge-red">Merge</span>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- SECTION 1: BRANCH -->
+<section id="branch">
+  <p class="section-eyebrow">01 — Branch</p>
+  <h2>브랜치란 무엇인가</h2>
+  <p class="section-sub">전체 파일을 그대로 복사한 독립적인 작업공간. 내 작업이 다른 사람 코드에 영향을 주지 않습니다.</p>
+
+  <div class="card-grid" style="margin-bottom: 48px;">
+    <div class="card">
+      <div class="icon icon-blue">🌿</div>
+      <h3>독립 작업공간</h3>
+      <p>브랜치에서 한 작업은 다른 브랜치에 전혀 영향을 주지 않습니다.</p>
+    </div>
+    <div class="card">
+      <div class="icon icon-green">🔒</div>
+      <h3>main은 항상 안정</h3>
+      <p>main 브랜치에는 완성되고 검증된 코드만 유지합니다.</p>
+    </div>
+    <div class="card">
+      <div class="icon icon-orange">⚡️</div>
+      <h3>병렬 개발 가능</h3>
+      <p>여러 기능을 동시에 각자 다른 브랜치에서 개발할 수 있습니다.</p>
+    </div>
+  </div>
+
+  <!-- Branch Diagram -->
+  <div class="diagram">
+    <div class="branch-diagram">
+      <div class="branch-row">
+        <div class="branch-label" style="color:#5ac8fa; font-size:13px; font-weight:700;">main</div>
+        <div class="dot" style="background:#5ac8fa; box-shadow:0 0 10px rgba(90,200,250,0.6);"></div>
+        <div class="dot-gap"></div>
+        <div class="branch-line branch-main" style="flex:1;"></div>
+        <div class="dot-gap"></div>
+        <div class="dot" style="background:#5ac8fa;"></div>
+        <div class="dot-gap"></div>
+        <div class="branch-line branch-main" style="flex:2;"></div>
+        <div class="dot-gap"></div>
+        <div class="arrow arrow-blue"></div>
+      </div>
+      <div style="display:flex; gap:0;">
+        <div class="branch-fork"></div>
+        <div class="branch-fork" style="margin-left:8px;"></div>
+      </div>
+      <div class="branch-row" style="margin-top:-10px;">
+        <div class="branch-label" style="color:var(--accent2); font-size:12px; padding-left:20px;">feature/login-ui</div>
+        <div class="dot" style="background:var(--accent2); box-shadow:0 0 8px rgba(48,209,88,0.5);"></div>
+        <div class="dot-gap"></div>
+        <div class="branch-line branch-feat1"></div>
+        <div class="dot-gap"></div>
+        <div class="dot" style="background:var(--accent2);"></div>
+        <div class="dot-gap"></div>
+        <div class="branch-line branch-feat1" style="flex:0.4;"></div>
+        <div class="dot-gap"></div>
+        <div class="arrow arrow-green"></div>
+        <span style="font-size:12px; color:var(--text3); margin-left:12px;">로그인 화면 작업</span>
+      </div>
+      <div class="branch-row" style="margin-top:4px;">
+        <div class="branch-label" style="color:var(--accent3); font-size:12px; padding-left:20px;">feature/canister-api</div>
+        <div class="dot" style="background:var(--accent3); box-shadow:0 0 8px rgba(255,159,10,0.5);"></div>
+        <div class="dot-gap"></div>
+        <div class="branch-line branch-feat2" style="flex:0.7;"></div>
+        <div class="dot-gap"></div>
+        <div class="dot" style="background:var(--accent3);"></div>
+        <div class="dot-gap"></div>
+        <div class="branch-line branch-feat2" style="flex:0.3;"></div>
+        <div class="dot-gap"></div>
+        <div class="arrow arrow-orange"></div>
+        <span style="font-size:12px; color:var(--text3); margin-left:12px;">API 서버 작업</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Branch Create Command -->
+  <div class="code-wrap">
+    <div class="code-header">
+      <div class="dot-red"></div><div class="dot-yellow"></div><div class="dot-green2"></div>
+      <span class="code-title">terminal — 브랜치 생성</span>
+    </div>
+    <pre><span class="c-comment"># main 기준으로 새 브랜치 생성 후 이동</span>
+<span class="c-cmd">git checkout</span> <span class="c-key">-b</span> <span class="c-branch">feature/기능명</span>
+
+<span class="c-comment"># 예시</span>
+<span class="c-cmd">git checkout</span> <span class="c-key">-b</span> <span class="c-branch">feature/login-ui</span>
+<span class="c-cmd">git checkout</span> <span class="c-key">-b</span> <span class="c-branch">fix/dashboard-bug</span></pre>
+  </div>
+
+  <!-- Naming Table -->
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Prefix</th><th>용도</th><th>예시</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><span class="tag tag-blue">feature/</span></td><td>새 기능 개발</td><td style="color:var(--text2);">feature/login-ui</td></tr>
+        <tr><td><span class="tag tag-red">fix/</span></td><td>버그 수정</td><td style="color:var(--text2);">fix/dashboard-bug</td></tr>
+        <tr><td><span class="tag tag-orange">hotfix/</span></td><td>긴급 수정</td><td style="color:var(--text2);">hotfix/payment-crash</td></tr>
+        <tr><td><span class="tag tag-cyan">docs/</span></td><td>문서 작업</td><td style="color:var(--text2);">docs/api-readme</td></tr>
+        <tr><td><span class="tag tag-purple">refactor/</span></td><td>코드 정리</td><td style="color:var(--text2);">refactor/auth-module</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- SECTION 2: COMMIT -->
+<section id="commit">
+  <p class="section-eyebrow">02 — Commit</p>
+  <h2>작업과 커밋</h2>
+  <p class="section-sub">커밋은 특정 시점의 코드 스냅샷. 의미 있는 단위로 나눠 저장하세요.</p>
+
+  <div class="code-wrap" style="margin-bottom: 24px;">
+    <div class="code-header">
+      <div class="dot-red"></div><div class="dot-yellow"></div><div class="dot-green2"></div>
+      <span class="code-title">terminal — 커밋 & 푸시</span>
+    </div>
+    <pre><span class="c-comment"># 수정된 파일 스테이징</span>
+<span class="c-cmd">git add</span> <span class="c-str">파일명</span>
+<span class="c-cmd">git add</span> <span class="c-key">.</span>          <span class="c-comment"># 전체 변경사항</span>
+
+<span class="c-comment"># 커밋 (무엇을 했는지 명확하게)</span>
+<span class="c-cmd">git commit</span> <span class="c-key">-m</span> <span class="c-str">"feat: 로그인 화면 디자인 추가"</span>
+<span class="c-cmd">git commit</span> <span class="c-key">-m</span> <span class="c-str">"fix: 대시보드 버그 수정"</span>
+
+<span class="c-comment"># 원격 저장소(GitHub)에 푸시</span>
+<span class="c-cmd">git push</span> origin <span class="c-branch">feature/login-ui</span></pre>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Prefix</th><th>용도</th><th>예시 메시지</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><span class="tag tag-blue">feat:</span></td><td>새 기능</td><td style="color:var(--text2);">feat: 로그인 화면 디자인 추가</td></tr>
+        <tr><td><span class="tag tag-red">fix:</span></td><td>버그 수정</td><td style="color:var(--text2);">fix: 대시보드 렌더링 오류 수정</td></tr>
+        <tr><td><span class="tag tag-cyan">docs:</span></td><td>문서 변경</td><td style="color:var(--text2);">docs: API 사용법 README 업데이트</td></tr>
+        <tr><td><span class="tag tag-orange">style:</span></td><td>디자인·포맷</td><td style="color:var(--text2);">style: 버튼 색상 및 간격 수정</td></tr>
+        <tr><td><span class="tag tag-purple">refactor:</span></td><td>코드 구조 변경</td><td style="color:var(--text2);">refactor: 인증 모듈 분리</td></tr>
+        <tr><td><span class="tag tag-green">remove:</span></td><td>삭제</td><td style="color:var(--text2);">remove: 사용하지 않는 레거시 코드 제거</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- SECTION 3: MERGE -->
+<section id="merge">
+  <p class="section-eyebrow">03 — Merge</p>
+  <h2>머지 & Pull Request</h2>
+  <p class="section-sub">완성된 작업을 main 브랜치에 반영하는 과정. PR을 통해 코드 리뷰 후 머지합니다.</p>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <h3>브랜치 작업 완료 후 GitHub에 Push</h3>
+        <p><code>git push origin feature/login-ui</code> 로 작업 내용을 GitHub에 올립니다.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <h3>Pull Request 생성</h3>
+        <p>GitHub 저장소 페이지에서 <code>Compare &amp; pull request</code> 버튼을 클릭해 PR을 만듭니다.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <h3>변경 내용 확인 & 리뷰</h3>
+        <p>팀원이 코드를 검토하고, 문제가 없으면 Approve(승인)합니다.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-content">
+        <h3>Merge pull request 클릭</h3>
+        <p>승인 후 <code>Merge pull request</code> 버튼을 눌러 main에 반영합니다.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">5</div>
+      <div class="step-content">
+        <h3>브랜치 삭제</h3>
+        <p>머지된 브랜치는 <code>Delete branch</code>로 정리합니다. main은 항상 최신 상태를 유지합니다.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- SECTION 4: CONFLICT -->
+<section id="conflict">
+  <p class="section-eyebrow">04 — Conflict</p>
+  <h2>충돌(Conflict) 처리</h2>
+  <p class="section-sub">같은 파일의 같은 줄을 두 브랜치에서 동시에 수정하면 충돌이 발생합니다.</p>
+
+  <div class="conflict-block" style="margin-bottom: 32px;">
+    <div class="conflict-line c-head">&lt;&lt;&lt;&lt;&lt;&lt;&lt; feature/브랜치1</div>
+    <div class="conflict-line c-a">빨간색 버튼</div>
+    <div class="conflict-line c-sep">=======</div>
+    <div class="conflict-line c-b">파란색 버튼</div>
+    <div class="conflict-line c-tail">&gt;&gt;&gt;&gt;&gt;&gt;&gt; feature/브랜치2</div>
+  </div>
+
+  <div class="tip-row" style="margin-bottom: 32px;">
+    <div class="tip">
+      <div class="tip-icon">✏️</div>
+      <h3>1. 직접 수정</h3>
+      <p>충돌 표시(<code style="font-size:11px;background:#1c1c1e;padding:2px 6px;border-radius:4px;">&lt;&lt;&lt;</code>, <code style="font-size:11px;background:#1c1c1e;padding:2px 6px;border-radius:4px;">===</code>, <code style="font-size:11px;background:#1c1c1e;padding:2px 6px;border-radius:4px;">&gt;&gt;&gt;</code>) 구간을 찾아 원하는 내용만 남기고 나머지를 삭제합니다.</p>
+    </div>
+    <div class="tip">
+      <div class="tip-icon">💾</div>
+      <h3>2. 저장 후 커밋</h3>
+      <p>수정한 파일을 저장하고 <code style="font-size:11px;background:#1c1c1e;padding:2px 6px;border-radius:4px;">git add .</code> → <code style="font-size:11px;background:#1c1c1e;padding:2px 6px;border-radius:4px;">git commit</code> 으로 충돌 해결을 기록합니다.</p>
+    </div>
+  </div>
+
+  <div class="tip-row">
+    <div class="tip">
+      <div class="tip-icon">📂</div>
+      <h3>충돌 예방 팁 1</h3>
+      <p>팀원마다 <strong>다른 파일</strong>을 담당하도록 작업을 분리하면 충돌 자체를 피할 수 있습니다.</p>
+    </div>
+    <div class="tip">
+      <div class="tip-icon">⚡️</div>
+      <h3>충돌 예방 팁 2</h3>
+      <p>브랜치를 오래 유지하지 말고 <strong>빠르게 머지</strong>하세요. 브랜치가 오래될수록 충돌 가능성이 높아집니다.</p>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- SECTION 5: FULL FLOW -->
+<section>
+  <p class="section-eyebrow">05 — Full Flow</p>
+  <h2>전체 흐름 한눈에</h2>
+  <p class="section-sub">처음부터 끝까지 한 사이클의 실제 명령어 순서입니다.</p>
+
+  <div class="code-wrap">
+    <div class="code-header">
+      <div class="dot-red"></div><div class="dot-yellow"></div><div class="dot-green2"></div>
+      <span class="code-title">terminal — 전체 워크플로우</span>
+    </div>
+    <pre><span class="c-comment"># ① main에서 브랜치 생성</span>
+<span class="c-cmd">git checkout</span> <span class="c-key">-b</span> <span class="c-branch">feature/기능명</span>
+
+<span class="c-comment"># ② 파일 수정 후 커밋</span>
+<span class="c-cmd">git add</span> <span class="c-key">.</span>
+<span class="c-cmd">git commit</span> <span class="c-key">-m</span> <span class="c-str">"feat: 기능 설명"</span>
+
+<span class="c-comment"># ③ GitHub에 푸시</span>
+<span class="c-cmd">git push</span> origin <span class="c-branch">feature/기능명</span>
+
+<span class="c-comment"># ④ GitHub에서 Pull Request 생성 → 리뷰 → Merge</span>
+
+<span class="c-comment"># ⑤ 로컬 main 업데이트 & 브랜치 정리</span>
+<span class="c-cmd">git checkout</span> main
+<span class="c-cmd">git pull</span> origin main
+<span class="c-cmd">git branch</span> <span class="c-key">-d</span> <span class="c-branch">feature/기능명</span></pre>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- SECTION 6: SUMMARY -->
+<section id="summary">
+  <p class="section-eyebrow">06 — Summary</p>
+  <h2>핵심 개념 정리</h2>
+  <p class="section-sub">6가지 개념만 기억하면 GitHub 협업이 보입니다.</p>
+
+  <div class="summary-grid">
+    <div class="summary-item">
+      <div class="s-label">01</div>
+      <div class="s-name" style="color:#5ac8fa;">브랜치</div>
+      <div class="s-desc">전체 파일 기반의 독립 작업공간. main에서 분기해 기능별로 관리합니다.</div>
+    </div>
+    <div class="summary-item">
+      <div class="s-label">02</div>
+      <div class="s-name" style="color:var(--accent2);">커밋</div>
+      <div class="s-desc">특정 시점의 코드 스냅샷(버전). 의미 있는 단위로 나눠 저장합니다.</div>
+    </div>
+    <div class="summary-item">
+      <div class="s-label">03</div>
+      <div class="s-name" style="color:var(--accent3);">푸시</div>
+      <div class="s-desc">로컬 작업 내용을 GitHub 원격 저장소에 업로드합니다.</div>
+    </div>
+    <div class="summary-item">
+      <div class="s-label">04</div>
+      <div class="s-name" style="color:#bf5af2;">PR</div>
+      <div class="s-desc">브랜치를 main에 반영 요청. 코드 리뷰의 공식 채널입니다.</div>
+    </div>
+    <div class="summary-item">
+      <div class="s-label">05</div>
+      <div class="s-name" style="color:var(--accent4);">머지</div>
+      <div class="s-desc">PR을 승인해 브랜치 작업을 main에 통합합니다.</div>
+    </div>
+    <div class="summary-item">
+      <div class="s-label">06</div>
+      <div class="s-name" style="color:#ffd60a;">충돌</div>
+      <div class="s-desc">같은 파일 같은 줄을 동시 수정할 때 발생. 직접 수정 후 커밋으로 해결합니다.</div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <p style="font-size:20px; font-weight:700; letter-spacing:-0.5px; color:var(--text); margin-bottom:8px;">GitHub 브랜치 가이드</p>
+  <p>저장소 → 브랜치 → 커밋 → PR → 머지 — 이 흐름 하나면 충분합니다.</p>
+</footer>
+
+</body>
+</html>
