@@ -7,6 +7,7 @@ const { newId, now } = require('../lib/ids');
 const { appendTransaction } = require('../lib/tx');
 const { requireAuth, requireAdmin, requireWrite } = require('../middleware/auth');
 const { resolvePlant } = require('../middleware/plant');
+const { readSettings } = require('./settings');
 
 const router = express.Router();
 
@@ -43,6 +44,15 @@ function filterRows(rows, query) {
 }
 function validateEnum(label, value, allowed) {
   if (!allowed.includes(value)) throw badRequest(`${label} 값이 올바르지 않습니다.`);
+}
+function toArr(str) { return (str || '').split(',').map(v => v.trim()).filter(Boolean); }
+async function getDynamicEnums(plant) {
+  const s = await readSettings(plant);
+  return {
+    sizes: [...toArr(s.canisterSizes), '기타'],
+    locations: [...toArr(s.canisterLocations), '기타'],
+    statuses: [...toArr(s.canisterStatuses), '기타'],
+  };
 }
 
 // 목록
@@ -133,9 +143,10 @@ router.post(
     const content = str(req.body.content);
     const weight = req.body.weight === '' || req.body.weight === undefined ? 0 : num(req.body.weight);
     if (!canisterNo) throw badRequest('Canister No.를 입력하세요.');
-    validateEnum('용기 사이즈', size, SIZES);
-    validateEnum('위치', location, LOCATIONS);
-    validateEnum('상태', status, STATUSES);
+    const enums = await getDynamicEnums(req.plant);
+    validateEnum('용기 사이즈', size, enums.sizes);
+    validateEnum('위치', location, enums.locations);
+    validateEnum('상태', status, enums.statuses);
     if (Number.isNaN(weight) || weight < 0) throw badRequest('무게는 0 이상의 숫자여야 합니다.');
 
     const me = req.session.user.id;
@@ -236,6 +247,7 @@ router.patch(
   requireAdmin,
   asyncHandler(async (req, res) => {
     const me = req.session.user.id;
+    const patchEnums = req.body.size !== undefined ? await getDynamicEnums(req.plant) : null;
     const item = await mutate('canisters', req.plant, (rows) => {
       const r = rows.find((x) => x.id === req.params.id);
       if (!r) throw notFound('Canister를 찾을 수 없습니다.');
@@ -246,7 +258,7 @@ router.patch(
         r.canisterNo = cn;
       }
       if (req.body.size !== undefined) {
-        validateEnum('용기 사이즈', str(req.body.size), SIZES);
+        validateEnum('용기 사이즈', str(req.body.size), patchEnums.sizes);
         r.size = str(req.body.size);
         r.sizeEtc = str(req.body.sizeEtc);
       }
