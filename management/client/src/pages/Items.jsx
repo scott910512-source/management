@@ -235,6 +235,11 @@ function CanisterDefaultsCard({ toast }) {
         {/* 사이즈 */}
         <div>
           <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 13 }}>사이즈 목록</div>
+          <Field label="기본값" style={{ marginBottom: 10 }}>
+            <Select value={defSize} onChange={e => setDefSize(e.target.value)}>
+              {toArr(cnSizes).map(s => <option key={s} value={s}>{s}</option>)}
+            </Select>
+          </Field>
           <div style={colStyle}>
             {toArr(cnSizes).map(s => (
               <div key={s} style={tagStyle}>
@@ -247,16 +252,16 @@ function CanisterDefaultsCard({ toast }) {
             <TextInput placeholder="새 사이즈 (예: 500L)" value={newSize} onChange={e => setNewSize(e.target.value)} />
             <button className="btn sm secondary" onClick={() => addItem(cnSizes, newSize, setCnSizes, setNewSize)}>추가</button>
           </div>
-          <Field label="기본값" style={{ marginTop: 10 }}>
-            <Select value={defSize} onChange={e => setDefSize(e.target.value)}>
-              {toArr(cnSizes).map(s => <option key={s} value={s}>{s}</option>)}
-            </Select>
-          </Field>
         </div>
 
         {/* 위치 */}
         <div>
           <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 13 }}>위치 목록</div>
+          <Field label="기본값" style={{ marginBottom: 10 }}>
+            <Select value={defLoc} onChange={e => setDefLoc(e.target.value)}>
+              {toArr(cnLocs).map(s => <option key={s} value={s}>{s}</option>)}
+            </Select>
+          </Field>
           <div style={colStyle}>
             {toArr(cnLocs).map(s => (
               <div key={s} style={tagStyle}>
@@ -269,16 +274,16 @@ function CanisterDefaultsCard({ toast }) {
             <TextInput placeholder="새 위치 (예: 1공장현장)" value={newLoc} onChange={e => setNewLoc(e.target.value)} />
             <button className="btn sm secondary" onClick={() => addItem(cnLocs, newLoc, setCnLocs, setNewLoc)}>추가</button>
           </div>
-          <Field label="기본값" style={{ marginTop: 10 }}>
-            <Select value={defLoc} onChange={e => setDefLoc(e.target.value)}>
-              {toArr(cnLocs).map(s => <option key={s} value={s}>{s}</option>)}
-            </Select>
-          </Field>
         </div>
 
         {/* 상태 */}
         <div>
           <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 13 }}>상태 목록</div>
+          <Field label="기본값" style={{ marginBottom: 10 }}>
+            <Select value={defStat} onChange={e => setDefStat(e.target.value)}>
+              {toArr(cnStats).map(s => <option key={s} value={s}>{s}</option>)}
+            </Select>
+          </Field>
           <div style={colStyle}>
             {toArr(cnStats).map(s => (
               <div key={s} style={tagStyle}>
@@ -291,11 +296,6 @@ function CanisterDefaultsCard({ toast }) {
             <TextInput placeholder="새 상태 (예: 검사중)" value={newStat} onChange={e => setNewStat(e.target.value)} />
             <button className="btn sm secondary" onClick={() => addItem(cnStats, newStat, setCnStats, setNewStat)}>추가</button>
           </div>
-          <Field label="기본값" style={{ marginTop: 10 }}>
-            <Select value={defStat} onChange={e => setDefStat(e.target.value)}>
-              {toArr(cnStats).map(s => <option key={s} value={s}>{s}</option>)}
-            </Select>
-          </Field>
         </div>
       </div>
 
