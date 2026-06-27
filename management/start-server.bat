@@ -30,7 +30,7 @@ if %errorlevel% equ 0 (
 if not exist "%SERVER%\node_modules" (
     echo [1/3] Installing server packages...
     cd /d "%SERVER%"
-    call npm install
+    call npm install --no-audit --no-fund
     if %errorlevel% neq 0 (
         echo [ERROR] npm install failed in server
         pause
@@ -43,7 +43,7 @@ if not exist "%SERVER%\node_modules" (
 if not exist "%CLIENT%\node_modules" (
     echo [2/3] Installing client packages...
     cd /d "%CLIENT%"
-    call npm install --foreground-scripts
+    call npm install --foreground-scripts --no-audit --no-fund
     if %errorlevel% neq 0 (
         echo [ERROR] npm install failed in client
         pause
