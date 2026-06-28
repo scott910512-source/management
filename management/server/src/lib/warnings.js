@@ -47,6 +47,26 @@ function computeWarnings({ items, raws, subs, canisters, threshold }) {
   buildSafety('raw', items.filter((i) => i.category === 'raw'), raws, (r) => r.itemName, (r) => r.quantity, '원재료');
   buildSafety('sub', items.filter((i) => i.category === 'sub'), subs, (r) => r.name, (r) => r.weight, '부재료');
 
+  // 유해화학물질 보관가능수량 초과 경고
+  const hazItems = items.filter((i) => i.hazardous === '1' && i.hazardousMaxQty && Number(i.hazardousMaxQty) > 0);
+  for (const m of hazItems) {
+    const maxQty = num(m.hazardousMaxQty);
+    const warnPct = (m.hazardousWarnPct && num(m.hazardousWarnPct) > 0) ? num(m.hazardousWarnPct) : 80;
+    const total = [
+      ...raws.filter((r) => r.itemName === m.name).map((r) => num(r.quantity) || 0),
+      ...subs.filter((s) => s.name === m.name).map((s) => num(s.weight) || 0),
+    ].reduce((a, b) => a + b, 0);
+    const pct = Math.round((total / maxQty) * 100);
+    if (pct >= warnPct) {
+      out.push({
+        key: `hazardous:${m.name}`,
+        kind: 'hazardous',
+        level: pct >= 100 ? 'danger' : 'warn',
+        content: `유해화학물질 '${m.name}' 보관량 초과 위험 — 현재 ${total.toLocaleString()}${m.unit} / 보관가능 ${maxQty.toLocaleString()}${m.unit} (${pct}%)`,
+      });
+    }
+  }
+
   for (const c of canisters) {
     const cap = canisterCap(c.size);
     const w = num(c.weight) || 0;

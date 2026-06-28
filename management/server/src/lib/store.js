@@ -12,7 +12,7 @@ const PLANTS = ['1공장', '2공장'];
 const TABLES = {
   // users는 전역(공장 공통). plant=기본 공장, plantScope=접근 가능 범위(all|특정공장)
   users: ['id', 'passwordHash', 'name', 'role', 'status', 'plant', 'plantScope', 'createdAt', 'approvedAt', 'approvedBy'],
-  items: ['id', 'category', 'name', 'unit', 'safetyStock', 'warningPct', 'vendor', 'product', 'defaultQty', 'lotPattern', 'pkgType', 'pkgSize', 'pkgUnit', 'hazardous', 'note', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt'],
+  items: ['id', 'category', 'name', 'unit', 'safetyStock', 'warningPct', 'vendor', 'product', 'defaultQty', 'lotPattern', 'pkgType', 'pkgSize', 'pkgUnit', 'hazardous', 'hazardousMaxQty', 'hazardousWarnPct', 'note', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt'],
   raw_materials: ['id', 'itemName', 'lotNo', 'quantity', 'unit', 'pkgCount', 'vendor', 'receivedDate', 'note', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt'],
   sub_materials: ['id', 'name', 'receivedDate', 'lotNo', 'vendor', 'unit', 'pkgCount', 'initialWeight', 'weight', 'note', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt'],
   canisters: ['id', 'canisterNo', 'size', 'sizeEtc', 'location', 'locationEtc', 'status', 'statusEtc', 'content', 'weight', 'unit', 'note', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt'],

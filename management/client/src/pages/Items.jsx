@@ -3,7 +3,7 @@ import { api } from '../api';
 import { Modal, Field, TextInput, Select, useToast, ConfirmDialog, Empty, Loading, Badge } from '../components/ui';
 import { UnitInput } from '../components/inputs';
 
-const blank = { category: 'raw', name: '', unit: 'kg', safetyStock: '', warningPct: '', vendor: '', product: '', defaultQty: '', lotPattern: '', pkgSize: '', pkgUnit: '', pkgType: '', hazardous: false, note: '' };
+const blank = { category: 'raw', name: '', unit: 'kg', safetyStock: '', warningPct: '', vendor: '', product: '', defaultQty: '', lotPattern: '', pkgSize: '', pkgUnit: '', pkgType: '', hazardous: false, hazardousMaxQty: '', hazardousWarnPct: '', note: '' };
 
 export default function Items() {
   const toast = useToast();
@@ -48,6 +48,7 @@ export default function Items() {
                 <th>단위</th>
                 <th className="num">안전재고</th>
                 <th className="num">경고기준</th>
+                <th className="num">보관한도</th>
                 <th className="num">기본수량</th>
                 <th>Package</th>
                 <th>Lot 양식</th>
@@ -58,11 +59,12 @@ export default function Items() {
             <tbody>
               {items.map((it) => (
                 <tr key={it.id}>
-                  <td><b>{it.name}</b></td>
+                  <td><b>{it.name}</b>{it.hazardous === '1' && <Badge color="red" style={{ marginLeft: 6 }}>유해</Badge>}</td>
                   <td>{it.product ? <Badge color={it.product === '공통' ? 'green' : 'blue'}>{it.product}</Badge> : <span className="muted">–</span>}</td>
                   <td><Badge>{it.unit}</Badge></td>
                   <td className="num">{Number(it.safetyStock).toLocaleString()}</td>
                   <td className="num">{it.warningPct ? <Badge color="orange">{it.warningPct}%</Badge> : <span className="muted">–</span>}</td>
+                  <td className="num muted">{it.hazardous === '1' && it.hazardousMaxQty ? <span title={`경고기준: ${it.hazardousWarnPct || 80}%`}>{Number(it.hazardousMaxQty).toLocaleString()}</span> : '–'}</td>
                   <td className="num muted">{it.defaultQty || '–'}</td>
                   <td className="muted">{it.pkgType ? `${it.pkgSize}${it.pkgUnit}/${it.pkgType}` : '–'}</td>
                   <td className="muted">{it.lotPattern || '–'}</td>
@@ -115,7 +117,7 @@ function ItemForm({ mode, initial, onClose, onSaved, onError }) {
     if (!f.name.trim()) return onError('품목명을 입력하세요.');
     setBusy(true);
     try {
-      const payload = { category: f.category, name: f.name.trim(), unit: f.unit, safetyStock: f.safetyStock === '' ? 0 : Number(f.safetyStock), warningPct: f.warningPct, vendor: f.vendor, product: f.product, defaultQty: f.defaultQty, lotPattern: f.lotPattern, pkgSize: f.pkgSize, pkgUnit: f.pkgUnit, pkgType: f.pkgType, hazardous: f.hazardous, note: f.note };
+      const payload = { category: f.category, name: f.name.trim(), unit: f.unit, safetyStock: f.safetyStock === '' ? 0 : Number(f.safetyStock), warningPct: f.warningPct, vendor: f.vendor, product: f.product, defaultQty: f.defaultQty, lotPattern: f.lotPattern, pkgSize: f.pkgSize, pkgUnit: f.pkgUnit, pkgType: f.pkgType, hazardous: f.hazardous, hazardousMaxQty: f.hazardousMaxQty, hazardousWarnPct: f.hazardousWarnPct, note: f.note };
       if (mode === 'create') await api.post('/items', payload);
       else await api.patch('/items/' + initial.id, payload);
       onSaved();
@@ -197,10 +199,30 @@ function ItemForm({ mode, initial, onClose, onSaved, onError }) {
       </Field>
       <Field label="유해화학물질">
         <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-          <input type="checkbox" checked={!!f.hazardous} onChange={(e) => set('hazardous', e.target.checked)} />
-          <span>유해화학물질로 지정 (관리대장 대상)</span>
+          <input type="checkbox" checked={!!f.hazardous} onChange={(e) => set('hazardous', e.target.checked)} style={{ width: 16, height: 16, accentColor: 'var(--red)' }} />
+          <span style={{ color: f.hazardous ? 'var(--red)' : 'var(--text-2)' }}>
+            {f.hazardous ? '⚠ 유해화학물질로 지정됨 — 관리대장에 기록됩니다' : '해당 없음'}
+          </span>
         </label>
       </Field>
+      {f.hazardous && (
+        <div style={{ background: 'var(--bg2)', borderRadius: 8, padding: '12px 14px', border: '1px solid var(--red-light, #fca5a5)' }}>
+          <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--red)', marginBottom: 10 }}>⚠ 유해화학물질 보관 한도</div>
+          <div className="form-row">
+            <Field label="보관가능수량" hint="지정수량 기준 — 이 수량을 기준으로 경고 발생">
+              <TextInput type="number" value={f.hazardousMaxQty} onChange={(e) => set('hazardousMaxQty', e.target.value)} placeholder={`예: 500 (${f.unit})`} />
+            </Field>
+            <Field label="경고 기준 %" hint="보관가능수량 대비 이 % 이상이면 경고 (기본 80%)">
+              <TextInput type="number" value={f.hazardousWarnPct} onChange={(e) => set('hazardousWarnPct', e.target.value)} placeholder="예: 80" />
+            </Field>
+          </div>
+          {f.hazardousMaxQty && (
+            <div className="hint" style={{ color: 'var(--red)' }}>
+              현재 설정: 보관가능수량 {Number(f.hazardousMaxQty).toLocaleString()}{f.unit} 의 {f.hazardousWarnPct || 80}% ({Math.round(Number(f.hazardousMaxQty) * (Number(f.hazardousWarnPct || 80) / 100)).toLocaleString()}{f.unit}) 초과 시 경고
+            </div>
+          )}
+        </div>
+      )}
       <Field label="비고">
         <TextInput value={f.note} onChange={(e) => set('note', e.target.value)} placeholder="선택 입력" />
       </Field>
