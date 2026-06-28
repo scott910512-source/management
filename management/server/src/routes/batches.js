@@ -6,6 +6,7 @@ const { asyncHandler, str, num, badRequest, sendCsv } = require('../lib/http');
 const { requireAuth, requireWrite } = require('../middleware/auth');
 const { resolvePlant } = require('../middleware/plant');
 const { appendTransaction } = require('../lib/tx');
+const { appendAnomaly, findEarlierLot } = require('../lib/anomaly');
 const { nextBatchNo, nextProductBatchNo, lookupBatch, ensureBatch, yearOf } = require('../lib/batch');
 
 const router = express.Router();
@@ -171,6 +172,8 @@ router.get(
           stock,
           lotCount: lots.length,
           oldestLot: lots[0] ? lots[0].lotNo : '',
+          // Lot 직접 선택용 — FIFO 순(오래된 입고일 먼저)
+          lots: lots.map((r) => ({ lotNo: r.lotNo, quantity: num(r[cfg.qtyKey]) || 0, receivedDate: r.receivedDate || '', unit: r.unit })),
         };
       });
     res.json({ product, year, nextNo: await nextProductBatchNo(req.plant, product, year), materials: lines });
@@ -185,6 +188,7 @@ router.post(
     const product = str(req.body.product);
     const startDate = str(req.body.startDate);
     const txDate = str(req.body.txDate) || startDate || null;
+    const force = req.body.force === true || str(req.body.force) === '1';
     const batches = Array.isArray(req.body.batches) ? req.body.batches : [];
     if (!product) throw badRequest('제품(사용처)을 선택하세요.');
     if (batches.length === 0) throw badRequest('처리할 배치가 없습니다.');
@@ -193,10 +197,12 @@ router.post(
 
     const [raw, sub] = await Promise.all([readTable('raw_materials', req.plant), readTable('sub_materials', req.plant)]);
     const rowsByCat = { raw: raw.map((r) => ({ ...r })), sub: sub.map((r) => ({ ...r })) };
+    const origByCat = { raw, sub }; // 선입선출 위반 판정용 원본 스냅샷
 
-    // 1) 전체 배치를 훑어 FIFO 분배 계획 수립 + 재고 검증 (실제 차감은 아직 안 함)
-    const plan = []; // { category, lotId, lotNo, name, unit, qty, batchKey }
-    const need = new Map(); // name|cat → 총 필요량 (검증 메시지용)
+    // 1) 분배 계획 수립 — 기본 FIFO, lotNo 지정 시 해당 Lot 우선(혼합)
+    const plan = []; // { category, lotId, lotNo, name, unit, qty, batchIdx }
+    const need = new Map(); // cat|name → 부족량
+    const violations = []; // 선입선출 위반(오래된 Lot 두고 다른 Lot 지정)
     for (let bi = 0; bi < batches.length; bi++) {
       const lines = Array.isArray(batches[bi].lines) ? batches[bi].lines : [];
       for (const ln of lines) {
@@ -204,26 +210,56 @@ router.post(
         if (!qty || qty <= 0) continue;
         const cfg = MAT[ln.category];
         if (!cfg) continue;
-        const lots = fifoLots(rowsByCat[ln.category], cfg, ln.name);
+        const pickLotNo = str(ln.lotNo);
         let remain = qty;
-        for (const lot of lots) {
-          if (remain <= 0) break;
-          const avail = num(lot[cfg.qtyKey]) || 0;
-          if (avail <= 0) continue;
-          const take = Math.min(avail, remain);
-          lot[cfg.qtyKey] = String(avail - take); // 계획상 차감(다음 배치 분배에 반영)
-          plan.push({ category: ln.category, lotId: lot.id, lotNo: lot.lotNo, name: ln.name, unit: lot.unit, qty: take, batchIdx: bi });
-          remain -= take;
+
+        // (a) Lot 직접 지정분 먼저 차감 + 위반 검사
+        if (pickLotNo) {
+          const lot = rowsByCat[ln.category].find((r) => r[cfg.nameKey] === ln.name && r.lotNo === pickLotNo);
+          const avail = lot ? num(lot[cfg.qtyKey]) || 0 : 0;
+          if (lot && avail > 0) {
+            const take = Math.min(avail, remain);
+            lot[cfg.qtyKey] = String(avail - take);
+            plan.push({ category: ln.category, lotId: lot.id, lotNo: lot.lotNo, name: ln.name, unit: lot.unit, qty: take, batchIdx: bi });
+            remain -= take;
+          }
+          // 지정 Lot보다 입고일이 빠른(오래된) Lot이 남아있으면 선입선출 위반
+          const chosen = origByCat[ln.category].find((r) => r[cfg.nameKey] === ln.name && r.lotNo === pickLotNo);
+          if (chosen) {
+            const earlier = findEarlierLot(origByCat[ln.category], chosen, cfg.nameKey);
+            if (earlier) violations.push({ batchNo: str(batches[bi].no), category: ln.category, name: ln.name, chosenLot: pickLotNo, chosenDate: chosen.receivedDate || '', earliestLot: earlier.lotNo, earliestDate: earlier.receivedDate || '' });
+          }
         }
+
+        // (b) 나머지는 FIFO(오래된 Lot부터)로 자동 분배
         if (remain > 0) {
-          const k = `${ln.category}|${ln.name}`;
-          need.set(k, (need.get(k) || 0) + remain);
+          const lots = fifoLots(rowsByCat[ln.category], cfg, ln.name);
+          for (const lot of lots) {
+            if (remain <= 0) break;
+            if (pickLotNo && lot.lotNo === pickLotNo) continue; // 이미 처리
+            const avail = num(lot[cfg.qtyKey]) || 0;
+            if (avail <= 0) continue;
+            const take = Math.min(avail, remain);
+            lot[cfg.qtyKey] = String(avail - take);
+            plan.push({ category: ln.category, lotId: lot.id, lotNo: lot.lotNo, name: ln.name, unit: lot.unit, qty: take, batchIdx: bi });
+            remain -= take;
+          }
         }
+        if (remain > 0) need.set(`${ln.category}|${ln.name}`, (need.get(`${ln.category}|${ln.name}`) || 0) + remain);
       }
     }
     if (need.size > 0) {
       const msg = Array.from(need.entries()).map(([k, v]) => `${k.split('|')[1]} ${v} 부족`).join(', ');
       throw badRequest(`재고가 부족합니다: ${msg}`);
+    }
+
+    // 선입선출 위반이 있는데 강제(force)가 아니면 — 단일 출고와 동일하게 경고(409)
+    if (violations.length > 0 && !force) {
+      return res.status(409).json({
+        fifoWarning: true,
+        message: '선입선출 오류가 발생합니다. 입고일이 더 빠른 Lot이 존재합니다.',
+        violations,
+      });
     }
 
     // 2) 배치 생성(ensureBatch) — 번호별 batchId 확보
@@ -274,7 +310,16 @@ router.post(
       txCount++;
     }
 
-    res.status(201).json({ ok: true, batches: batchIds.length, transactions: txCount });
+    // 5) 선입선출 위반(강제 처리) — 이상발생 기록 (단일 출고와 동일)
+    for (const v of violations) {
+      await appendAnomaly({
+        plant: req.plant, type: '선입선출 오류', itemName: v.name,
+        lotInfo: `${v.chosenLot}(입고 ${v.chosenDate || '-'}) — 더 빠른 Lot ${v.earliestLot}(${v.earliestDate}) 존재`,
+        account: me, note: `배치 일괄 처리 #${v.batchNo} 강제 사용`,
+      });
+    }
+
+    res.status(201).json({ ok: true, batches: batchIds.length, transactions: txCount, anomalies: violations.length });
   }),
 );
 

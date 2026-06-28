@@ -405,3 +405,5 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .batch-matrix .bm-del { border: none; width: 30px; }
 .batch-matrix .bm-x { border: none; background: transparent; color: var(--text-3); cursor: pointer; font-size: 13px; }
 .batch-matrix .bm-x:hover { color: var(--red, #ff3b30); }
+.batch-matrix .bm-lot { display: block; margin: 5px auto 0; max-width: 96px; font-size: 11px; padding: 3px 4px; border: 1px solid #dcdfe5; border-radius: 6px; color: var(--text-2, #6e6e73); background: #fff; }
+.batch-matrix .bm-lot.on { border-color: var(--accent, #0071e3); color: var(--accent, #0071e3); font-weight: 600; background: var(--accent-soft, #eaf3fe); }
