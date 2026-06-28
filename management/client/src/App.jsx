@@ -20,6 +20,7 @@ import Search from './pages/Search';
 import Manual from './pages/Manual';
 import Hazardous from './pages/Hazardous';
 import InputHistory from './pages/InputHistory';
+import Suggestions from './pages/Suggestions';
 
 const NAV = [
   { to: '/', label: '종합현황', ico: 'grid', end: true },
@@ -105,6 +106,9 @@ function Sidebar() {
         <NavLink to="/manual" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
           <span className="ico"><Icon name="book" /></span>사용자 메뉴얼
         </NavLink>
+        <NavLink to="/suggestions" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+          <span className="ico"><Icon name="task" /></span>건의사항
+        </NavLink>
       </nav>
       <div style={{ marginTop: 24, padding: '0 12px', fontSize: 12, color: 'var(--text-3)' }}>
         {user?.name} 님<br />· {roleLabel}
@@ -152,6 +156,7 @@ export default function App() {
       <Route path="/" element={<Protected title="종합현황"><Dashboard /></Protected>} />
       <Route path="/search" element={<Protected title="AI 검색"><Search /></Protected>} />
       <Route path="/manual" element={<Protected title="사용자 메뉴얼"><Manual /></Protected>} />
+      <Route path="/suggestions" element={<Protected title="건의사항"><Suggestions /></Protected>} />
       <Route path="/raw" element={<Protected title="원재료 관리"><RawMaterials /></Protected>} />
       <Route path="/sub" element={<Protected title="부재료 관리"><SubMaterials /></Protected>} />
       <Route path="/canisters" element={<Protected title="Canister 관리"><Canisters /></Protected>} />

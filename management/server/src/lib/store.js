@@ -26,6 +26,8 @@ const TABLES = {
   warning_acks: ['id', 'warningKey', 'account', 'content', 'createdAt'],
   warning_dismissed: ['id', 'warningKey', 'account', 'content', 'createdAt'],
   settings_log: ['id', 'key', 'oldValue', 'newValue', 'changedBy', 'createdAt'],
+  // 건의사항 게시판 — 작성자 수정/삭제, 관리자 완료처리
+  suggestions: ['id', 'title', 'category', 'categoryEtc', 'content', 'status', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt', 'completedBy', 'completedAt'],
 };
 
 // 전역(공장 공통) 테이블 — 공장 하위 폴더가 아닌 DATA_DIR 루트에 저장
