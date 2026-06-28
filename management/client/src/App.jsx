@@ -21,6 +21,7 @@ import Manual from './pages/Manual';
 import Hazardous from './pages/Hazardous';
 import InputHistory from './pages/InputHistory';
 import Suggestions from './pages/Suggestions';
+import Reports from './pages/Reports';
 
 // 큰 묶음 단위로 그룹화 — 그룹마다 테두리로 구분
 const NAV_GROUPS = [
@@ -42,6 +43,7 @@ const NAV_GROUPS = [
   ] },
   { title: '설정', adminOnly: true, items: [
     { to: '/items', label: '기준정보', ico: 'db' },
+    { to: '/reports', label: '월간 보고서', ico: 'grid' },
     { to: '/admin', label: '관리자 설정', ico: 'shield', badge: 'pending' },
   ] },
   { title: '도움말', items: [
@@ -132,6 +134,7 @@ function Shell({ children, title }) {
       <div className="main">
         <div className="topbar">
           <h1>{title}{plant && <span className="topbar-plant">{plant}</span>}</h1>
+          <div className="topbar-slot" id="topbar-slot" />
           <div className="user">
             {isViewer && <span className="badge orange">조회 전용</span>}
             <span>{user?.name} ({user?.id})</span>
@@ -172,6 +175,7 @@ export default function App() {
       <Route path="/tasks" element={<Protected title="Task 관리"><Tasks /></Protected>} />
       <Route path="/hazardous" element={<Protected title="유해화학물질 관리대장"><Hazardous /></Protected>} />
       <Route path="/input-history" element={<Protected title="원·부재료 투입이력"><InputHistory /></Protected>} />
+      <Route path="/reports" element={<Protected title="월간 보고서" adminOnly><Reports /></Protected>} />
       <Route path="/items" element={<Protected title="기준정보 (품목·안전재고)" adminOnly><Items /></Protected>} />
       <Route path="/admin" element={<Protected title="관리자 설정" adminOnly><Admin /></Protected>} />
       <Route path="/settings" element={<Navigate to="/admin" replace />} />

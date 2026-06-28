@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, Fragment } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import { useAuth } from '../auth/AuthContext';
@@ -47,6 +48,8 @@ export default function Dashboard() {
   const [matTab, setMatTab] = useState('raw');
   const [warnIdx, setWarnIdx] = useState(0); // 경고 롤 현재 인덱스
   const [warnOpen, setWarnOpen] = useState(false); // 경고 전체 펼침
+  const [topSlot, setTopSlot] = useState(null); // 상단바 경고 슬롯(포털 대상)
+  useEffect(() => { setTopSlot(document.getElementById('topbar-slot')); }, []);
 
   // 경고 자동 롤(여러 개면 4초마다 다음 경고로) — 펼침 상태에서는 정지
   useEffect(() => {
@@ -97,113 +100,84 @@ export default function Dashboard() {
   const activeTasks = allTasks.filter((t) => t.status !== '완료');
 
   // 진행 Task 카드 (경고 바로 아래로 이동)
-  const taskCard = (
-    <div className="card" style={{ marginBottom: 16 }}>
-      <div className="card-head">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <h3 style={{ margin: 0 }}>진행 Task</h3>
-          <div style={{ display: 'flex', gap: 12, fontSize: 13, fontWeight: 600 }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><i style={{ width: 9, height: 9, borderRadius: '50%', background: '#2da44e', display: 'inline-block' }} />진행 중 {tStat.prog}건</span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><i style={{ width: 9, height: 9, borderRadius: '50%', background: '#e5534b', display: 'inline-block' }} />지연 {tStat.late}건</span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: 'var(--text-3)' }}><i style={{ width: 9, height: 9, borderRadius: '50%', background: '#a0a0a8', display: 'inline-block' }} />완료 {tStat.done}건</span>
-          </div>
-        </div>
-        <span className="inline-link" onClick={() => navigate('/tasks')}>+ Task 등록 / 관리 →</span>
+  const taskPanel = (
+    <div className="card card-pad" style={{ marginBottom: 0, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+        <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-2)' }}>진행 Task</div>
+        <span className="inline-link" style={{ fontSize: 12 }} onClick={() => navigate('/tasks')}>상세보기 →</span>
       </div>
-      <div className="table-wrap">
+      <div style={{ display: 'flex', gap: 10, fontSize: 12, fontWeight: 600, marginBottom: 6 }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><i style={{ width: 8, height: 8, borderRadius: '50%', background: '#2da44e', display: 'inline-block' }} />진행 {tStat.prog}</span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><i style={{ width: 8, height: 8, borderRadius: '50%', background: '#e5534b', display: 'inline-block' }} />지연 {tStat.late}</span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--text-3)' }}><i style={{ width: 8, height: 8, borderRadius: '50%', background: '#a0a0a8', display: 'inline-block' }} />완료 {tStat.done}</span>
+      </div>
+      <div style={{ flex: 1 }}>
         {!tasks ? <Loading /> : activeTasks.length === 0 ? (
-          <div className="empty" style={{ padding: 24 }}>진행 중인 Task가 없습니다.</div>
-        ) : (
-          <table className="tbl compact">
-            <thead>
-              <tr><th>우선</th><th>Task명</th><th>구분</th><th>담당</th><th>완료예정</th><th>현황</th><th style={{ width: 1 }}></th></tr>
-            </thead>
-            <tbody>
-              {activeTasks.map((t) => (
-                <tr key={t.id}>
-                  <td><Badge color={prioColor[t.priority]}>{t.priority}</Badge></td>
-                  <td><b>{t.title}</b></td>
-                  <td className="muted">{t.category === '기타' ? t.categoryEtc || '기타' : t.category}</td>
-                  <td className="muted">{t.assignee || '–'}</td>
-                  <td className="muted">{t.dueDate || '–'}</td>
-                  <td><Badge color={statColor[t.status]} dot>{t.status}</Badge></td>
-                  <td>
-                    <div className="btn-row">
-                      {t.status === '완료대기' && isAdmin && <button className="btn ghost sm" onClick={() => approveTask(t)}>승인</button>}
-                      {t.status === '완료대기' && !isAdmin && <span className="muted" style={{ fontSize: 12 }}>승인 대기중</span>}
-                      {canWrite && t.status !== '완료' && t.status !== '완료대기' && <button className="btn ghost sm" onClick={() => completeTask(t)}>완료</button>}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+          <div className="muted" style={{ fontSize: 13, padding: '8px 0' }}>진행 중인 Task가 없습니다.</div>
+        ) : activeTasks.slice(0, 5).map((t) => (
+          <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', borderTop: '1px solid var(--line)' }}>
+            <Badge color={prioColor[t.priority]}>{t.priority}</Badge>
+            <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer' }} title={t.title} onClick={() => navigate('/tasks')}><b>{t.title}</b></span>
+            <Badge color={statColor[t.status]} dot>{t.status}</Badge>
+            {t.status === '완료대기' && isAdmin && <button className="btn ghost sm" onClick={() => approveTask(t)}>승인</button>}
+            {canWrite && t.status !== '완료' && t.status !== '완료대기' && <button className="btn ghost sm" onClick={() => completeTask(t)}>완료</button>}
+          </div>
+        ))}
+        {activeTasks.length > 5 && <div className="inline-link" style={{ fontSize: 12, paddingTop: 8 }} onClick={() => navigate('/tasks')}>외 {activeTasks.length - 5}건 더보기 →</div>}
       </div>
     </div>
   );
 
-  // 경고 한 건 렌더(롤/전체 공통)
-  const renderWarn = (w, rolling) => (
-    <div className={`warn-item ${w.level === 'warn' ? 'warn' : ''}`} key={w.key} style={rolling ? { animation: 'fade 0.35s ease' } : undefined}>
-      <span className="wbar" />
-      <div className="wc">
-        <div className="wmsg">{w.content}</div>
-        <div className="wack">확인 {w.ackCount}/{w.totalUsers}명{w.ackedByMe ? ' · 내 확인 완료' : ''}</div>
-      </div>
-      {canWrite && !w.ackedByMe && <button className="btn sm" onClick={() => ack(w.key, w.content)}>확인</button>}
-      {canWrite && <button className="btn secondary sm" onClick={() => dismiss(w.key, w.content)}>삭제</button>}
-    </div>
-  );
   const warnCount = warnings ? warnings.length : 0;
   const curWarn = warnCount ? warnings[warnIdx % warnCount] : null;
 
+  // 상단바(타이틀 우측) 경고 위젯 — 내용 + 확인/삭제만 심플하게(여러 건은 ‹ › 롤)
+  const topWarn = (
+    <div className={`topwarn ${curWarn ? (curWarn.level === 'warn' ? 'warn' : 'danger') : 'ok'}`}>
+      {warnCount === 0 ? (
+        <span className="topwarn-ok">⚠ 경고 없음</span>
+      ) : (
+        <>
+          <span className="topwarn-badge">⚠ {warnCount}</span>
+          {warnCount > 1 && (
+            <span className="topwarn-nav">
+              <button onClick={() => setWarnIdx((i) => (i - 1 + warnCount) % warnCount)} title="이전 경고">‹</button>
+              <span className="topwarn-idx">{(warnIdx % warnCount) + 1}/{warnCount}</span>
+              <button onClick={() => setWarnIdx((i) => (i + 1) % warnCount)} title="다음 경고">›</button>
+            </span>
+          )}
+          <span className="topwarn-msg" title={curWarn.content}>{curWarn.content}</span>
+          {canWrite && !curWarn.ackedByMe && <button className="btn sm" onClick={() => ack(curWarn.key, curWarn.content)}>확인</button>}
+          {canWrite && <button className="btn secondary sm" onClick={() => dismiss(curWarn.key, curWarn.content)}>삭제</button>}
+        </>
+      )}
+    </div>
+  );
+
   return (
     <>
-      {/* 1) 최상단 경고 롤 */}
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="card-head">
-          <h3>⚠ 경고 {warnings ? `(${warnCount})` : ''}</h3>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {warnCount > 1 && !warnOpen && (
-              <>
-                <button className="btn ghost sm" title="이전 경고" onClick={() => setWarnIdx((i) => (i - 1 + warnCount) % warnCount)}>▲</button>
-                <span className="muted" style={{ fontSize: 12, minWidth: 34, textAlign: 'center' }}>{(warnIdx % warnCount) + 1} / {warnCount}</span>
-                <button className="btn ghost sm" title="다음 경고" onClick={() => setWarnIdx((i) => (i + 1) % warnCount)}>▼</button>
-              </>
-            )}
-            {warnCount > 0
-              ? <button className="btn secondary sm" onClick={() => setWarnOpen((v) => !v)}>{warnOpen ? '접기' : `전체 펼치기 (${warnCount})`}</button>
-              : <span className="hint">안전재고 부족 · Canister · 유해물질</span>}
+      {/* 경고 → 상단바(타이틀 우측)로 포털 */}
+      {topSlot && createPortal(topWarn, topSlot)}
+
+      {/* 최상단(타이틀 제외): 퀵메뉴 · 진행 Task · AI검색 가로 배치 */}
+      <div className={`grid ${canWrite ? 'grid-3' : 'grid-2'}`} style={{ marginBottom: 16, alignItems: 'stretch' }}>
+        {canWrite && (
+          <div className="card card-pad" style={{ marginBottom: 0 }}>
+            <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-2)', marginBottom: 10 }}>퀵 입력</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <QuickGroup navigate={navigate} icon="canister" color="#0071e3" title="원재료" actions={[['입고', '/raw?new=1'], ['사용', '/raw?use=1']]} />
+              <QuickGroup navigate={navigate} icon="drum" color="#5e5ce6" title="부재료" actions={[['입고', '/sub?new=1'], ['사용', '/sub?use=1']]} />
+              <QuickGroup navigate={navigate} icon="star" color="#34c759" title="Canister" actions={[['등록', '/canisters?new=1'], ['수불 등록', '/canisters?move=1']]} />
+            </div>
           </div>
-        </div>
-        <div>
-          {!warnings ? <Loading /> : warnCount === 0 ? (
-            <div className="empty" style={{ padding: 20 }}>현재 경고가 없습니다. 👍</div>
-          ) : warnOpen ? (
-            warnings.map((w) => renderWarn(w, false))
-          ) : (
-            renderWarn(curWarn, true)
-          )}
+        )}
+        {taskPanel}
+        <div className="card card-pad" style={{ marginBottom: 0 }}>
+          <SmartSearch inline />
         </div>
       </div>
 
-      {/* 2) 진행 Task — 경고 바로 아래 */}
-      {taskCard}
-
-      {/* 3) 퀵 입력 */}
-      {canWrite && (
-        <div className="card card-pad" style={{ marginBottom: 16 }}>
-          <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-2)', marginBottom: 10 }}>퀵 입력</div>
-          <div className="grid grid-3">
-            <QuickGroup navigate={navigate} icon="canister" color="#0071e3" title="원재료" actions={[['입고', '/raw?new=1'], ['사용', '/raw?use=1']]} />
-            <QuickGroup navigate={navigate} icon="drum" color="#5e5ce6" title="부재료" actions={[['입고', '/sub?new=1'], ['사용', '/sub?use=1']]} />
-            <QuickGroup navigate={navigate} icon="star" color="#34c759" title="Canister" actions={[['등록', '/canisters?new=1'], ['수불 등록', '/canisters?move=1']]} />
-          </div>
-        </div>
-      )}
-
-      {/* 4) 요약 현황 — 원·부재료(좌) + Canister(우) */}
+      {/* 요약 현황 — 원·부재료(좌) + Canister(우) */}
       <div className="grid grid-2" style={{ marginBottom: 16 }}>
         <div className="card">
           <div className="card-head">
@@ -271,10 +245,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* 5) AI 자연어 검색 — 최하단 */}
-      <div className="card card-pad">
-        <SmartSearch inline />
-      </div>
     </>
   );
 }

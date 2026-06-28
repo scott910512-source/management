@@ -114,7 +114,21 @@ button { font-family: inherit; }
   background: rgba(245, 245, 247, 0.8); backdrop-filter: blur(20px);
   position: sticky; top: 0; z-index: 10;
 }
-.topbar h1 { font-size: 19px; }
+.topbar h1 { font-size: 19px; flex-shrink: 0; }
+/* 상단바 경고 슬롯 — 타이틀 우측 */
+.topbar-slot { flex: 1; min-width: 0; display: flex; justify-content: flex-end; margin: 0 16px; }
+.topwarn { display: flex; align-items: center; gap: 8px; min-width: 0; max-width: 760px; padding: 5px 12px; border-radius: 10px; background: var(--surface); border: 1px solid var(--line); }
+.topwarn.danger { border-color: #f4cdca; background: #fff4f3; }
+.topwarn.warn { border-color: #f3dcb0; background: #fff8ec; }
+.topwarn-badge { flex-shrink: 0; font-size: 12.5px; font-weight: 700; color: var(--red); }
+.topwarn.warn .topwarn-badge { color: var(--orange, #d98318); }
+.topwarn-ok { font-size: 13px; color: var(--text-3); }
+.topwarn-nav { flex-shrink: 0; display: inline-flex; align-items: center; gap: 2px; }
+.topwarn-nav button { border: none; background: transparent; cursor: pointer; font-size: 15px; line-height: 1; color: var(--text-2); padding: 0 3px; font-family: inherit; }
+.topwarn-nav button:hover { color: var(--text); }
+.topwarn-idx { font-size: 11px; color: var(--text-3); min-width: 26px; text-align: center; }
+.topwarn-msg { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; color: var(--text); }
+@media (max-width: 1000px) { .topwarn-msg { display: none; } .topbar-slot { margin: 0 8px; } }
 .topbar-plant { margin-left: 10px; font-size: 12px; font-weight: 600; color: var(--accent); background: var(--accent-soft); padding: 3px 10px; border-radius: 980px; vertical-align: middle; }
 .topbar .user { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--text-2); }
 .content { padding: 26px 28px 60px; max-width: 1200px; width: 100%; margin: 0 auto; }

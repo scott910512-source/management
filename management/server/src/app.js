@@ -25,6 +25,7 @@ const { router: hazardousRoutes } = require('./routes/hazardous');
 const { router: batchRoutes } = require('./routes/batches');
 const { router: suggestionRoutes } = require('./routes/suggestions');
 const { router: productRoutes } = require('./routes/products');
+const { router: reportRoutes } = require('./routes/reports');
 
 function createApp() {
   const app = express();
@@ -82,6 +83,7 @@ function createApp() {
   app.use('/api/batches', batchRoutes);
   app.use('/api/suggestions', suggestionRoutes);
   app.use('/api/products', productRoutes);
+  app.use('/api/reports', reportRoutes);
 
   // 프로덕션: 빌드된 React 정적 파일 서빙 + SPA 폴백
   const clientDist = path.join(__dirname, '..', '..', 'client', 'dist');
