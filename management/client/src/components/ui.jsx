@@ -43,8 +43,11 @@ export function Modal({ title, subtitle, children, onClose, footer, size }) {
     <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose && onClose()}>
       <div className={`modal ${size === 'lg' ? 'lg' : ''}`} role="dialog" aria-modal="true">
         <div className="modal-head">
-          <h3>{title}</h3>
-          {subtitle && <p>{subtitle}</p>}
+          <div style={{ minWidth: 0 }}>
+            <h3>{title}</h3>
+            {subtitle && <p>{subtitle}</p>}
+          </div>
+          {onClose && <button type="button" className="modal-x" onClick={onClose} aria-label="닫기" title="닫기">✕</button>}
         </div>
         <div className="modal-body">{children}</div>
         {footer && <div className="modal-foot">{footer}</div>}

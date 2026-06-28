@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Routes, Route, Navigate, NavLink, useNavigate } from 'react-router-dom';
+import { Routes, Route, Navigate, NavLink, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from './auth/AuthContext';
 import { Loading } from './components/ui';
 import { Icon } from './components/icons';
@@ -22,53 +22,82 @@ import Hazardous from './pages/Hazardous';
 import InputHistory from './pages/InputHistory';
 import Suggestions from './pages/Suggestions';
 
-const NAV = [
-  { to: '/', label: '종합현황', ico: 'grid', end: true },
-  { to: '/search', label: 'AI 검색', ico: 'search' },
-  { section: '재고 관리' },
-  { to: '/raw', label: '원재료', ico: 'canister' },
-  { to: '/sub', label: '부재료', ico: 'drum' },
-  { to: '/canisters', label: 'Canister', ico: 'star' },
-  { section: '내역 · 업무' },
-  { to: '/transactions', label: '수불 이력', ico: 'swap' },
-  { to: '/input-history', label: '원·부재료 투입이력', ico: 'swap' },
-  { to: '/anomalies', label: '이상발생 목록', ico: 'alert' },
-  { to: '/tasks', label: 'Task 관리', ico: 'task' },
-  { to: '/hazardous', label: '유해화학물질', ico: 'alert' },
+// 큰 묶음 단위로 그룹화 — 그룹마다 테두리로 구분
+const NAV_GROUPS = [
+  { items: [
+    { to: '/search', label: 'AI 검색', ico: 'search' },
+    { to: '/', label: '종합현황', ico: 'grid', end: true },
+  ] },
+  { title: '재고 관리', items: [
+    { to: '/raw', label: '원재료', ico: 'canister' },
+    { to: '/sub', label: '부재료', ico: 'drum' },
+    { to: '/canisters', label: 'Canister', ico: 'star' },
+  ] },
+  { title: '내역 · 업무', items: [
+    { to: '/transactions', label: '수불 이력', ico: 'swap' },
+    { to: '/input-history', label: '원·부재료 투입이력', ico: 'swap' },
+    { to: '/anomalies', label: '이상발생 목록', ico: 'alert' },
+    { to: '/tasks', label: 'Task 관리', ico: 'task' },
+    { to: '/hazardous', label: '유해화학물질', ico: 'alert' },
+  ] },
+  { title: '설정', adminOnly: true, items: [
+    { to: '/items', label: '기준정보', ico: 'db' },
+    { to: '/admin', label: '관리자 설정', ico: 'shield', badge: 'pending' },
+  ] },
+  { title: '도움말', items: [
+    { to: '/manual', label: '사용자 메뉴얼', ico: 'book' },
+    { to: '/suggestions', label: '건의사항', ico: 'task' },
+  ] },
 ];
+
+function NavItem({ n, pendingCount }) {
+  return (
+    <NavLink to={n.to} end={n.end} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} title={n.label}>
+      <span className="ico"><Icon name={n.ico} /></span>
+      <span className="nav-label">{n.label}</span>
+      {n.badge === 'pending' && pendingCount > 0 && <span className="nav-badge">{pendingCount}</span>}
+    </NavLink>
+  );
+}
 
 function Sidebar() {
   const { user, isAdmin, plants, plant, changePlant, roleLabel } = useAuth();
   const [pendingCount, setPendingCount] = useState(0);
+  const [mini, setMini] = useState(() => localStorage.getItem('sidebarMini') === '1');
+  useEffect(() => { localStorage.setItem('sidebarMini', mini ? '1' : '0'); }, [mini]);
   useEffect(() => {
     if (!isAdmin) return;
-    api.get('/users').then((d) => {
-      setPendingCount((d.items || []).filter((u) => u.status === 'pending').length);
-    }).catch(() => {});
-    const id = setInterval(() => {
-      api.get('/users').then((d) => {
-        setPendingCount((d.items || []).filter((u) => u.status === 'pending').length);
-      }).catch(() => {});
-    }, 60000);
+    const fetchPending = () => api.get('/users').then((d) => setPendingCount((d.items || []).filter((u) => u.status === 'pending').length)).catch(() => {});
+    fetchPending();
+    const id = setInterval(fetchPending, 60000);
     return () => clearInterval(id);
   }, [isAdmin]);
+
+  const groups = NAV_GROUPS.filter((g) => !g.adminOnly || isAdmin);
+
   return (
-    <aside className="sidebar">
-      <div className="brand">
-        <div className="brand-logo">
-          <svg viewBox="0 0 34 34" fill="none" xmlns="http://www.w3.org/2000/svg" style={{width:'100%',height:'100%'}}>
-            <polygon points="3,14 17,5 31,14" fill="rgba(255,255,255,0.25)" stroke="#fff" strokeWidth="1.8" strokeLinejoin="round"/>
-            <rect x="3" y="14" width="28" height="16" rx="1" stroke="#fff" strokeWidth="1.8"/>
-            <rect x="13" y="20" width="8" height="10" rx="1" fill="#fff"/>
-            <rect x="4" y="18" width="7" height="6" rx="0.5" fill="rgba(255,255,255,0.7)"/>
-            <rect x="23" y="18" width="7" height="6" rx="0.5" fill="rgba(255,255,255,0.7)"/>
-          </svg>
-        </div>
-        <div>
-          <div className="brand-title">StockPilot</div>
-          <div className="brand-sub">화학공장 운영관리</div>
-        </div>
+    <aside className={`sidebar ${mini ? 'mini' : ''}`}>
+      <div className="brand-row">
+        <Link to="/" className="brand" title="종합현황으로 이동">
+          <div className="brand-logo">
+            <svg viewBox="0 0 34 34" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: '100%', height: '100%' }}>
+              <polygon points="3,14 17,5 31,14" fill="rgba(255,255,255,0.25)" stroke="#fff" strokeWidth="1.8" strokeLinejoin="round" />
+              <rect x="3" y="14" width="28" height="16" rx="1" stroke="#fff" strokeWidth="1.8" />
+              <rect x="13" y="20" width="8" height="10" rx="1" fill="#fff" />
+              <rect x="4" y="18" width="7" height="6" rx="0.5" fill="rgba(255,255,255,0.7)" />
+              <rect x="23" y="18" width="7" height="6" rx="0.5" fill="rgba(255,255,255,0.7)" />
+            </svg>
+          </div>
+          <div className="brand-text">
+            <div className="brand-title">StockPilot</div>
+            <div className="brand-sub">화학공장 운영관리</div>
+          </div>
+        </Link>
+        <button className="sidebar-toggle" onClick={() => setMini((v) => !v)} title={mini ? '메뉴 펼치기' : '메뉴 최소화'} aria-label="메뉴 최소화">
+          {mini ? '»' : '«'}
+        </button>
       </div>
+
       <div className="plant-pick">
         <span className="plant-label">공장</span>
         {plants && plants.length > 1 ? (
@@ -79,40 +108,17 @@ function Sidebar() {
           <span className="plant-single">{plant || (plants && plants[0]) || '-'}</span>
         )}
       </div>
+
       <nav className="nav">
-        {NAV.map((n, i) =>
-          n.section ? (
-            <div className="nav-section" key={i}>{n.section}</div>
-          ) : (
-            <NavLink key={n.to} to={n.to} end={n.end} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-              <span className="ico"><Icon name={n.ico} /></span>
-              {n.label}
-            </NavLink>
-          ),
-        )}
-        <div className="nav-section">설정</div>
-        {isAdmin && (
-          <NavLink to="/items" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-            <span className="ico"><Icon name="db" /></span>기준정보
-          </NavLink>
-        )}
-        {isAdmin && (
-          <NavLink to="/admin" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-            <span className="ico"><Icon name="shield" /></span>관리자 설정
-            {pendingCount > 0 && <span style={{ marginLeft: 'auto', background: 'var(--red)', color: '#fff', borderRadius: 10, fontSize: 11, padding: '1px 6px', lineHeight: '16px' }}>{pendingCount}</span>}
-          </NavLink>
-        )}
-        <div className="nav-section">도움말</div>
-        <NavLink to="/manual" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-          <span className="ico"><Icon name="book" /></span>사용자 메뉴얼
-        </NavLink>
-        <NavLink to="/suggestions" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-          <span className="ico"><Icon name="task" /></span>건의사항
-        </NavLink>
+        {groups.map((g, i) => (
+          <div className="nav-group" key={i}>
+            {g.title && <div className="nav-section">{g.title}</div>}
+            {g.items.map((n) => <NavItem key={n.to} n={n} pendingCount={pendingCount} />)}
+          </div>
+        ))}
       </nav>
-      <div style={{ marginTop: 24, padding: '0 12px', fontSize: 12, color: 'var(--text-3)' }}>
-        {user?.name} 님<br />· {roleLabel}
-      </div>
+
+      <div className="sidebar-user">{user?.name} 님<span> · {roleLabel}</span></div>
     </aside>
   );
 }

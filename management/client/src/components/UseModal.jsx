@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { api } from '../api';
 import { Modal, Field, Select, TextInput } from './ui';
+import { BatchFields, BalanceBox } from './inputs';
 
 /**
  * 사용(출고) 모달: 품목 선택 → 재고 있는 Lot 선택 → 수량 입력.
@@ -19,18 +20,20 @@ export function UseModal({ title = '사용 처리', base, items, nameField, qtyF
   const sel = lots.find((l) => l.id === lotId) || lots[0];
   const [quantity, setQuantity] = useState('');
   const [note, setNote] = useState('');
+  const [batch, setBatch] = useState({});
   const [busy, setBusy] = useState(false);
   const [fifo, setFifo] = useState(null);
 
   const cur = sel ? Number(sel[qtyField]) : 0;
   const qty = Number(quantity);
   const over = qty > cur;
+  const category = base === 'sub-materials' ? 'sub' : 'raw';
 
   async function doSubmit(force) {
     if (!sel) return onError('재고가 있는 Lot이 없습니다.');
     setBusy(true);
     try {
-      await api.post(`/${base}/${sel.id}/transaction`, { type: '출고', quantity: qty, note, force });
+      await api.post(`/${base}/${sel.id}/transaction`, { type: '출고', quantity: qty, note, force, batchNo: batch.batchNo, product: batch.product, batchStartDate: batch.batchStartDate });
       onSaved();
     } catch (e) {
       if (e.status === 409 && e.data && e.data.fifoWarning) setFifo(e.data);
@@ -74,13 +77,17 @@ export function UseModal({ title = '사용 처리', base, items, nameField, qtyF
             {lots.map((l) => <option key={l.id} value={l.id}>{l.lotNo} — 재고 {Number(l[qtyField]).toLocaleString()}{l.unit} (입고 {l.receivedDate || '-'})</option>)}
           </Select>
         </Field>
+        {sel && <BalanceBox cur={cur} qty={qty} type="출고" unit={sel.unit} over={over} hasQty={!!quantity} />}
         <Field label={`사용 수량 (${sel ? sel.unit : ''})`} required error={over ? '현재 재고를 초과했습니다.' : ''}>
-          <TextInput type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="0" autoFocus />
+          <div style={{ display: 'flex', gap: 6 }}>
+            <TextInput type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="0" autoFocus />
+            {sel && <button type="button" className="btn secondary sm" style={{ whiteSpace: 'nowrap' }} onClick={() => setQuantity(String(cur))}>전량</button>}
+          </div>
         </Field>
+        <BatchFields category={category} materialName={name} onChange={setBatch} />
         <Field label="비고">
           <TextInput value={note} onChange={(e) => setNote(e.target.value)} placeholder="예: 3공정 투입" />
         </Field>
-        {sel && quantity && !over && <div className="hint">처리 후 재고: <b>{(cur - qty).toLocaleString()}{sel.unit}</b></div>}
       </Modal>
 
       {fifo && (
