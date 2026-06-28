@@ -6,6 +6,7 @@ const { asyncHandler, str, num, badRequest, notFound, sendCsv } = require('../li
 const { newId, now } = require('../lib/ids');
 const { appendTransaction } = require('../lib/tx');
 const { appendAnomaly, findEarlierLot } = require('../lib/anomaly');
+const { ensureBatch, yearOf } = require('../lib/batch');
 const { requireAuth, requireAdmin, requireWrite } = require('../middleware/auth');
 const { resolvePlant } = require('../middleware/plant');
 
@@ -213,6 +214,10 @@ router.post(
     const note = str(req.body.note);
     const force = req.body.force === true || str(req.body.force) === '1';
     const txDate = str(req.body.txDate) || null;
+    // 합성 Batch (출고 시에만 기록)
+    const batchNoRaw = str(req.body.batchNo);
+    const batchProduct = req.body.product !== undefined ? str(req.body.product) : null;
+    const batchStartDate = str(req.body.batchStartDate);
     if (!['입고', '출고'].includes(type)) throw badRequest('수불 구분은 입고 또는 출고여야 합니다.');
     if (Number.isNaN(qty) || qty <= 0) throw badRequest('수량(무게)은 0보다 큰 숫자여야 합니다.');
 
@@ -244,9 +249,26 @@ router.post(
       r.updatedAt = now();
       return r;
     });
+
+    // 출고 + Batch 번호 입력 시 배치 기록(합성 투입이력)
+    let batchNo = '';
+    let batchId = '';
+    if (type === '출고' && batchNoRaw) {
+      const year = yearOf(txDate);
+      let product = batchProduct;
+      if (product === null) {
+        const items = await readTable('items', req.plant);
+        const master = items.find((i) => i.category === 'sub' && i.name === item.name);
+        product = master ? master.product || '' : '';
+      }
+      const batch = await ensureBatch(req.plant, { product, no: batchNoRaw, year, startDate: batchStartDate, user: me });
+      batchNo = batch.no;
+      batchId = batch.id;
+    }
+
     const txn = await appendTransaction({
       plant: req.plant, materialType: 'sub', materialId: item.id, materialName: item.name, lotNo: item.lotNo,
-      type, quantity: qty, unit: item.unit, balanceAfter: item.weight, note, user: me, txDate,
+      type, quantity: qty, unit: item.unit, balanceAfter: item.weight, batchNo, batchId, note, user: me, txDate,
     });
     if (violation && force && type === '출고') {
       await appendAnomaly({

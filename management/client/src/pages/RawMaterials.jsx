@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { api, downloadCsv } from '../api';
 import { useAuth } from '../auth/AuthContext';
 import { Modal, Field, TextInput, Select, useToast, ConfirmDialog, Empty, Loading, Badge } from '../components/ui';
-import { UnitInput, ItemSelect, expandLot, BalanceBox } from '../components/inputs';
+import { UnitInput, ItemSelect, expandLot, BalanceBox, BatchFields } from '../components/inputs';
 import { TrendModal } from '../components/TrendModal';
 import { UseModal } from '../components/UseModal';
 import { BulkUseModal } from '../components/BulkUseModal';
@@ -361,6 +361,7 @@ function TxForm({ item, onClose, onSaved, onError }) {
   const [quantity, setQuantity] = useState('');
   const [note, setNote] = useState('');
   const [txDate, setTxDate] = useState(new Date().toISOString().slice(0, 10));
+  const [batch, setBatch] = useState({});
   const [busy, setBusy] = useState(false);
   const [fifo, setFifo] = useState(null);
   const cur = Number(item.quantity);
@@ -370,7 +371,8 @@ function TxForm({ item, onClose, onSaved, onError }) {
   async function doSubmit(force) {
     setBusy(true);
     try {
-      await api.post(`/raw-materials/${item.id}/transaction`, { type, quantity: qty, note, force, txDate });
+      const batchFields = type === '출고' ? { batchNo: batch.batchNo, product: batch.product, batchStartDate: batch.batchStartDate } : {};
+      await api.post(`/raw-materials/${item.id}/transaction`, { type, quantity: qty, note, force, txDate, ...batchFields });
       onSaved();
     } catch (e) {
       if (e.status === 409 && e.data && e.data.fifoWarning) setFifo(e.data);
@@ -412,6 +414,7 @@ function TxForm({ item, onClose, onSaved, onError }) {
         <Field label="수불 날짜" hint="실제 발생 날짜 (기본: 오늘)">
           <TextInput type="date" value={txDate} onChange={(e) => setTxDate(e.target.value)} />
         </Field>
+        {type === '출고' && <BatchFields category="raw" materialName={item.itemName} date={txDate} onChange={setBatch} />}
         <Field label="비고">
           <TextInput value={note} onChange={(e) => setNote(e.target.value)} placeholder="예: 3공정 투입" />
         </Field>

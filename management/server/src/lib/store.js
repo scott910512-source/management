@@ -17,7 +17,9 @@ const TABLES = {
   sub_materials: ['id', 'name', 'receivedDate', 'lotNo', 'vendor', 'unit', 'pkgCount', 'initialWeight', 'weight', 'note', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt'],
   canisters: ['id', 'canisterNo', 'size', 'sizeEtc', 'location', 'locationEtc', 'status', 'statusEtc', 'content', 'weight', 'unit', 'note', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt'],
   canister_history: ['id', 'canisterId', 'canisterNo', 'date', 'type', 'content', 'weight', 'location', 'status', 'note', 'createdBy', 'createdAt'],
-  transactions: ['id', 'materialType', 'materialId', 'materialName', 'lotNo', 'content', 'type', 'quantity', 'unit', 'balanceAfter', 'note', 'createdBy', 'createdAt'],
+  transactions: ['id', 'materialType', 'materialId', 'materialName', 'lotNo', 'content', 'type', 'quantity', 'unit', 'balanceAfter', 'batchNo', 'batchId', 'note', 'createdBy', 'createdAt'],
+  // 합성 Batch — 제품(사용처)+연도+번호로 식별, 합성시작일 공유
+  batches: ['id', 'product', 'year', 'no', 'startDate', 'createdBy', 'createdAt'],
   settings: ['key', 'value'],
   anomalies: ['id', 'type', 'itemName', 'lotInfo', 'account', 'note', 'createdAt'],
   tasks: ['id', 'title', 'category', 'categoryEtc', 'priority', 'assignee', 'dueDate', 'status', 'note', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt'],
