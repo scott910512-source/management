@@ -386,3 +386,22 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .kv { display: flex; gap: 8px; font-size: 13px; }
 .kv .k { color: var(--text-3); min-width: 72px; }
 .inline-link { color: var(--accent); cursor: pointer; font-weight: 500; }
+
+/* ===== 배치 일괄 처리 매트릭스 (행=배치 / 열=자재) ===== */
+.batch-matrix { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.batch-matrix th, .batch-matrix td { border: 1px solid var(--border, #e5e5ea); padding: 8px 10px; text-align: center; }
+.batch-matrix thead th { background: #fafafd; }
+.batch-matrix .bm-corner { text-align: left; background: #fff; }
+.batch-matrix .bm-mat { font-weight: 700; font-size: 14px; }
+.batch-matrix .bm-meta { font-size: 11px; color: var(--text-3, #86868b); font-weight: 400; }
+.batch-matrix .bm-stockrow th { background: #f3f6fb; font-weight: 500; }
+.batch-matrix .bm-no { width: 56px; text-align: center; border: 1px solid #cfd4dc; border-radius: 7px; padding: 5px; font-weight: 600; }
+.batch-matrix .bm-hash { color: var(--text-3); margin-right: 2px; }
+.batch-matrix .bm-qty { width: 72px; text-align: right; border: 1px solid #cfd4dc; border-radius: 7px; padding: 6px 8px; font-variant-numeric: tabular-nums; }
+.batch-matrix .bm-qty:focus { border-color: var(--accent, #0071e3); outline: none; }
+.batch-matrix .bm-sum td { background: #f3f6fb; font-weight: 700; }
+.batch-matrix .bm-after td { font-weight: 600; color: var(--text-2); }
+.batch-matrix .bm-after td.bm-short { color: var(--red, #ff3b30); }
+.batch-matrix .bm-del { border: none; width: 30px; }
+.batch-matrix .bm-x { border: none; background: transparent; color: var(--text-3); cursor: pointer; font-size: 13px; }
+.batch-matrix .bm-x:hover { color: var(--red, #ff3b30); }

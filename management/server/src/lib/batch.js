@@ -32,6 +32,22 @@ async function nextBatchNo(plant, materialName, year) {
   return max + 1;
 }
 
+/**
+ * 제품(사용처)의 해당 연도 최신 Batch 번호 + 1 (batches 테이블 기준).
+ * 배치 일괄 처리에서 제품군별 순번을 자동 부여하는 데 사용.
+ */
+async function nextProductBatchNo(plant, product, year) {
+  const batches = await readTable('batches', plant);
+  let max = 0;
+  for (const b of batches) {
+    if ((b.product || '') !== (product || '')) continue;
+    if (String(b.year) !== String(year)) continue;
+    const n = toNum(b.no);
+    if (n > max) max = n;
+  }
+  return max + 1;
+}
+
 /** (제품, 연도, 번호) 배치 조회 — 없으면 null */
 async function lookupBatch(plant, product, no, year) {
   const batches = await readTable('batches', plant);
@@ -72,4 +88,4 @@ async function ensureBatch(plant, { product, no, year, startDate, user }) {
   return result;
 }
 
-module.exports = { yearOf, toNum, nextBatchNo, lookupBatch, ensureBatch };
+module.exports = { yearOf, toNum, nextBatchNo, nextProductBatchNo, lookupBatch, ensureBatch };
