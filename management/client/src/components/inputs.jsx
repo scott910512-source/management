@@ -4,6 +4,32 @@ import { api } from '../api';
 
 const UNIT_PRESET = ['kg', 'ea', 'L'];
 
+/**
+ * 수불 잔량 표시 박스 — 현재잔량과 처리 후(사용 후/입고 후) 잔여수량을 크게 보여준다.
+ * cur: 현재 잔량, qty: 입력 수량, type: '입고'|'출고', unit, over: 초과 여부, hasQty: 수량 입력 여부
+ */
+export function BalanceBox({ cur, qty, type, unit, over, hasQty }) {
+  const after = type === '입고' ? cur + (qty || 0) : cur - (qty || 0);
+  const afterLabel = type === '입고' ? '입고 후 잔여수량' : '사용 후 잔여수량';
+  return (
+    <div style={{ display: 'flex', gap: 12, margin: '4px 0 16px' }}>
+      <div style={{ flex: 1, background: 'var(--bg2)', borderRadius: 10, padding: '12px 16px' }}>
+        <div style={{ fontSize: 12, color: 'var(--text-2)', marginBottom: 2 }}>현재잔량</div>
+        <div style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.1 }}>
+          {cur.toLocaleString()} <span style={{ fontSize: 14, fontWeight: 400, color: 'var(--text-2)' }}>{unit}</span>
+        </div>
+      </div>
+      <div style={{ fontSize: 22, color: 'var(--text-3)', alignSelf: 'center' }}>→</div>
+      <div style={{ flex: 1, background: over ? 'var(--red-bg, #fff1f1)' : 'var(--bg2)', borderRadius: 10, padding: '12px 16px' }}>
+        <div style={{ fontSize: 12, color: 'var(--text-2)', marginBottom: 2 }}>{afterLabel}</div>
+        <div style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.1, color: !hasQty ? 'var(--text-3)' : over ? 'var(--red)' : 'var(--green)' }}>
+          {hasQty ? after.toLocaleString() : '–'} <span style={{ fontSize: 14, fontWeight: 400, color: 'var(--text-2)' }}>{unit}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** Lot 양식의 날짜 토큰을 오늘 기준으로 치환한다. {YYYY}{YY}{MM}{DD} */
 export function expandLot(pattern) {
   if (!pattern) return '';

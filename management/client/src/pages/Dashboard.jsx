@@ -6,7 +6,7 @@ import { Loading, Empty, Badge, useToast } from '../components/ui';
 import { Icon } from '../components/icons';
 import { SmartSearch } from '../components/SmartSearch';
 
-const statColor = { 완료: 'green', 진행중: 'blue', 대기: '', 지연: 'red' };
+const statColor = { 완료: 'green', 완료대기: 'orange', 진행중: 'blue', 대기: '', 지연: 'red' };
 const prioColor = { 상: 'red', 중: 'orange', 하: '' };
 
 function QuickGroup({ icon, color, title, actions, navigate }) {
@@ -36,7 +36,7 @@ function groupByProduct(rows) {
 }
 
 export default function Dashboard() {
-  const { canWrite } = useAuth();
+  const { canWrite, isAdmin } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
   const [dash, setDash] = useState(null);
@@ -56,10 +56,17 @@ export default function Dashboard() {
     try { await api.post('/warnings/ack', { key, content }); loadWarnings(); } catch (e) { toast.err(e.message); }
   }
   async function dismiss(key, content) {
-    try { await api.post('/warnings/dismiss', { key, content }); loadWarnings(); toast.ok('경고를 숨겼습니다.'); } catch (e) { toast.err(e.message); }
+    try { await api.post('/warnings/dismiss', { key, content }); loadWarnings(); toast.ok('이 경고를 내 화면에서 숨겼습니다.'); } catch (e) { toast.err(e.message); }
   }
   async function completeTask(t) {
-    try { await api.patch('/tasks/' + t.id, { status: '완료' }); loadTasks(); toast.ok('완료 처리했습니다.'); } catch (e) { toast.err(e.message); }
+    try {
+      await api.patch('/tasks/' + t.id, { status: '완료' });
+      loadTasks();
+      toast.ok(isAdmin ? '완료 처리했습니다.' : '완료 요청했습니다. 관리자 승인 후 완료됩니다.');
+    } catch (e) { toast.err(e.message); }
+  }
+  async function approveTask(t) {
+    try { await api.patch('/tasks/' + t.id, { status: '완료' }); loadTasks(); toast.ok('완료를 승인했습니다.'); } catch (e) { toast.err(e.message); }
   }
 
   if (!dash) return <Loading />;
@@ -203,7 +210,13 @@ export default function Dashboard() {
                     <td className="muted">{t.assignee || '–'}</td>
                     <td className="muted">{t.dueDate || '–'}</td>
                     <td><Badge color={statColor[t.status]} dot>{t.status}</Badge></td>
-                    <td>{canWrite && <div className="btn-row"><button className="btn ghost sm" onClick={() => completeTask(t)}>완료</button></div>}</td>
+                    <td>
+                      <div className="btn-row">
+                        {t.status === '완료대기' && isAdmin && <button className="btn ghost sm" onClick={() => approveTask(t)}>승인</button>}
+                        {t.status === '완료대기' && !isAdmin && <span className="muted" style={{ fontSize: 12 }}>승인 대기중</span>}
+                        {canWrite && t.status !== '완료' && t.status !== '완료대기' && <button className="btn ghost sm" onClick={() => completeTask(t)}>완료</button>}
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>

@@ -4,107 +4,93 @@ import { Modal, Field, TextInput } from './ui';
 
 /**
  * 일괄 출고 모달 — 여러 품목을 한 번에 출고 처리한다.
- * items: 전체 Lot 목록 (active 포함), nameField: 품목명 키, qtyField: 잔량 키
+ * 입력한 사용 수량은 해당 품목의 Lot(세부 Lot A01~A20 포함)에 FIFO 순서로 자동 분배된다.
+ * 즉 A01을 먼저 소진하고 부족분은 A02, A03… 순으로 처리되어, Lot에 등록된 전체를 한 번에 처리할 수 있다.
+ * items: 전체 Lot 목록(active), nameField: 품목명 키, qtyField: 잔량 키
  */
 export function BulkUseModal({ base, items, nameField, qtyField, title, onClose, onSaved, onError }) {
   const [qtys, setQtys] = useState({});
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState('');
-  const [fifoConflicts, setFifoConflicts] = useState(null); // [{g, fifoData}] waiting for force confirm
 
-  // 품목별로 그룹화: 총 잔량 + FIFO 기준 가장 오래된 Lot
+  // 품목별 그룹 + FIFO 정렬된 Lot 목록(입고일 → Lot번호 오름차순: A01 먼저)
   const grouped = useMemo(() => {
     const map = new Map();
     for (const r of items) {
       const name = r[nameField];
       const qty = Number(r[qtyField]) || 0;
       if (qty <= 0) continue;
-      if (!map.has(name)) map.set(name, { name, total: 0, unit: r.unit || '', oldestLot: null });
+      if (!map.has(name)) map.set(name, { name, total: 0, unit: r.unit || '', lots: [] });
       const g = map.get(name);
       g.total += qty;
-      if (!g.oldestLot || (r.receivedDate && r.receivedDate < g.oldestLot.receivedDate)) {
-        g.oldestLot = r;
-      }
+      g.lots.push(r);
+    }
+    for (const g of map.values()) {
+      g.lots.sort((a, b) => {
+        const da = a.receivedDate || '9999';
+        const db = b.receivedDate || '9999';
+        if (da !== db) return da < db ? -1 : 1;
+        return (a.lotNo || '').localeCompare(b.lotNo || '');
+      });
     }
     return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [items, nameField, qtyField]);
 
-  async function doSubmit(toProcess, force) {
-    setBusy(true);
-    const errors = [];
-    const ok = [];
-    const fifoList = [];
-    for (const g of toProcess) {
-      try {
-        await api.post(`/${base}/${g.oldestLot.id}/transaction`, {
-          type: '출고',
-          quantity: Number(qtys[g.name]),
-          note: note || '일괄 출고',
-          force,
-        });
-        ok.push(g.name);
-      } catch (e) {
-        if (!force && e.status === 409 && e.data?.fifoWarning) {
-          fifoList.push({ g, fifoData: e.data });
-        } else {
-          errors.push(`${g.name}: ${e.message}`);
-        }
-      }
+  // FIFO 분배 미리보기 — 입력 수량이 어느 Lot에 얼마씩 들어가는지
+  function distribute(g) {
+    let remaining = Number(qtys[g.name]) || 0;
+    const used = [];
+    for (const lot of g.lots) {
+      if (remaining <= 0) break;
+      const bal = Number(lot[qtyField]) || 0;
+      if (bal <= 0) continue;
+      const take = Math.min(remaining, bal);
+      used.push({ lot, take });
+      remaining -= take;
     }
-    setBusy(false);
-    if (fifoList.length > 0) {
-      setFifoConflicts(fifoList);
-      if (ok.length > 0) onSaved(`${ok.length}개 품목 출고 완료 (선입선출 오류 ${fifoList.length}건 확인 필요)`);
-    } else {
-      if (ok.length > 0) onSaved(`${ok.length}개 품목 출고 완료${errors.length > 0 ? ` (${errors.length}건 오류)` : ''}`);
-      if (errors.length > 0) onError(errors.join('\n'));
-    }
+    return { used, short: remaining > 0 ? remaining : 0 };
   }
 
   async function submit() {
     const toProcess = grouped.filter((g) => qtys[g.name] && Number(qtys[g.name]) > 0);
     if (toProcess.length === 0) return onError('사용할 수량을 1개 이상 입력하세요.');
-    await doSubmit(toProcess, false);
-  }
-
-  async function forceSubmit() {
-    if (!fifoConflicts) return;
-    const toForce = fifoConflicts.map((c) => c.g);
-    setFifoConflicts(null);
-    await doSubmit(toForce, true);
+    for (const g of toProcess) {
+      if (Number(qtys[g.name]) > g.total) {
+        return onError(`'${g.name}' 사용 수량이 총 재고(${g.total.toLocaleString()}${g.unit})를 초과합니다.`);
+      }
+    }
+    setBusy(true);
+    const okItems = [];
+    const errors = [];
+    let lotCount = 0;
+    for (const g of toProcess) {
+      const { used } = distribute(g);
+      try {
+        for (const { lot, take } of used) {
+          // FIFO 순서대로 가장 오래된 Lot부터 출고하므로 선입선출 위반이 발생하지 않는다.
+          await api.post(`/${base}/${lot.id}/transaction`, { type: '출고', quantity: take, note: note || '일괄 출고(FIFO 분배)' });
+          lotCount++;
+        }
+        okItems.push(g.name);
+      } catch (e) {
+        errors.push(`${g.name}: ${e.message}`);
+      }
+    }
+    setBusy(false);
+    if (okItems.length > 0) {
+      onSaved(`${okItems.length}개 품목 출고 완료 (Lot ${lotCount}건 FIFO 분배)${errors.length ? ` · ${errors.length}건 오류` : ''}`);
+    } else if (errors.length > 0) {
+      onError(errors.join('\n'));
+    }
   }
 
   const setQty = (name, val) => setQtys((p) => ({ ...p, [name]: val }));
   const total = grouped.filter((g) => qtys[g.name] && Number(qtys[g.name]) > 0).length;
 
-  if (fifoConflicts) {
-    return (
-      <Modal
-        title="⚠ 선입선출 오류 확인"
-        onClose={() => setFifoConflicts(null)}
-        footer={<>
-          <button className="btn secondary" onClick={() => setFifoConflicts(null)}>취소</button>
-          <button className="btn danger" onClick={forceSubmit}>강제 출고</button>
-        </>}
-      >
-        <p style={{ margin: '0 0 12px', color: 'var(--text-2)' }}>
-          아래 품목에서 선입선출 오류가 발생했습니다. 강제 출고 시 <b>이상발생 목록에 자동 기록</b>됩니다.
-        </p>
-        <ul style={{ margin: 0, paddingLeft: 18 }}>
-          {fifoConflicts.map(({ g, fifoData }) => (
-            <li key={g.name} style={{ marginBottom: 6 }}>
-              <b>{g.name}</b> — 더 빠른 Lot: <b>{fifoData.earliest?.lotNo}</b> (입고 {fifoData.earliest?.receivedDate})
-            </li>
-          ))}
-        </ul>
-      </Modal>
-    );
-  }
-
   return (
     <Modal
       title={title || '일괄 출고'}
-      subtitle="품목별 사용 수량 입력 → 한 번에 처리"
+      subtitle="품목별 사용 수량 입력 → FIFO(A01부터) 자동 분배 처리"
       onClose={onClose}
       footer={<>
         <button className="btn secondary" onClick={onClose}>취소</button>
@@ -121,26 +107,20 @@ export function BulkUseModal({ base, items, nameField, qtyField, title, onClose,
           <thead>
             <tr>
               <th>품목명</th>
-              <th className="num">현재고</th>
-              <th className="num">선입 Lot 잔량</th>
+              <th className="num">총 재고</th>
               <th>사용 수량</th>
+              <th>분배(FIFO)</th>
             </tr>
           </thead>
           <tbody>
             {grouped.map((g) => {
-              const lotQty = Number(g.oldestLot?.[qtyField]) || 0;
               const inputQty = Number(qtys[g.name]) || 0;
-              const over = inputQty > lotQty;
+              const over = inputQty > g.total;
+              const dist = inputQty > 0 ? distribute(g) : null;
               return (
                 <tr key={g.name} style={inputQty > 0 ? { background: 'var(--bg2)' } : {}}>
-                  <td><b>{g.name}</b></td>
+                  <td><b>{g.name}</b> <span className="muted" style={{ fontSize: 11 }}>({g.lots.length} Lot)</span></td>
                   <td className="num">{g.total.toLocaleString()} <span className="muted">{g.unit}</span></td>
-                  <td className="num">
-                    <span style={{ color: over ? 'var(--red)' : undefined }}>
-                      {lotQty.toLocaleString()}
-                    </span>
-                    <span className="muted" style={{ fontSize: 11 }}> {g.unit}</span>
-                  </td>
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <TextInput
@@ -150,16 +130,23 @@ export function BulkUseModal({ base, items, nameField, qtyField, title, onClose,
                         placeholder="0"
                         style={{ width: 90 }}
                       />
+                      <button type="button" className="btn secondary sm" onClick={() => setQty(g.name, String(g.total))}>전량</button>
                       <span className="muted" style={{ fontSize: 12 }}>{g.unit}</span>
-                      {over && <span style={{ color: 'var(--red)', fontSize: 11 }}>선입 Lot 초과</span>}
                     </div>
+                  </td>
+                  <td style={{ fontSize: 11 }}>
+                    {!dist ? <span className="muted">–</span> : over ? (
+                      <span style={{ color: 'var(--red)' }}>총 재고 초과</span>
+                    ) : (
+                      <span className="muted">{dist.used.map((u) => `${u.lot.lotNo}(${u.take.toLocaleString()})`).join(' → ')}</span>
+                    )}
                   </td>
                 </tr>
               );
             })}
           </tbody>
         </table>
-        <p className="hint" style={{ marginTop: 8 }}>선입선출(FIFO) 기준으로 가장 오래된 Lot이 자동 선택됩니다. 선입 Lot 잔량을 초과하면 분할 처리가 필요합니다.</p>
+        <p className="hint" style={{ marginTop: 8 }}>입력한 수량은 가장 오래된 Lot(세부 Lot은 A01)부터 차례로 소진되어 여러 Lot에 자동 분배됩니다.</p>
       </div>
     </Modal>
   );

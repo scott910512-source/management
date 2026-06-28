@@ -5,12 +5,12 @@ import { Modal, Field, TextInput, Select, useToast, ConfirmDialog, Empty, Loadin
 
 const blank = { title: '', category: '공정', categoryEtc: '', priority: '중', assignee: '', dueDate: '', status: '대기', note: '' };
 const prioColor = { 상: 'red', 중: 'orange', 하: '' };
-const statColor = { 완료: 'green', 진행중: 'blue', 대기: '', 지연: 'red' };
+const statColor = { 완료: 'green', 완료대기: 'orange', 진행중: 'blue', 대기: '', 지연: 'red' };
 const today = () => new Date().toISOString().slice(0, 10);
 function isOverdue(t) { return t.dueDate && t.status !== '완료' && t.dueDate < today(); }
 
 export default function Tasks() {
-  const { isAdmin, canWrite } = useAuth();
+  const { isAdmin, canWrite, user } = useAuth();
   const toast = useToast();
   const [meta, setMeta] = useState(null);
   const [users, setUsers] = useState([]);
@@ -34,9 +34,21 @@ export default function Tasks() {
   const nameOf = (id) => users.find((u) => u.id === id)?.name || id || '–';
 
   async function complete(t) {
-    try { await api.patch('/tasks/' + t.id, { status: '완료' }); load(); toast.ok('완료 처리했습니다.'); }
+    try {
+      await api.patch('/tasks/' + t.id, { status: '완료' });
+      load();
+      toast.ok(isAdmin ? '완료 처리했습니다.' : '완료 요청했습니다. 관리자 승인 후 완료됩니다.');
+    } catch (e) { toast.err(e.message); }
+  }
+  async function approve(t) {
+    try { await api.patch('/tasks/' + t.id, { status: '완료' }); load(); toast.ok('완료를 승인했습니다.'); }
     catch (e) { toast.err(e.message); }
   }
+  async function reject(t) {
+    try { await api.patch('/tasks/' + t.id, { status: '진행중' }); load(); toast.ok('완료 요청을 반려했습니다.'); }
+    catch (e) { toast.err(e.message); }
+  }
+  const canEdit = (t) => isAdmin || (user && t.createdBy === user.id);
 
   if (!meta) return <Loading />;
 
@@ -71,11 +83,17 @@ export default function Tasks() {
                   <td className="muted">{nameOf(t.assignee)}</td>
                   <td className="muted" style={isOverdue(t) ? { color: 'var(--red)', fontWeight: 600 } : {}}>{t.dueDate || '–'}{isOverdue(t) && ' ⚠'}</td>
                   <td><Badge color={statColor[t.status]} dot>{t.status}</Badge></td>
-                  <td className="muted">{(t.createdAt || '').slice(0, 10)}</td>
+                  <td className="muted">{(t.createdAt || '').slice(0, 10)}<div style={{ fontSize: 11 }}>by {nameOf(t.createdBy)}</div></td>
                   <td>
                     <div className="btn-row">
-                      {canWrite && t.status !== '완료' && <button className="btn ghost sm" onClick={() => complete(t)}>완료</button>}
-                      {canWrite && <button className="btn secondary sm" onClick={() => setEdit({ mode: 'edit', data: { ...t } })}>수정</button>}
+                      {/* 완료대기: 관리자는 승인/반려, 일반 사용자는 '승인 대기중' 표시 */}
+                      {t.status === '완료대기' && isAdmin && <button className="btn sm" onClick={() => approve(t)}>승인</button>}
+                      {t.status === '완료대기' && isAdmin && <button className="btn secondary sm" onClick={() => reject(t)}>반려</button>}
+                      {t.status === '완료대기' && !isAdmin && <span className="muted" style={{ fontSize: 12 }}>승인 대기중</span>}
+                      {/* 완료 처리 (완료/완료대기가 아닌 경우) */}
+                      {canWrite && t.status !== '완료' && t.status !== '완료대기' && <button className="btn ghost sm" onClick={() => complete(t)}>완료</button>}
+                      {/* 내용 수정 — 작성자 또는 관리자만 */}
+                      {canWrite && canEdit(t) && <button className="btn secondary sm" onClick={() => setEdit({ mode: 'edit', data: { ...t } })}>수정</button>}
                       {isAdmin && <button className="btn danger sm" onClick={() => setDel(t)}>삭제</button>}
                       {!canWrite && <span className="muted" style={{ fontSize: 12 }}>조회</span>}
                     </div>

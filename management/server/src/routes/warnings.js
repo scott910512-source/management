@@ -28,8 +28,10 @@ router.get(
     const [warnings, acks, dismissed, users] = await Promise.all([
       activeWarnings(req.plant), readTable('warning_acks', req.plant), readTable('warning_dismissed', req.plant), readTable('users'),
     ]);
+    // 경고 숨김은 사용자별로 적용 — 내가 숨긴 것만 내 화면에서 제외(다른 사용자에겐 그대로 유지)
+    const myDismissed = dismissed.filter((d) => d.account === me);
     const dismissedMap = new Map();
-    for (const d of dismissed) {
+    for (const d of myDismissed) {
       const existing = dismissedMap.get(d.warningKey);
       if (!existing || d.createdAt > existing.createdAt) dismissedMap.set(d.warningKey, d);
     }

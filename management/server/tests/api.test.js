@@ -102,12 +102,28 @@ describe('Task 관리', () => {
     const res = await user.post('/api/tasks').send({ title: '라인 점검', category: '공정', priority: '상', assignee: 'user1', dueDate: '2026-07-01', status: '대기' }).expect(201);
     taskId = res.body.item.id;
   });
-  test('완료 처리 시 기본 목록에서 숨김, all=1에 표시', async () => {
-    await user.patch(`/api/tasks/${taskId}`).send({ status: '완료' }).expect(200);
+  test('일반 사용자 완료 요청 시 완료대기 → 목록 유지', async () => {
+    // 일반 사용자가 완료를 누르면 즉시 완료가 아니라 '완료대기'(관리자 승인 필요)
+    const res = await user.patch(`/api/tasks/${taskId}`).send({ status: '완료' }).expect(200);
+    expect(res.body.item.status).toBe('완료대기');
+    const def = await user.get('/api/tasks').expect(200);
+    expect(def.body.items.some((t) => t.id === taskId)).toBe(true); // 완료대기는 기본 목록에 유지
+  });
+  test('관리자 승인 시 완료 → 기본 목록에서 숨김, all=1에 표시', async () => {
+    const res = await admin.patch(`/api/tasks/${taskId}`).send({ status: '완료' }).expect(200);
+    expect(res.body.item.status).toBe('완료');
     const def = await user.get('/api/tasks').expect(200);
     expect(def.body.items.some((t) => t.id === taskId)).toBe(false);
     const all = await user.get('/api/tasks?all=1').expect(200);
     expect(all.body.items.some((t) => t.id === taskId)).toBe(true);
+  });
+  test('내용 수정은 작성자 본인 가능, 비작성자는 403', async () => {
+    // 작성자(user1) 본인은 내용 수정 가능
+    await user.patch(`/api/tasks/${taskId}`).send({ title: '라인 점검(수정)' }).expect(200);
+    // admin이 작성한 다른 Task를 user1(비작성자, 같은 공장 아님이 아닌 권한 검증)
+    // → admin이 2공장에 Task를 만들고 user1(2공장, 비작성자)이 수정 시도 시 403
+    const admin2 = await admin.post('/api/tasks').set('X-Plant', encodeURIComponent('2공장')).send({ title: '관리자 작성 Task', category: '공정', priority: '중', status: '대기' }).expect(201);
+    await user.patch(`/api/tasks/${admin2.body.item.id}`).send({ title: '비작성자 수정 시도' }).expect(403);
   });
 });
 

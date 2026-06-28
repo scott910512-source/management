@@ -2,7 +2,7 @@
 
 const express = require('express');
 const { readTable, mutate } = require('../lib/store');
-const { asyncHandler, str, badRequest, notFound } = require('../lib/http');
+const { asyncHandler, str, badRequest, notFound, forbidden } = require('../lib/http');
 const { newId, now } = require('../lib/ids');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { resolvePlant } = require('../middleware/plant');
@@ -10,7 +10,7 @@ const { resolvePlant } = require('../middleware/plant');
 const router = express.Router();
 const CATEGORIES = ['공정', '원부재료', '현장관리', '안전', '공사', '기타'];
 const PRIORITIES = ['상', '중', '하'];
-const STATUSES = ['완료', '진행중', '대기', '지연'];
+const STATUSES = ['완료', '완료대기', '진행중', '대기', '지연'];
 
 router.use(requireAuth, resolvePlant);
 
@@ -72,24 +72,44 @@ router.post(
 );
 
 // Task 수정/완료처리
+// - 내용 수정(제목/구분/우선순위 등): 작성자 또는 관리자만 가능
+// - 완료 처리: 관리자는 즉시 '완료', 그 외 사용자는 '완료대기'(관리자 승인 필요)
+// - 관리자 승인: '완료대기' → '완료'
+const EDIT_FIELDS = ['title', 'category', 'categoryEtc', 'priority', 'assignee', 'dueDate', 'note'];
 router.patch(
   '/:id',
   asyncHandler(async (req, res) => {
     const me = req.session.user.id;
+    const isAdmin = req.session.user.role === 'admin';
+    const isFieldEdit = EDIT_FIELDS.some((k) => req.body[k] !== undefined);
+
     const item = await mutate('tasks', req.plant, (rows) => {
       const r = rows.find((x) => x.id === req.params.id);
       if (!r) throw notFound('Task를 찾을 수 없습니다.');
-      if (req.body.title !== undefined) r.title = str(req.body.title);
-      if (req.body.category !== undefined) r.category = str(req.body.category);
-      if (req.body.categoryEtc !== undefined) r.categoryEtc = str(req.body.categoryEtc);
-      if (req.body.priority !== undefined) r.priority = str(req.body.priority);
-      if (req.body.assignee !== undefined) r.assignee = str(req.body.assignee);
-      if (req.body.dueDate !== undefined) r.dueDate = str(req.body.dueDate);
-      if (req.body.status !== undefined) {
-        if (!STATUSES.includes(str(req.body.status))) throw badRequest('진행현황 값이 올바르지 않습니다.');
-        r.status = str(req.body.status);
+
+      // 내용 수정은 작성자 또는 관리자만
+      if (isFieldEdit && r.createdBy !== me && !isAdmin) {
+        throw forbidden('Task 내용은 작성자 또는 관리자만 수정할 수 있습니다.');
       }
-      if (req.body.note !== undefined) r.note = str(req.body.note);
+      if (isFieldEdit) {
+        if (req.body.title !== undefined) r.title = str(req.body.title);
+        if (req.body.category !== undefined) r.category = str(req.body.category);
+        if (req.body.categoryEtc !== undefined) r.categoryEtc = str(req.body.categoryEtc);
+        if (req.body.priority !== undefined) r.priority = str(req.body.priority);
+        if (req.body.assignee !== undefined) r.assignee = str(req.body.assignee);
+        if (req.body.dueDate !== undefined) r.dueDate = str(req.body.dueDate);
+        if (req.body.note !== undefined) r.note = str(req.body.note);
+      }
+
+      // 진행현황 변경
+      if (req.body.status !== undefined) {
+        let next = str(req.body.status);
+        if (!STATUSES.includes(next)) throw badRequest('진행현황 값이 올바르지 않습니다.');
+        // 완료 요청 시: 관리자만 즉시 완료, 일반 사용자는 완료대기(승인 필요)
+        if (next === '완료' && !isAdmin) next = '완료대기';
+        r.status = next;
+      }
+
       r.updatedBy = me;
       r.updatedAt = now();
       return r;

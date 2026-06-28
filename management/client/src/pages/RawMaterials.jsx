@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { api, downloadCsv } from '../api';
 import { useAuth } from '../auth/AuthContext';
 import { Modal, Field, TextInput, Select, useToast, ConfirmDialog, Empty, Loading, Badge } from '../components/ui';
-import { UnitInput, ItemSelect, expandLot } from '../components/inputs';
+import { UnitInput, ItemSelect, expandLot, BalanceBox } from '../components/inputs';
 import { TrendModal } from '../components/TrendModal';
 import { UseModal } from '../components/UseModal';
 import { BulkUseModal } from '../components/BulkUseModal';
@@ -402,8 +402,12 @@ function TxForm({ item, onClose, onSaved, onError }) {
             <option value="입고">입고 (추가)</option>
           </Select>
         </Field>
+        <BalanceBox cur={cur} qty={qty} type={type} unit={item.unit} over={over} hasQty={!!quantity} />
         <Field label={`수량 (${item.unit})`} required error={over ? '현재 재고를 초과했습니다.' : ''}>
-          <TextInput type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="0" autoFocus />
+          <div style={{ display: 'flex', gap: 6 }}>
+            <TextInput type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="0" autoFocus />
+            {type === '출고' && <button type="button" className="btn secondary sm" style={{ whiteSpace: 'nowrap' }} onClick={() => setQuantity(String(cur))}>전량</button>}
+          </div>
         </Field>
         <Field label="수불 날짜" hint="실제 발생 날짜 (기본: 오늘)">
           <TextInput type="date" value={txDate} onChange={(e) => setTxDate(e.target.value)} />
@@ -411,7 +415,6 @@ function TxForm({ item, onClose, onSaved, onError }) {
         <Field label="비고">
           <TextInput value={note} onChange={(e) => setNote(e.target.value)} placeholder="예: 3공정 투입" />
         </Field>
-        {quantity && !over && <div className="hint">처리 후 재고: <b>{(type === '입고' ? cur + qty : cur - qty).toLocaleString()}{item.unit}</b></div>}
       </Modal>
 
       {fifo && (

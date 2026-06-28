@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { api } from '../api';
 
-const EXAMPLES = ['이번달 톨루엔 사용량', '부족 품목', '세정의뢰 Canister', '이번주 수불 내역', '톨루엔 재고', '선입선출 이상'];
+const EXAMPLES = ['이번달 입고', '이번달 헥산 사용량', 'Canister 보유현황', '선입선출 이상'];
 
 export function SmartSearch({ autoFocus, big, inline }) {
   const [q, setQ] = useState('');
