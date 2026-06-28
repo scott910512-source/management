@@ -38,18 +38,23 @@ function reportHtml(d) {
     invRows.push(`<tr class="grp"><td colspan="9">제품군: ${esc(g.product)}</td></tr>`);
     for (const it of g.items) {
       const safeCell = it.safety > 0
-        ? `<span class="${it.safetyState === '부족' ? 'st-danger' : it.safetyState === '임박' ? 'st-warn' : 'ok'}">${esc(it.safetyState)}${it.level != null ? ` (${it.level}%)` : ''}</span>`
+        ? (it.everShort
+          ? `<span class="st-danger">월중 부족 발생 (최저 ${it.monthMinPct}%)</span>`
+          : `<span class="ok">정상 (월최저 ${it.monthMinPct}%)</span>`)
         : '<span class="muted">미설정</span>';
       const hazMaxCell = it.hazardous && it.hazMax > 0 ? `${n(it.hazMax)}${esc(it.unit)}` : '<span class="muted">–</span>';
       const hazCell = it.hazardous && it.hazMax > 0
-        ? `<span class="${it.hazOver ? 'st-danger' : ''}">${it.hazPct}%${it.hazOver ? ' 초과' : ''}</span>`
+        ? (it.everHazOver
+          ? `<span class="st-danger">월중 초과 발생 (최고 ${it.monthMaxHazPct}%)</span>`
+          : `<span class="ok">정상 (월최고 ${it.monthMaxHazPct}%)</span>`)
         : '<span class="muted">–</span>';
       invRows.push(`<tr><td>${esc(it.name)}</td><td>${n(it.monthIn)}</td><td>${n(it.monthOut)}</td><td>${n(it.net)}</td><td><b>${n(it.current)}</b>${esc(it.unit)}</td><td>${it.safety > 0 ? n(it.safety) : '–'}</td><td>${safeCell}</td><td>${hazMaxCell}</td><td>${hazCell}</td></tr>`);
     }
   }
   parts.push(`<section><h2>1. 재고 현황 (제품군·품목별)</h2>
     <p>월 입고 <b>${n(d.flow.inSum)}</b> · 월 사용(출고) <b>${n(d.flow.outSum)}</b> · 순증감 <b>${n(d.flow.net)}</b></p>
-    <table><thead><tr><th>품목</th><th>입고</th><th>사용</th><th>순증감</th><th>현재고</th><th>안전재고</th><th>안전재고 여부</th><th>유해 보관한도</th><th>초과여부</th></tr></thead><tbody>${invRows.join('')}</tbody></table>
+    <table><thead><tr><th>품목</th><th>입고</th><th>사용</th><th>순증감</th><th>현재고</th><th>안전재고</th><th>안전재고(월중)</th><th>유해 보관한도</th><th>유해초과(월중)</th></tr></thead><tbody>${invRows.join('')}</tbody></table>
+    <p class="muted" style="font-size:11.5px;margin-top:4px">※ 안전재고·유해초과는 <b>선택한 달 동안 1회라도 발생</b>했는지(수불 이력 역산) 기준입니다. 현재고는 생성 시점 값입니다.</p>
   </section>`);
 
   // 2) 품목별 재고 그래프 (현재고 vs 안전재고 vs 최대보관)
@@ -75,10 +80,10 @@ function reportHtml(d) {
     ['월 입고 합계', `${n(k.monthIn)}`, ''],
     ['월 출고(사용) 합계', `${n(k.monthOut)}`, ''],
     ['순증감(입고-출고)', `${n(k.net)}`, k.net < 0 ? '소진 우위' : '적체 우위'],
-    ['안전재고 부족 품목', `${k.safetyShort}건`, sig(k.safetyShort > 0 ? 'danger' : 'ok')],
-    ['안전재고 임박 품목', `${k.safetyNear}건`, sig(k.safetyNear > 0 ? 'warn' : 'ok')],
+    ['안전재고 부족 발생(월중)', `${k.safetyShort}건`, sig(k.safetyShort > 0 ? 'danger' : 'ok')],
+    ['안전재고 임박 품목(현재)', `${k.safetyNear}건`, sig(k.safetyNear > 0 ? 'warn' : 'ok')],
     ['FIFO 강제출고(이상)', `${k.fifoForced}건`, sig(k.fifoForced > 0 ? 'danger' : 'ok')],
-    ['유해물질 보관한도 초과', `${k.hazOver}건`, sig(k.hazOver > 0 ? 'danger' : k.hazNear > 0 ? 'warn' : 'ok')],
+    ['유해 보관한도 초과(월중)', `${k.hazOver}건`, sig(k.hazOver > 0 ? 'danger' : k.hazNear > 0 ? 'warn' : 'ok')],
     ['재고 정합성 불일치', `${k.mismatch}건`, sig(k.mismatch > 0 ? 'warn' : 'ok')],
     ['Canister 사용량 임박', `${k.canisterRisk}건`, sig(k.canisterRisk > 0 ? 'warn' : 'ok')],
     ['고우선순위 지연 업무', `${k.highOverdue}건`, sig(k.highOverdue > 0 ? 'danger' : 'ok')],

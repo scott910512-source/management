@@ -36,11 +36,43 @@ router.get(
     const maxMap = parseSizeMaxKg(settings.canisterSizeMaxKg);
 
     const lotName = new Map();
-    for (const r of raws) lotName.set(r.id, r.itemName);
-    for (const s of subs) lotName.set(s.id, s.name);
+    const lotCur = new Map();
+    for (const r of raws) { lotName.set(r.id, r.itemName); lotCur.set(r.id, num(r.quantity) || 0); }
+    for (const s of subs) { lotName.set(s.id, s.name); lotCur.set(s.id, num(s.weight) || 0); }
     const curTotal = (cat, name) => (cat === 'raw'
       ? raws.filter((r) => r.itemName === name).reduce((s, r) => s + (num(r.quantity) || 0), 0)
       : subs.filter((r) => r.name === name).reduce((s, r) => s + (num(r.weight) || 0), 0));
+
+    // 선택한 달 동안 품목 총재고를 이력(balanceAfter)으로 역산 → 월중 최저/최고 총재고
+    const monthStart = `${ym}-01T00:00:00`;
+    function reconstructMonth(cat, name) {
+      const lotIds = (cat === 'raw' ? raws.filter((r) => r.itemName === name) : subs.filter((s) => s.name === name)).map((x) => x.id);
+      if (lotIds.length === 0) { const c = curTotal(cat, name); return { min: c, max: c }; }
+      const lotSet = new Set(lotIds);
+      const tx = txns.filter((t) => lotSet.has(t.materialId)).sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1));
+      const hasTx = {};
+      for (const t of tx) hasTx[t.materialId] = true;
+      const bal = {};
+      for (const id of lotIds) bal[id] = null;
+      // 월초 이전 마지막 잔량으로 시작값 설정
+      for (const t of tx) if (t.createdAt < monthStart) bal[t.materialId] = num(t.balanceAfter) || 0;
+      for (const id of lotIds) {
+        if (bal[id] !== null) continue;          // 월초 이전 거래 있음
+        if (hasTx[id]) bal[id] = 0;              // 월중/이후 생성 lot → 월초엔 0
+        else bal[id] = lotCur.get(id) || 0;      // 거래 자체가 없는 lot(직접등록) → 현재값을 상수로
+      }
+      const total = () => Object.values(bal).reduce((s, v) => s + (v || 0), 0);
+      let mn = total(); let mx = mn; // 월초 샘플
+      for (const t of tx) {
+        if (t.createdAt < monthStart) continue;
+        if ((t.createdAt || '').slice(0, 7) !== ym) continue;
+        bal[t.materialId] = num(t.balanceAfter) || 0;
+        const v = total();
+        if (v < mn) mn = v;
+        if (v > mx) mx = v;
+      }
+      return { min: mn, max: mx };
+    }
 
     // ===== 수불 흐름 =====
     const monthTx = txns.filter((t) => inMonth(t.createdAt));
@@ -88,11 +120,18 @@ router.get(
       const hazWarnPct = (isHaz && master.hazardousWarnPct && num(master.hazardousWarnPct) > 0) ? num(master.hazardousWarnPct) : 80;
       const hazPct = hazMax > 0 ? Math.round((current / hazMax) * 100) : null;
       const hazOver = hazMax > 0 && hazPct >= hazWarnPct;
+      // 월중 발생 여부(이력 역산)
+      const rec = reconstructMonth(category, name);
+      const monthMinPct = safety > 0 ? Math.round((rec.min / safety) * 100) : null;
+      const everShort = safety > 0 && rec.min < safety * (th / 100);
+      const monthMaxHazPct = hazMax > 0 ? Math.round((rec.max / hazMax) * 100) : null;
+      const everHazOver = hazMax > 0 && rec.max >= hazMax * (hazWarnPct / 100);
       inventory.push({
         product, name, category, unit,
         monthIn: flow.inQ, monthOut: flow.outQ, net: flow.inQ - flow.outQ,
         current, safety, level: st.level, safetyState: st.state, below: st.below,
         hazardous: isHaz, hazMax, hazPct, hazOver,
+        everShort, monthMinPct, everHazOver, monthMaxHazPct,
       });
     }
     inventory.sort((a, b) => (a.product === b.product ? a.name.localeCompare(b.name) : a.product.localeCompare(b.product)));
@@ -178,13 +217,15 @@ router.get(
       .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
       .map((s) => ({ key: s.key, old: s.oldValue, nv: s.newValue, by: s.changedBy, date: (s.createdAt || '').slice(0, 16).replace('T', ' ') }));
 
-    // ===== 경영 요약 KPI =====
+    // ===== 경영 요약 KPI (안전재고/유해초과는 '월중 1회라도 발생' 기준) =====
+    const everShortItems = inventory.filter((i) => i.everShort);
+    const everHazItems = inventory.filter((i) => i.everHazOver);
     const kpi = {
-      safetyShort: stockHealth.filter((s) => s.state === '부족').length,
+      safetyShort: everShortItems.length,
       safetyNear: stockHealth.filter((s) => s.state === '임박').length,
       fifoForced,
       mismatch: mismatch.length,
-      hazOver: hazardous.filter((h) => h.pct != null && h.pct >= 100).length,
+      hazOver: everHazItems.length,
       hazNear: hazardous.filter((h) => h.pct != null && h.pct >= 80 && h.pct < 100).length,
       highOverdue,
       overdue: overdue.length,
@@ -197,8 +238,8 @@ router.get(
     // ===== 이번 달 핵심 3가지 (자동 선별) =====
     const highlights = [];
     if (fifoForced > 0) highlights.push({ level: 'danger', title: 'FIFO 강제출고 발생', detail: `${fifoForced}건 — 선입선출 위반(품질·규제 직결). 원인 점검 필요.` });
-    for (const s of stockHealth.filter((x) => x.state === '부족').slice(0, 2)) highlights.push({ level: 'danger', title: `안전재고 부족: ${s.name}`, detail: `현재 ${s.current.toLocaleString()}${s.unit} (${s.level}%) — 발주 필요.` });
-    for (const h of hazardous.filter((x) => x.pct != null && x.pct >= 100).slice(0, 1)) highlights.push({ level: 'danger', title: `유해물질 보관한도 초과: ${h.name}`, detail: `${h.pct}% (보관가능 ${h.maxQty.toLocaleString()}${h.unit}) — 즉시 조치.` });
+    for (const s of everShortItems.slice(0, 2)) highlights.push({ level: 'danger', title: `안전재고 부족 발생: ${s.name}`, detail: `월중 최저 ${s.monthMinPct}% (안전재고 ${s.safety.toLocaleString()}${s.unit}) — 발주 필요.` });
+    for (const h of everHazItems.slice(0, 1)) highlights.push({ level: 'danger', title: `유해물질 보관한도 초과: ${h.name}`, detail: `월중 최고 ${h.monthMaxHazPct}% (보관가능 ${h.hazMax.toLocaleString()}${h.unit}) — 즉시 조치.` });
     if (mismatch.length > 0) highlights.push({ level: 'warn', title: '재고 정합성 불일치', detail: `${mismatch.length}건 — 장부 신뢰도 점검 필요.` });
     if (highOverdue > 0) highlights.push({ level: 'warn', title: '고우선순위 지연 업무', detail: `${highOverdue}건 — 현장 실행력 점검.` });
     const top3 = highlights.slice(0, 3);
