@@ -90,4 +90,51 @@ router.get(
   }),
 );
 
+// 재고 정합성 검증: 현재고 vs 수불 이력 합산 비교
+router.get(
+  '/stock-check',
+  requireAdmin,
+  resolvePlant,
+  asyncHandler(async (req, res) => {
+    const [raws, subs, txns] = await Promise.all([
+      readTable('raw_materials', req.plant),
+      readTable('sub_materials', req.plant),
+      readTable('transactions', req.plant),
+    ]);
+
+    // materialId별 수불 합산
+    const txMap = {};
+    for (const t of txns) {
+      if (!txMap[t.materialId]) txMap[t.materialId] = 0;
+      const q = Number(t.quantity) || 0;
+      if (['입고', '반입'].includes(t.type)) txMap[t.materialId] += q;
+      else txMap[t.materialId] -= q;
+    }
+
+    const items = [];
+    for (const lot of raws) {
+      const current = Number(lot.quantity) || 0;
+      const txCount = txns.filter((t) => t.materialId === lot.id).length;
+      if (txCount === 0) continue; // 이력 없으면 비교 불가 — 초기등록 정상
+      const calculated = txMap[lot.id] || 0;
+      const diff = current - calculated;
+      if (Math.abs(diff) > 0.001) {
+        items.push({ type: '원재료', name: lot.itemName, lotNo: lot.lotNo, current, calculated: Math.round(calculated * 1000) / 1000, diff: Math.round(diff * 1000) / 1000, unit: lot.unit, txCount });
+      }
+    }
+    for (const lot of subs) {
+      const current = Number(lot.weight) || 0;
+      const txCount = txns.filter((t) => t.materialId === lot.id).length;
+      if (txCount === 0) continue;
+      const calculated = txMap[lot.id] || 0;
+      const diff = current - calculated;
+      if (Math.abs(diff) > 0.001) {
+        items.push({ type: '부재료', name: lot.name, lotNo: lot.lotNo, current, calculated: Math.round(calculated * 1000) / 1000, diff: Math.round(diff * 1000) / 1000, unit: lot.unit, txCount });
+      }
+    }
+
+    res.json({ items, checkedAt: now() });
+  }),
+);
+
 module.exports = { router, readSettings };

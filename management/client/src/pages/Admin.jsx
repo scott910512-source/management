@@ -42,6 +42,7 @@ export default function Admin() {
       </div>
 
       <SafetyRatioCard toast={toast} />
+      <StockCheckCard />
       <SettingsLogCard />
 
       {!isSuper && (
@@ -188,6 +189,85 @@ function SafetyRatioCard({ toast }) {
           <button className="btn" onClick={save} disabled={busy || !loaded}>{busy ? '저장 중…' : '저장'}</button>
         </div>
       </Field>
+    </div>
+  );
+}
+
+function StockCheckCard() {
+  const [result, setResult] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  async function run() {
+    setLoading(true);
+    try {
+      const d = await api.get('/settings/stock-check');
+      setResult(d);
+    } catch (e) {
+      setResult({ items: [], error: e.message });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="card card-pad" style={{ marginBottom: 16, maxWidth: 700 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: result ? 12 : 0 }}>
+        <div>
+          <h3 style={{ margin: 0 }}>재고 정합성 검사</h3>
+          <p className="hint" style={{ margin: '4px 0 0' }}>현재고와 수불 이력 합산을 비교해 차이가 있는 Lot을 표시합니다. (이력이 없는 초기 등록 Lot은 제외)</p>
+        </div>
+        <button className="btn sm" onClick={run} disabled={loading} style={{ whiteSpace: 'nowrap', marginLeft: 12 }}>
+          {loading ? '검사 중…' : '검사 실행'}
+        </button>
+      </div>
+      {result && (
+        result.error ? (
+          <p style={{ color: 'var(--red)', margin: 0 }}>{result.error}</p>
+        ) : result.items.length === 0 ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 0' }}>
+            <span style={{ fontSize: 20 }}>✅</span>
+            <span>이력이 있는 모든 Lot의 현재고가 수불 합산과 일치합니다.</span>
+          </div>
+        ) : (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+              <span style={{ fontSize: 18 }}>⚠️</span>
+              <span style={{ color: 'var(--orange)', fontWeight: 600 }}>{result.items.length}건 불일치 발견</span>
+              <span className="muted" style={{ fontSize: 12 }}>검사시각: {(result.checkedAt || '').slice(0, 16).replace('T', ' ')}</span>
+            </div>
+            <table className="tbl compact">
+              <thead>
+                <tr>
+                  <th>구분</th><th>품목명</th><th>Lot No.</th>
+                  <th className="num">현재고</th>
+                  <th className="num">이력 합산</th>
+                  <th className="num">차이</th>
+                  <th className="num">이력 건수</th>
+                </tr>
+              </thead>
+              <tbody>
+                {result.items.map((r, i) => (
+                  <tr key={i}>
+                    <td><Badge color={r.type === '원재료' ? 'blue' : 'green'}>{r.type}</Badge></td>
+                    <td><b>{r.name}</b></td>
+                    <td className="muted">{r.lotNo}</td>
+                    <td className="num">{r.current.toLocaleString()} {r.unit}</td>
+                    <td className="num muted">{r.calculated.toLocaleString()} {r.unit}</td>
+                    <td className="num" style={{ color: r.diff > 0 ? 'var(--orange)' : 'var(--red)', fontWeight: 600 }}>
+                      {r.diff > 0 ? '+' : ''}{r.diff.toLocaleString()} {r.unit}
+                    </td>
+                    <td className="num muted">{r.txCount}건</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="hint" style={{ marginTop: 8 }}>
+              차이가 양수(+)이면 현재고가 이력 합산보다 많습니다 → 초기 입고 이력 누락 가능성.<br />
+              차이가 음수(-)이면 현재고가 이력 합산보다 적습니다 → 출고 이력 중복 가능성.
+            </p>
+          </>
+        )
+      )}
     </div>
   );
 }
