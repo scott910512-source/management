@@ -46,6 +46,7 @@ router.post(
         vendor: str(req.body.vendor),
         product: str(req.body.product), defaultQty: str(req.body.defaultQty), lotPattern: str(req.body.lotPattern),
         pkgSize: str(req.body.pkgSize), pkgUnit: str(req.body.pkgUnit), pkgType: str(req.body.pkgType),
+        hazardous: req.body.hazardous === true || req.body.hazardous === 'true' ? '1' : '',
         note: str(req.body.note),
         createdBy: me, createdAt: now(), updatedBy: me, updatedAt: now(),
       };
@@ -85,6 +86,7 @@ router.patch(
       if (req.body.pkgSize !== undefined) r.pkgSize = str(req.body.pkgSize);
       if (req.body.pkgUnit !== undefined) r.pkgUnit = str(req.body.pkgUnit);
       if (req.body.pkgType !== undefined) r.pkgType = str(req.body.pkgType);
+      if (req.body.hazardous !== undefined) r.hazardous = req.body.hazardous ? '1' : '';
       if (req.body.note !== undefined) r.note = str(req.body.note);
       r.updatedBy = me;
       r.updatedAt = now();

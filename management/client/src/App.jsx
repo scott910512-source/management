@@ -18,6 +18,7 @@ import Admin from './pages/Admin';
 import Items from './pages/Items';
 import Search from './pages/Search';
 import Manual from './pages/Manual';
+import Hazardous from './pages/Hazardous';
 
 const NAV = [
   { to: '/', label: '종합현황', ico: 'grid', end: true },
@@ -30,6 +31,7 @@ const NAV = [
   { to: '/transactions', label: '수불 이력', ico: 'swap' },
   { to: '/anomalies', label: '이상발생 목록', ico: 'alert' },
   { to: '/tasks', label: 'Task 관리', ico: 'task' },
+  { to: '/hazardous', label: '유해화학물질', ico: 'alert' },
 ];
 
 function Sidebar() {
@@ -155,6 +157,7 @@ export default function App() {
       <Route path="/transactions" element={<Protected title="수불 이력"><Transactions /></Protected>} />
       <Route path="/anomalies" element={<Protected title="이상발생 목록"><Anomalies /></Protected>} />
       <Route path="/tasks" element={<Protected title="Task 관리"><Tasks /></Protected>} />
+      <Route path="/hazardous" element={<Protected title="유해화학물질 관리대장"><Hazardous /></Protected>} />
       <Route path="/items" element={<Protected title="기준정보 (품목·안전재고)" adminOnly><Items /></Protected>} />
       <Route path="/admin" element={<Protected title="관리자 설정" adminOnly><Admin /></Protected>} />
       <Route path="/settings" element={<Navigate to="/admin" replace />} />

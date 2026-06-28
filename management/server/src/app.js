@@ -21,6 +21,7 @@ const { router: tasksRoutes } = require('./routes/tasks');
 const { router: warningsRoutes } = require('./routes/warnings');
 const { router: trendsRoutes } = require('./routes/trends');
 const { router: searchRoutes } = require('./routes/search');
+const { router: hazardousRoutes } = require('./routes/hazardous');
 
 function createApp() {
   const app = express();
@@ -68,6 +69,7 @@ function createApp() {
   app.use('/api/warnings', warningsRoutes);
   app.use('/api/trends', trendsRoutes);
   app.use('/api/search', searchRoutes);
+  app.use('/api/hazardous', hazardousRoutes);
 
   // 프로덕션: 빌드된 React 정적 파일 서빙 + SPA 폴백
   const clientDist = path.join(__dirname, '..', '..', 'client', 'dist');

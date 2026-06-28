@@ -3,7 +3,7 @@ import { api } from '../api';
 import { Modal, Field, TextInput, Select, useToast, ConfirmDialog, Empty, Loading, Badge } from '../components/ui';
 import { UnitInput } from '../components/inputs';
 
-const blank = { category: 'raw', name: '', unit: 'kg', safetyStock: '', warningPct: '', vendor: '', product: '', defaultQty: '', lotPattern: '', pkgSize: '', pkgUnit: '', pkgType: '', note: '' };
+const blank = { category: 'raw', name: '', unit: 'kg', safetyStock: '', warningPct: '', vendor: '', product: '', defaultQty: '', lotPattern: '', pkgSize: '', pkgUnit: '', pkgType: '', hazardous: false, note: '' };
 
 export default function Items() {
   const toast = useToast();
@@ -115,7 +115,7 @@ function ItemForm({ mode, initial, onClose, onSaved, onError }) {
     if (!f.name.trim()) return onError('품목명을 입력하세요.');
     setBusy(true);
     try {
-      const payload = { category: f.category, name: f.name.trim(), unit: f.unit, safetyStock: f.safetyStock === '' ? 0 : Number(f.safetyStock), warningPct: f.warningPct, vendor: f.vendor, product: f.product, defaultQty: f.defaultQty, lotPattern: f.lotPattern, pkgSize: f.pkgSize, pkgUnit: f.pkgUnit, pkgType: f.pkgType, note: f.note };
+      const payload = { category: f.category, name: f.name.trim(), unit: f.unit, safetyStock: f.safetyStock === '' ? 0 : Number(f.safetyStock), warningPct: f.warningPct, vendor: f.vendor, product: f.product, defaultQty: f.defaultQty, lotPattern: f.lotPattern, pkgSize: f.pkgSize, pkgUnit: f.pkgUnit, pkgType: f.pkgType, hazardous: f.hazardous, note: f.note };
       if (mode === 'create') await api.post('/items', payload);
       else await api.patch('/items/' + initial.id, payload);
       onSaved();
@@ -194,6 +194,12 @@ function ItemForm({ mode, initial, onClose, onSaved, onError }) {
       </div>
       <Field label="기본 업체명" hint="원/부재료 등록 시 자동 입력(수정 가능)">
         <TextInput value={f.vendor} onChange={(e) => set('vendor', e.target.value)} placeholder="예: (주)한솔케미칼" />
+      </Field>
+      <Field label="유해화학물질">
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+          <input type="checkbox" checked={!!f.hazardous} onChange={(e) => set('hazardous', e.target.checked)} />
+          <span>유해화학물질로 지정 (관리대장 대상)</span>
+        </label>
       </Field>
       <Field label="비고">
         <TextInput value={f.note} onChange={(e) => set('note', e.target.value)} placeholder="선택 입력" />
