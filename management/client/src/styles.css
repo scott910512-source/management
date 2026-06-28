@@ -166,6 +166,12 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .tbl.compact tr td { border-bottom: 1px solid #dcdce2; }
 .group-row td { background: #eef0f4 !important; font-weight: 700; font-size: 12.5px; color: var(--text); }
 .group-row.row-low td { background: var(--red-soft) !important; color: var(--red); }
+/* 그룹별(제품/사용제품) 음영 구분 — 5색 팔레트 */
+.group-row.gt0 td { background: #e8f0ff !important; }
+.group-row.gt1 td { background: #e6f6ec !important; }
+.group-row.gt2 td { background: #fff2e0 !important; }
+.group-row.gt3 td { background: #f2e9fc !important; }
+.group-row.gt4 td { background: #ffe7ec !important; }
 /* 부족 행 — 옅은 붉은 박스 */
 .tbl tr.row-low td { background: var(--red-soft); border-bottom-color: #f4cdca; }
 .tbl tr.row-low td:first-child { border-top-left-radius: 10px; border-bottom-left-radius: 10px; }

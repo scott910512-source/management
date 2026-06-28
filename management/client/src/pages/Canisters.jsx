@@ -35,6 +35,7 @@ export default function Canisters() {
 
   useEffect(() => {
     if (sp.get('move') === '1') setMoveOpen(true);
+    if (sp.get('new') === '1') setCreate(true);
   }, [sp]);
 
   const load = useCallback(async () => {

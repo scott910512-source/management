@@ -8,6 +8,8 @@ import { SmartSearch } from '../components/SmartSearch';
 
 const statColor = { 완료: 'green', 완료대기: 'orange', 진행중: 'blue', 대기: '', 지연: 'red' };
 const prioColor = { 상: 'red', 중: 'orange', 하: '' };
+// 그룹(제품/사용제품)별 본문 행 음영 — 헤더 팔레트(gt0~4)의 옅은 버전
+const ROW_TINTS = ['#f6f9ff', '#f5fbf7', '#fffaf3', '#faf5fe', '#fff6f8'];
 
 function QuickGroup({ icon, color, title, actions, navigate }) {
   return (
@@ -45,7 +47,7 @@ export default function Dashboard() {
   const [matTab, setMatTab] = useState('raw');
 
   const loadWarnings = useCallback(() => api.get('/warnings').then((d) => setWarnings(d.items)), []);
-  const loadTasks = useCallback(() => api.get('/tasks').then((d) => setTasks(d.items)), []);
+  const loadTasks = useCallback(() => api.get('/tasks?all=1').then((d) => setTasks(d.items)), []);
   useEffect(() => {
     api.get('/dashboard').then(setDash).catch(() => setDash({ error: true }));
     loadWarnings();
@@ -75,6 +77,16 @@ export default function Dashboard() {
   const mat = matTab === 'raw' ? dash.rawSummary : dash.subSummary;
   const matPath = matTab === 'raw' ? '/raw' : '/sub';
 
+  // Task 신호등 집계 — 지연/완료를 제외한 나머지(진행중·대기·완료대기)는 '진행 중'으로 묶음
+  const allTasks = tasks || [];
+  const tStat = allTasks.reduce((a, t) => {
+    if (t.status === '완료') a.done++;
+    else if (t.status === '지연') a.late++;
+    else a.prog++;
+    return a;
+  }, { prog: 0, late: 0, done: 0 });
+  const activeTasks = allTasks.filter((t) => t.status !== '완료');
+
   return (
     <>
       {/* 0+1) 퀵메뉴(좌) + AI 스마트 검색(우) — 한 줄 배치 */}
@@ -85,7 +97,7 @@ export default function Dashboard() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <QuickGroup navigate={navigate} icon="canister" color="#0071e3" title="원재료" actions={[['입고', '/raw?new=1'], ['사용', '/raw?use=1']]} />
               <QuickGroup navigate={navigate} icon="drum" color="#5e5ce6" title="부재료" actions={[['입고', '/sub?new=1'], ['사용', '/sub?use=1']]} />
-              <QuickGroup navigate={navigate} icon="star" color="#34c759" title="Canister" actions={[['수불 등록', '/canisters?move=1']]} />
+              <QuickGroup navigate={navigate} icon="star" color="#34c759" title="Canister" actions={[['등록', '/canisters?new=1'], ['수불 등록', '/canisters?move=1']]} />
             </div>
           </div>
         )}
@@ -136,11 +148,11 @@ export default function Dashboard() {
                   <tr><th>품목</th><th className="num">잔여 Lot</th><th className="num">현재고</th><th>단위</th><th className="num">최소재고</th><th className="num">안전%</th><th>상태</th></tr>
                 </thead>
                 <tbody>
-                  {groupByProduct(mat).map((g) => (
+                  {groupByProduct(mat).map((g, gi) => (
                     <Fragment key={g.product}>
-                      <tr className="group-row"><td colSpan={7}>🏷 {g.product}</td></tr>
+                      <tr className={`group-row gt${gi % 5}`}><td colSpan={7}>{g.product}</td></tr>
                       {g.rows.map((r) => (
-                        <tr key={r.name} className={r.below ? 'row-low' : ''} style={{ cursor: 'pointer' }} onClick={() => navigate(`${matPath}?q=${encodeURIComponent(r.name)}`)}>
+                        <tr key={r.name} className={r.below ? 'row-low' : ''} style={{ cursor: 'pointer', background: r.below ? undefined : ROW_TINTS[gi % 5] }} onClick={() => navigate(`${matPath}?q=${encodeURIComponent(r.name)}`)}>
                           <td><b className="inline-link">{r.name}</b></td>
                           <td className="num">{r.lots}</td>
                           <td className="num"><b>{r.current.toLocaleString()}</b></td>
@@ -167,11 +179,11 @@ export default function Dashboard() {
                   <tr><th>종류</th><th className="num">개수</th><th className="num">Total 무게</th><th>최대 무게 비고</th></tr>
                 </thead>
                 <tbody>
-                  {groupByProduct(dash.canisterSummary.map((c) => ({ ...c, product: c.content }))).map((g) => (
+                  {groupByProduct(dash.canisterSummary.map((c) => ({ ...c, product: c.content }))).map((g, gi) => (
                     <Fragment key={g.product}>
-                      <tr className="group-row"><td colSpan={4}>🛢 사용제품: {g.product}</td></tr>
+                      <tr className={`group-row gt${gi % 5}`}><td colSpan={4}>사용제품: {g.product}</td></tr>
                       {g.rows.map((c, i) => (
-                        <tr key={i} style={{ cursor: 'pointer' }} onClick={() => navigate('/canisters')}>
+                        <tr key={i} style={{ cursor: 'pointer', background: ROW_TINTS[gi % 5] }} onClick={() => navigate('/canisters')}>
                           <td style={{ paddingLeft: 24 }}><Badge>{c.size}</Badge></td>
                           <td className="num">{c.count}</td>
                           <td className="num">{c.totalWeight.toLocaleString()}</td>
@@ -190,11 +202,18 @@ export default function Dashboard() {
       {/* 4) Task */}
       <div className="card">
         <div className="card-head">
-          <h3>진행 Task {tasks ? `(${tasks.length})` : ''}</h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <h3 style={{ margin: 0 }}>진행 Task</h3>
+            <div style={{ display: 'flex', gap: 12, fontSize: 13, fontWeight: 600 }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><i style={{ width: 9, height: 9, borderRadius: '50%', background: '#2da44e', display: 'inline-block' }} />진행 중 {tStat.prog}건</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><i style={{ width: 9, height: 9, borderRadius: '50%', background: '#e5534b', display: 'inline-block' }} />지연 {tStat.late}건</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: 'var(--text-3)' }}><i style={{ width: 9, height: 9, borderRadius: '50%', background: '#a0a0a8', display: 'inline-block' }} />완료 {tStat.done}건</span>
+            </div>
+          </div>
           <span className="inline-link" onClick={() => navigate('/tasks')}>+ Task 등록 / 관리 →</span>
         </div>
         <div className="table-wrap">
-          {!tasks ? <Loading /> : tasks.length === 0 ? (
+          {!tasks ? <Loading /> : activeTasks.length === 0 ? (
             <div className="empty" style={{ padding: 24 }}>진행 중인 Task가 없습니다.</div>
           ) : (
             <table className="tbl compact">
@@ -202,7 +221,7 @@ export default function Dashboard() {
                 <tr><th>우선</th><th>Task명</th><th>구분</th><th>담당</th><th>완료예정</th><th>현황</th><th style={{ width: 1 }}></th></tr>
               </thead>
               <tbody>
-                {tasks.map((t) => (
+                {activeTasks.map((t) => (
                   <tr key={t.id}>
                     <td><Badge color={prioColor[t.priority]}>{t.priority}</Badge></td>
                     <td><b>{t.title}</b></td>
