@@ -105,6 +105,7 @@ function DetailMoveForm({ meta, item, onClose, onSaved, onError }) {
     location: item.location, locationEtc: item.locationEtc || '',
     status: item.status, statusEtc: item.statusEtc || '', note: '',
   });
+  const [txDate, setTxDate] = useState(new Date().toISOString().slice(0, 10));
   const [busy, setBusy] = useState(false);
   const set = (k, v) => setF((p) => ({ ...p, [k]: v }));
 
@@ -112,7 +113,7 @@ function DetailMoveForm({ meta, item, onClose, onSaved, onError }) {
     if (f.type !== '상태변경' && (!f.weight || Number(f.weight) <= 0)) return onError('무게를 입력하세요.');
     setBusy(true);
     try {
-      await api.post(`/canisters/${item.id}/move`, { ...f, weight: f.weight === '' ? 0 : Number(f.weight) });
+      await api.post(`/canisters/${item.id}/move`, { ...f, weight: f.weight === '' ? 0 : Number(f.weight), txDate });
       onSaved();
     } catch (e) { onError(e.message); } finally { setBusy(false); }
   }
@@ -147,6 +148,9 @@ function DetailMoveForm({ meta, item, onClose, onSaved, onError }) {
       </Field>
       <Field label="상태">
         <EtcSelect options={meta.canisterStatuses} value={f.status} etc={f.statusEtc} onChange={(v, etc) => setF((p) => ({ ...p, status: v, statusEtc: etc }))} />
+      </Field>
+      <Field label="이력 날짜" hint="실제 발생 날짜 (기본: 오늘)">
+        <TextInput type="date" value={txDate} onChange={(e) => setTxDate(e.target.value)} />
       </Field>
       <Field label="비고">
         <TextInput value={f.note} onChange={(e) => set('note', e.target.value)} placeholder="예: 공정 사용 반출" />

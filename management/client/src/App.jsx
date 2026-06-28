@@ -1,7 +1,9 @@
+import { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from './auth/AuthContext';
 import { Loading } from './components/ui';
 import { Icon } from './components/icons';
+import { api } from './api';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
@@ -32,6 +34,19 @@ const NAV = [
 
 function Sidebar() {
   const { user, isAdmin, plants, plant, changePlant, roleLabel } = useAuth();
+  const [pendingCount, setPendingCount] = useState(0);
+  useEffect(() => {
+    if (!isAdmin) return;
+    api.get('/users').then((d) => {
+      setPendingCount((d.items || []).filter((u) => u.status === 'pending').length);
+    }).catch(() => {});
+    const id = setInterval(() => {
+      api.get('/users').then((d) => {
+        setPendingCount((d.items || []).filter((u) => u.status === 'pending').length);
+      }).catch(() => {});
+    }, 60000);
+    return () => clearInterval(id);
+  }, [isAdmin]);
   return (
     <aside className="sidebar">
       <div className="brand">
@@ -79,6 +94,7 @@ function Sidebar() {
         {isAdmin && (
           <NavLink to="/admin" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
             <span className="ico"><Icon name="shield" /></span>관리자 설정
+            {pendingCount > 0 && <span style={{ marginLeft: 'auto', background: 'var(--red)', color: '#fff', borderRadius: 10, fontSize: 11, padding: '1px 6px', lineHeight: '16px' }}>{pendingCount}</span>}
           </NavLink>
         )}
         <div className="nav-section">도움말</div>

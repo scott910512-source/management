@@ -27,6 +27,18 @@ function filterRows(rows, query) {
   });
 }
 
+// Lot별 수불 이력
+router.get(
+  '/:id/transactions',
+  asyncHandler(async (req, res) => {
+    const [lots, txns] = await Promise.all([readTable('raw_materials', req.plant), readTable('transactions', req.plant)]);
+    const lot = lots.find((x) => x.id === req.params.id);
+    if (!lot) throw notFound('원재료 Lot을 찾을 수 없습니다.');
+    const items = txns.filter((t) => t.materialId === req.params.id).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+    res.json({ items, lot });
+  }),
+);
+
 // Lot 목록
 router.get(
   '/',
@@ -162,6 +174,7 @@ router.post(
     const qty = num(req.body.quantity);
     const note = str(req.body.note);
     const force = req.body.force === true || str(req.body.force) === '1';
+    const txDate = str(req.body.txDate) || null;
     if (!['입고', '출고'].includes(type)) throw badRequest('수불 구분은 입고 또는 출고여야 합니다.');
     if (Number.isNaN(qty) || qty <= 0) throw badRequest('수량은 0보다 큰 숫자여야 합니다.');
 
@@ -196,7 +209,7 @@ router.post(
     });
     const txn = await appendTransaction({
       plant: req.plant, materialType: 'raw', materialId: item.id, materialName: item.itemName, lotNo: item.lotNo,
-      type, quantity: qty, unit: item.unit, balanceAfter: item.quantity, note, user: me,
+      type, quantity: qty, unit: item.unit, balanceAfter: item.quantity, note, user: me, txDate,
     });
     if (violation && force && type === '출고') {
       await appendAnomaly({

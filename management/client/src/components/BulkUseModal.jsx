@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { api } from '../api';
-import { Modal, Field, TextInput, useToast } from './ui';
+import { Modal, Field, TextInput } from './ui';
 
 /**
  * 일괄 출고 모달 — 여러 품목을 한 번에 출고 처리한다.
@@ -10,6 +10,7 @@ export function BulkUseModal({ base, items, nameField, qtyField, title, onClose,
   const [qtys, setQtys] = useState({});
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState('');
+  const [fifoConflicts, setFifoConflicts] = useState(null); // [{g, fifoData}] waiting for force confirm
 
   // 품목별로 그룹화: 총 잔량 + FIFO 기준 가장 오래된 Lot
   const grouped = useMemo(() => {
@@ -28,36 +29,77 @@ export function BulkUseModal({ base, items, nameField, qtyField, title, onClose,
     return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [items, nameField, qtyField]);
 
-  async function submit() {
-    const toProcess = grouped.filter((g) => qtys[g.name] && Number(qtys[g.name]) > 0);
-    if (toProcess.length === 0) return onError('사용할 수량을 1개 이상 입력하세요.');
+  async function doSubmit(toProcess, force) {
     setBusy(true);
     const errors = [];
     const ok = [];
+    const fifoList = [];
     for (const g of toProcess) {
       try {
         await api.post(`/${base}/${g.oldestLot.id}/transaction`, {
           type: '출고',
           quantity: Number(qtys[g.name]),
           note: note || '일괄 출고',
-          force: false,
+          force,
         });
         ok.push(g.name);
       } catch (e) {
-        if (e.status === 409 && e.data?.fifoWarning) {
-          errors.push(`${g.name}: 선입선출 오류 (Lot ${e.data.earliest?.lotNo} 먼저 처리 필요)`);
+        if (!force && e.status === 409 && e.data?.fifoWarning) {
+          fifoList.push({ g, fifoData: e.data });
         } else {
           errors.push(`${g.name}: ${e.message}`);
         }
       }
     }
     setBusy(false);
-    if (ok.length > 0) onSaved(`${ok.length}개 품목 출고 완료${errors.length > 0 ? ` (${errors.length}건 오류)` : ''}`);
-    if (errors.length > 0) onError(errors.join('\n'));
+    if (fifoList.length > 0) {
+      setFifoConflicts(fifoList);
+      if (ok.length > 0) onSaved(`${ok.length}개 품목 출고 완료 (선입선출 오류 ${fifoList.length}건 확인 필요)`);
+    } else {
+      if (ok.length > 0) onSaved(`${ok.length}개 품목 출고 완료${errors.length > 0 ? ` (${errors.length}건 오류)` : ''}`);
+      if (errors.length > 0) onError(errors.join('\n'));
+    }
+  }
+
+  async function submit() {
+    const toProcess = grouped.filter((g) => qtys[g.name] && Number(qtys[g.name]) > 0);
+    if (toProcess.length === 0) return onError('사용할 수량을 1개 이상 입력하세요.');
+    await doSubmit(toProcess, false);
+  }
+
+  async function forceSubmit() {
+    if (!fifoConflicts) return;
+    const toForce = fifoConflicts.map((c) => c.g);
+    setFifoConflicts(null);
+    await doSubmit(toForce, true);
   }
 
   const setQty = (name, val) => setQtys((p) => ({ ...p, [name]: val }));
   const total = grouped.filter((g) => qtys[g.name] && Number(qtys[g.name]) > 0).length;
+
+  if (fifoConflicts) {
+    return (
+      <Modal
+        title="⚠ 선입선출 오류 확인"
+        onClose={() => setFifoConflicts(null)}
+        footer={<>
+          <button className="btn secondary" onClick={() => setFifoConflicts(null)}>취소</button>
+          <button className="btn danger" onClick={forceSubmit}>강제 출고</button>
+        </>}
+      >
+        <p style={{ margin: '0 0 12px', color: 'var(--text-2)' }}>
+          아래 품목에서 선입선출 오류가 발생했습니다. 강제 출고 시 <b>이상발생 목록에 자동 기록</b>됩니다.
+        </p>
+        <ul style={{ margin: 0, paddingLeft: 18 }}>
+          {fifoConflicts.map(({ g, fifoData }) => (
+            <li key={g.name} style={{ marginBottom: 6 }}>
+              <b>{g.name}</b> — 더 빠른 Lot: <b>{fifoData.earliest?.lotNo}</b> (입고 {fifoData.earliest?.receivedDate})
+            </li>
+          ))}
+        </ul>
+      </Modal>
+    );
+  }
 
   return (
     <Modal

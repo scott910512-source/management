@@ -21,6 +21,17 @@ router.get(
   '/',
   asyncHandler(async (req, res) => {
     const includeAll = str(req.query.all) === '1';
+    const today = now().slice(0, 10);
+    // 마감 초과 Task 자동 지연 처리
+    const all = await readTable('tasks', req.plant);
+    const overdueIds = all.filter((r) => r.dueDate && r.dueDate < today && r.status !== '완료' && r.status !== '지연').map((r) => r.id);
+    if (overdueIds.length > 0) {
+      await mutate('tasks', req.plant, (rows) => {
+        for (const r of rows) {
+          if (overdueIds.includes(r.id)) { r.status = '지연'; r.updatedAt = now(); }
+        }
+      });
+    }
     let rows = await readTable('tasks', req.plant);
     if (!includeAll) rows = rows.filter((r) => r.status !== '완료');
     rows.sort((a, b) => {

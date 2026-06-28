@@ -15,7 +15,7 @@ const TABLES = {
   items: ['id', 'category', 'name', 'unit', 'safetyStock', 'warningPct', 'vendor', 'product', 'defaultQty', 'lotPattern', 'pkgType', 'pkgSize', 'pkgUnit', 'note', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt'],
   raw_materials: ['id', 'itemName', 'lotNo', 'quantity', 'unit', 'pkgCount', 'vendor', 'receivedDate', 'note', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt'],
   sub_materials: ['id', 'name', 'receivedDate', 'lotNo', 'vendor', 'unit', 'pkgCount', 'initialWeight', 'weight', 'note', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt'],
-  canisters: ['id', 'canisterNo', 'size', 'sizeEtc', 'location', 'locationEtc', 'status', 'statusEtc', 'content', 'weight', 'note', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt'],
+  canisters: ['id', 'canisterNo', 'size', 'sizeEtc', 'location', 'locationEtc', 'status', 'statusEtc', 'content', 'weight', 'unit', 'note', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt'],
   canister_history: ['id', 'canisterId', 'canisterNo', 'date', 'type', 'content', 'weight', 'location', 'status', 'note', 'createdBy', 'createdAt'],
   transactions: ['id', 'materialType', 'materialId', 'materialName', 'lotNo', 'content', 'type', 'quantity', 'unit', 'balanceAfter', 'note', 'createdBy', 'createdAt'],
   settings: ['key', 'value'],
@@ -23,6 +23,7 @@ const TABLES = {
   tasks: ['id', 'title', 'category', 'categoryEtc', 'priority', 'assignee', 'dueDate', 'status', 'note', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt'],
   warning_acks: ['id', 'warningKey', 'account', 'content', 'createdAt'],
   warning_dismissed: ['id', 'warningKey', 'account', 'content', 'createdAt'],
+  settings_log: ['id', 'key', 'oldValue', 'newValue', 'changedBy', 'createdAt'],
 };
 
 // 전역(공장 공통) 테이블 — 공장 하위 폴더가 아닌 DATA_DIR 루트에 저장

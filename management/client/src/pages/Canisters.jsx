@@ -24,6 +24,7 @@ export default function Canisters() {
   const toast = useToast();
   const [meta, setMeta] = useState(null);
   const [items, setItems] = useState(null);
+  const [allCanisters, setAllCanisters] = useState([]);
   const [summary, setSummary] = useState(null);
   const [filters, setFilters] = useState({ q: '', size: '', location: '', status: '' });
   const [create, setCreate] = useState(false);
@@ -39,9 +40,10 @@ export default function Canisters() {
   const load = useCallback(async () => {
     const params = new URLSearchParams();
     Object.entries(filters).forEach(([k, v]) => v && params.set(k, v));
-    const [d, s] = await Promise.all([api.get('/canisters?' + params.toString()), api.get('/canisters/summary')]);
+    const [d, s, all] = await Promise.all([api.get('/canisters?' + params.toString()), api.get('/canisters/summary'), api.get('/canisters')]);
     setItems(d.items);
     setSummary(s);
+    setAllCanisters(all.items || []);
   }, [filters]);
 
   useEffect(() => {
@@ -150,7 +152,7 @@ export default function Canisters() {
         <CanisterForm meta={meta} onClose={() => setCreate(false)} onSaved={() => { setCreate(false); load(); toast.ok('Canister를 등록했습니다.'); }} onError={(m) => toast.err(m)} />
       )}
       {moveOpen && (
-        <MoveForm meta={meta} canisters={items || []} onClose={() => setMoveOpen(false)} onSaved={() => { setMoveOpen(false); load(); toast.ok('이력이 기록되었습니다.'); }} onError={(m) => toast.err(m)} />
+        <MoveForm meta={meta} canisters={allCanisters} onClose={() => setMoveOpen(false)} onSaved={() => { setMoveOpen(false); load(); toast.ok('이력이 기록되었습니다.'); }} onError={(m) => toast.err(m)} />
       )}
       {edit && (
         <CanisterEditForm meta={meta} item={edit} onClose={() => setEdit(null)} onSaved={() => { setEdit(null); load(); toast.ok('수정했습니다.'); }} onError={(m) => toast.err(m)} />
@@ -244,6 +246,7 @@ function MoveForm({ meta, canisters, onClose, onSaved, onError }) {
   const [cid, setCid] = useState(canisters[0]?.id || '');
   const sel = canisters.find((c) => c.id === cid);
   const [f, setF] = useState({ type: '반출', content: '', contentEtc: '', weight: '', location: '', locationEtc: '', status: '', statusEtc: '', note: '' });
+  const [txDate, setTxDate] = useState(new Date().toISOString().slice(0, 10));
   const [busy, setBusy] = useState(false);
   const set = (k, v) => setF((p) => ({ ...p, [k]: v }));
 
@@ -258,7 +261,7 @@ function MoveForm({ meta, canisters, onClose, onSaved, onError }) {
     const content = f.content === '기타' ? (f.contentEtc || '').trim() : f.content;
     setBusy(true);
     try {
-      await api.post(`/canisters/${cid}/move`, { ...f, content, weight: f.weight === '' ? 0 : Number(f.weight) });
+      await api.post(`/canisters/${cid}/move`, { ...f, content, weight: f.weight === '' ? 0 : Number(f.weight), txDate });
       if (f.content === '기타' && content) {
         try {
           const s = await api.get('/settings');
@@ -308,6 +311,9 @@ function MoveForm({ meta, canisters, onClose, onSaved, onError }) {
       </Field>
       <Field label="상태">
         <EtcSelect options={meta.canisterStatuses} value={f.status || meta.canisterStatuses[0]} etc={f.statusEtc} onChange={(v, etc) => setF((p) => ({ ...p, status: v, statusEtc: etc }))} />
+      </Field>
+      <Field label="이력 날짜" hint="실제 발생 날짜 (기본: 오늘)">
+        <TextInput type="date" value={txDate} onChange={(e) => setTxDate(e.target.value)} />
       </Field>
       <Field label="비고">
         <TextInput value={f.note} onChange={(e) => set('note', e.target.value)} placeholder="예: 2공장 충전 후 반입" />

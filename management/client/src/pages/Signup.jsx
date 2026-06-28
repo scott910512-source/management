@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
-import { Field, TextInput, useToast } from '../components/ui';
+import { Field, TextInput, Select, useToast } from '../components/ui';
 
 export default function Signup() {
   const { signup } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
-  const [form, setForm] = useState({ id: '', name: '', password: '', password2: '' });
+  const [form, setForm] = useState({ id: '', name: '', password: '', password2: '', plant: '2공장' });
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -21,7 +21,7 @@ export default function Signup() {
     }
     setBusy(true);
     try {
-      await signup({ id: form.id.trim(), name: form.name.trim(), password: form.password });
+      await signup({ id: form.id.trim(), name: form.name.trim(), password: form.password, plant: form.plant });
       toast.ok('가입 신청 완료 — 관리자 승인 후 로그인할 수 있습니다.');
       navigate('/login');
     } catch (err) {
@@ -57,6 +57,12 @@ export default function Signup() {
           </Field>
           <Field label="비밀번호 확인" required error={error}>
             <TextInput type="password" value={form.password2} onChange={set('password2')} />
+          </Field>
+          <Field label="소속 공장" required>
+            <Select value={form.plant} onChange={set('plant')}>
+              <option value="1공장">1공장</option>
+              <option value="2공장">2공장</option>
+            </Select>
           </Field>
           <button className="btn" style={{ width: '100%', marginTop: 6 }} disabled={busy || !form.id || !form.name || !form.password}>
             {busy ? '신청 중…' : '가입 신청'}

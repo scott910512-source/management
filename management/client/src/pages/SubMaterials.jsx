@@ -28,6 +28,7 @@ export default function SubMaterials() {
   const { isAdmin, canWrite } = useAuth();
   const toast = useToast();
   const [tab, setTab] = useState('list');
+  const [summary, setSummary] = useState(null);
   const [items, setItems] = useState(null);
   const [groups, setGroups] = useState(null);
   const [activeItem, setActiveItem] = useState('');
@@ -36,7 +37,7 @@ export default function SubMaterials() {
   const [trend, setTrend] = useState(false);
   const [useOpen, setUseOpen] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
-  const [low, setLow] = useState(new Set());
+  const [lotHistory, setLotHistory] = useState(null);
   const [edit, setEdit] = useState(null);
   const [tx, setTx] = useState(null);
   const [del, setDel] = useState(null);
@@ -46,14 +47,14 @@ export default function SubMaterials() {
     const params = new URLSearchParams();
     if (q) params.set('q', q);
     if (showAll) params.set('all', '1');
-    const [d, g, dash] = await Promise.all([
+    const [d, g, s] = await Promise.all([
       api.get('/sub-materials?' + params.toString()),
       api.get('/sub-materials/by-item'),
-      api.get('/dashboard'),
+      api.get('/sub-materials/summary'),
     ]);
     setItems(d.items);
     setGroups(g.items);
-    setLow(new Set((dash.subSummary || []).filter((s) => s.below).map((s) => s.name)));
+    setSummary(s.items);
     if (g.items.length && !g.items.some((x) => x.name === activeItem)) setActiveItem(g.items[0].name);
   }, [q, showAll]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -71,10 +72,38 @@ export default function SubMaterials() {
     if (q) params.set('q', q);
     downloadCsv('/sub-materials/export?' + params.toString());
   }
+  const lowSet = new Set((summary || []).filter((s) => s.below).map((s) => s.name));
   const activeGroup = groups && groups.find((g) => g.name === activeItem);
 
   return (
     <>
+      {/* 부재료 현황 요약 */}
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card-head"><h3>부재료 현황</h3></div>
+        <div className="table-wrap">
+          {!summary ? <Loading /> : summary.length === 0 ? <Empty>등록된 품목이 없습니다.</Empty> : (
+            <table className="tbl compact">
+              <thead>
+                <tr><th>품목</th><th className="num">총잔량</th><th className="num">재고수준</th><th className="num">안전재고</th><th className="num">Lot수</th><th>최근 입고</th><th>최근 사용</th></tr>
+              </thead>
+              <tbody>
+                {summary.map((s) => (
+                  <tr key={s.name}>
+                    <td><b>{s.name}</b>{!s.isMaster && <span className="muted" style={{ fontWeight: 400 }}> (기타)</span>}</td>
+                    <td className="num"><b>{s.totalQuantity.toLocaleString()}</b> <span className="muted">{s.unit}</span></td>
+                    <td className="num">{s.level == null ? <span className="muted">–</span> : <b style={{ color: s.below ? 'var(--red)' : 'var(--green)' }}>{s.level}%</b>}</td>
+                    <td className="num muted">{s.safetyStock ? s.safetyStock.toLocaleString() : '–'}{s.warningPct ? <span className="muted" style={{fontSize:11}}> ({s.warningPct}%)</span> : ''}</td>
+                    <td className="num muted">{s.lots}</td>
+                    <td className="muted">{s.lastReceived || '–'}</td>
+                    <td className="muted">{s.lastUsed || '–'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+
       <div className="page-head">
         <div className="desc">부재료를 품목 안에서 <b>Lot 단위</b>로 관리합니다. (입고일/Lot No/잔량/업체명)</div>
         <div className="btn-row">
@@ -133,8 +162,8 @@ export default function SubMaterials() {
                   const oldest = g.lots.reduce((pick, r) => (!pick || (r.receivedDate && r.receivedDate < pick.receivedDate) ? r : pick), null);
                   return (
                   <Fragment key={g.name}>
-                    <tr className={`group-row ${low.has(g.name) ? 'row-low' : ''}`}>
-                      <td>📦 <b>{g.name}</b> · {g.lots.length} Lot {low.has(g.name) && <span className="badge red" style={{ marginLeft: 4 }}>안전재고 부족</span>}</td>
+                    <tr className={`group-row ${lowSet.has(g.name) ? 'row-low' : ''}`}>
+                      <td>📦 <b>{g.name}</b> · {g.lots.length} Lot {lowSet.has(g.name) && <span className="badge red" style={{ marginLeft: 4 }}>안전재고 부족</span>}</td>
                       <td className="num"><b>{totalW.toLocaleString()}{unit}</b>{totalPkg > 0 && <span className="muted"> ({totalPkg}{pkgType})</span>}</td>
                       <td></td>
                       <td className="muted">{oldest?.receivedDate || ''}</td>
@@ -156,6 +185,7 @@ export default function SubMaterials() {
                         <td className="muted">{r.updatedBy}</td>
                         <td>
                           <div className="btn-row">
+                            <button className="btn ghost sm" onClick={() => setLotHistory(r)}>이력</button>
                             {canWrite && <button className="btn ghost sm" onClick={() => setTx(r)}>수불</button>}
                             {canWrite && <button className="btn secondary sm" onClick={() => setEdit({ mode: 'edit', data: { ...r } })}>수정</button>}
                             {isAdmin && <button className="btn danger sm" onClick={() => setDel(r)}>삭제</button>}
@@ -236,6 +266,7 @@ export default function SubMaterials() {
           }}
         />
       )}
+      {lotHistory && <LotHistoryModal base="sub-materials" item={lotHistory} onClose={() => setLotHistory(null)} />}
       {trend && <TrendModal category="sub" title="부재료 사용량 분석" onClose={() => setTrend(false)} />}
       {bulkOpen && (
         <BulkUseModal
@@ -356,6 +387,7 @@ function SubTxForm({ item, onClose, onSaved, onError }) {
   const [type, setType] = useState('출고');
   const [quantity, setQuantity] = useState('');
   const [note, setNote] = useState('');
+  const [txDate, setTxDate] = useState(today());
   const [busy, setBusy] = useState(false);
   const [fifo, setFifo] = useState(null);
   const cur = Number(item.weight);
@@ -365,7 +397,7 @@ function SubTxForm({ item, onClose, onSaved, onError }) {
   async function doSubmit(force) {
     setBusy(true);
     try {
-      await api.post(`/sub-materials/${item.id}/transaction`, { type, quantity: qty, note, force });
+      await api.post(`/sub-materials/${item.id}/transaction`, { type, quantity: qty, note, force, txDate });
       onSaved();
     } catch (e) {
       if (e.status === 409 && e.data && e.data.fifoWarning) setFifo(e.data);
@@ -400,6 +432,9 @@ function SubTxForm({ item, onClose, onSaved, onError }) {
         <Field label={`무게 (${item.unit})`} required error={over ? '현재 잔량을 초과했습니다.' : ''}>
           <TextInput type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="0" autoFocus />
         </Field>
+        <Field label="수불 날짜" hint="실제 발생 날짜 (기본: 오늘)">
+          <TextInput type="date" value={txDate} onChange={(e) => setTxDate(e.target.value)} />
+        </Field>
         <Field label="비고">
           <TextInput value={note} onChange={(e) => setNote(e.target.value)} placeholder="예: 라인 보충" />
         </Field>
@@ -424,5 +459,34 @@ function SubTxForm({ item, onClose, onSaved, onError }) {
         </Modal>
       )}
     </>
+  );
+}
+
+function LotHistoryModal({ base, item, onClose }) {
+  const [hist, setHist] = useState(null);
+  useEffect(() => {
+    api.get(`/${base}/${item.id}/transactions`).then((d) => setHist(d.items)).catch(() => setHist([]));
+  }, [base, item.id]);
+  const label = base === 'raw-materials' ? item.itemName : item.name;
+  return (
+    <Modal title={`수불 이력 — ${label} (Lot ${item.lotNo})`} onClose={onClose} footer={<button className="btn secondary" onClick={onClose}>닫기</button>}>
+      {!hist ? <Loading /> : hist.length === 0 ? <Empty>이력이 없습니다.</Empty> : (
+        <table className="tbl compact">
+          <thead><tr><th>일시</th><th>구분</th><th className="num">수량</th><th className="num">처리후</th><th>비고</th><th>작성자</th></tr></thead>
+          <tbody>
+            {hist.map((t) => (
+              <tr key={t.id}>
+                <td className="muted">{(t.createdAt || '').slice(0, 16).replace('T', ' ')}</td>
+                <td><Badge color={['입고', '반입'].includes(t.type) ? 'green' : 'orange'}>{t.type}</Badge></td>
+                <td className="num">{Number(t.quantity).toLocaleString()}{t.unit}</td>
+                <td className="num muted">{Number(t.balanceAfter).toLocaleString()}{t.unit}</td>
+                <td className="muted">{t.note || '–'}</td>
+                <td className="muted">{t.createdBy}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </Modal>
   );
 }

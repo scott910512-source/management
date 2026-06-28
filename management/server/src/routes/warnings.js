@@ -33,7 +33,8 @@ router.get(
       const existing = dismissedMap.get(d.warningKey);
       if (!existing || d.createdAt > existing.createdAt) dismissedMap.set(d.warningKey, d);
     }
-    const approved = users.filter((u) => u.status === 'approved');
+    const plant = req.plant;
+    const approved = users.filter((u) => u.status === 'approved' && (u.plantScope === 'all' || u.plant === plant || u.plantScope === plant));
     const totalUsers = approved.length;
 
     const items = warnings

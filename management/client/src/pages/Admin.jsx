@@ -42,6 +42,7 @@ export default function Admin() {
       </div>
 
       <SafetyRatioCard toast={toast} />
+      <SettingsLogCard />
 
       {!isSuper && (
         <div className="card card-pad">
@@ -190,3 +191,54 @@ function SafetyRatioCard({ toast }) {
     </div>
   );
 }
+
+const KEY_LABELS = {
+  safetyRatioPercent: '안전재고 경고 비율',
+  canisterDefaultSize: 'Canister 기본 사이즈',
+  canisterDefaultLocation: 'Canister 기본 위치',
+  canisterDefaultStatus: 'Canister 기본 상태',
+  canisterDefaultContent: 'Canister 기본 내용물',
+  canisterSizes: 'Canister 사이즈 목록',
+  canisterLocations: 'Canister 위치 목록',
+  canisterStatuses: 'Canister 상태 목록',
+  canisterContents: 'Canister 내용물 목록',
+};
+
+function SettingsLogCard() {
+  const [logs, setLogs] = useState(null);
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (open && !logs) {
+      api.get('/settings/log').then((d) => setLogs(d.items)).catch(() => setLogs([]));
+    }
+  }, [open, logs]);
+  return (
+    <div className="card card-pad" style={{ marginBottom: 16, maxWidth: 700 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <h3 style={{ margin: 0 }}>설정 변경 이력</h3>
+        <button className="btn ghost sm" onClick={() => setOpen((v) => !v)}>{open ? '숨기기' : '펼치기'}</button>
+      </div>
+      {open && (
+        <div style={{ marginTop: 12 }}>
+          {!logs ? <Loading /> : logs.length === 0 ? <Empty>변경 이력이 없습니다.</Empty> : (
+            <table className="tbl compact">
+              <thead><tr><th>일시</th><th>항목</th><th>이전 값</th><th>변경 후 값</th><th>변경자</th></tr></thead>
+              <tbody>
+                {logs.map((r) => (
+                  <tr key={r.id}>
+                    <td className="muted">{(r.createdAt || '').slice(0, 16).replace('T', ' ')}</td>
+                    <td>{KEY_LABELS[r.key] || r.key}</td>
+                    <td className="muted" style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.oldValue || '–'}</td>
+                    <td style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.newValue || '–'}</td>
+                    <td className="muted">{r.changedBy}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+

@@ -149,13 +149,14 @@ router.post(
     validateEnum('상태', status, enums.statuses);
     if (Number.isNaN(weight) || weight < 0) throw badRequest('무게는 0 이상의 숫자여야 합니다.');
 
+    const unit = str(req.body.unit) || 'kg';
     const me = req.session.user.id;
     const item = await mutate('canisters', req.plant, (rows) => {
       if (rows.some((r) => r.canisterNo === canisterNo)) throw badRequest('이미 등록된 Canister No.입니다.');
       const row = {
         id: newId('cn'), canisterNo, size, sizeEtc: str(req.body.sizeEtc),
         location, locationEtc: str(req.body.locationEtc), status, statusEtc: str(req.body.statusEtc),
-        content, weight: String(weight), note: str(req.body.note),
+        content, weight: String(weight), unit, note: str(req.body.note),
         createdBy: me, createdAt: now(), updatedBy: me, updatedAt: now(),
       };
       rows.push(row);
@@ -187,6 +188,7 @@ router.post(
     const type = str(req.body.type);
     const amount = req.body.weight === '' || req.body.weight === undefined ? 0 : num(req.body.weight);
     const unit = str(req.body.unit) || 'kg';
+    const txDate = str(req.body.txDate) || null;
     if (!MOVE_TYPES.includes(type)) throw badRequest('구분은 반입/반출/상태변경 중 하나여야 합니다.');
     if (Number.isNaN(amount) || amount < 0) throw badRequest('무게는 0 이상의 숫자여야 합니다.');
 
@@ -234,7 +236,7 @@ router.post(
     if (type !== '상태변경' && amount > 0) {
       await appendTransaction({
         plant: req.plant, materialType: 'canister', materialId: item.id, materialName: item.canisterNo, content: snap.content,
-        type, quantity: amount, unit, balanceAfter: snap.weight, note: str(req.body.note), user: me,
+        type, quantity: amount, unit, balanceAfter: snap.weight, note: str(req.body.note), user: me, txDate,
       });
     }
     res.status(201).json({ item: decorate(item), history });

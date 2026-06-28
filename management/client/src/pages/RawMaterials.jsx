@@ -39,6 +39,7 @@ export default function RawMaterials() {
   const [edit, setEdit] = useState(null);
   const [tx, setTx] = useState(null);
   const [del, setDel] = useState(null);
+  const [lotHistory, setLotHistory] = useState(null);
   const [sp] = useSearchParams();
 
   const load = useCallback(async () => {
@@ -187,6 +188,7 @@ export default function RawMaterials() {
                       <td>
                         <div className="btn-row">
                           {canWrite && <button className="btn ghost sm" onClick={() => setTx(r)}>수불</button>}
+                          <button className="btn ghost sm" onClick={() => setLotHistory(r)}>이력</button>
                           {canWrite && <button className="btn secondary sm" onClick={() => setEdit({ mode: 'edit', data: { ...r } })}>수정</button>}
                           {isAdmin && <button className="btn danger sm" onClick={() => setDel(r)}>삭제</button>}
                           {!canWrite && <span className="muted" style={{ fontSize: 12 }}>조회</span>}
@@ -225,6 +227,7 @@ export default function RawMaterials() {
           }}
         />
       )}
+      {lotHistory && <LotHistoryModal base="raw-materials" item={lotHistory} onClose={() => setLotHistory(null)} />}
       {trend && <TrendModal category="raw" onClose={() => setTrend(false)} />}
       {bulkOpen && (
         <BulkUseModal
@@ -346,8 +349,9 @@ function TxForm({ item, onClose, onSaved, onError }) {
   const [type, setType] = useState('출고');
   const [quantity, setQuantity] = useState('');
   const [note, setNote] = useState('');
+  const [txDate, setTxDate] = useState(new Date().toISOString().slice(0, 10));
   const [busy, setBusy] = useState(false);
-  const [fifo, setFifo] = useState(null); // 선입선출 경고 데이터
+  const [fifo, setFifo] = useState(null);
   const cur = Number(item.quantity);
   const qty = Number(quantity);
   const over = type === '출고' && qty > cur;
@@ -355,7 +359,7 @@ function TxForm({ item, onClose, onSaved, onError }) {
   async function doSubmit(force) {
     setBusy(true);
     try {
-      await api.post(`/raw-materials/${item.id}/transaction`, { type, quantity: qty, note, force });
+      await api.post(`/raw-materials/${item.id}/transaction`, { type, quantity: qty, note, force, txDate });
       onSaved();
     } catch (e) {
       if (e.status === 409 && e.data && e.data.fifoWarning) setFifo(e.data);
@@ -390,6 +394,9 @@ function TxForm({ item, onClose, onSaved, onError }) {
         <Field label={`수량 (${item.unit})`} required error={over ? '현재 재고를 초과했습니다.' : ''}>
           <TextInput type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="0" autoFocus />
         </Field>
+        <Field label="수불 날짜" hint="실제 발생 날짜 (기본: 오늘)">
+          <TextInput type="date" value={txDate} onChange={(e) => setTxDate(e.target.value)} />
+        </Field>
         <Field label="비고">
           <TextInput value={note} onChange={(e) => setNote(e.target.value)} placeholder="예: 3공정 투입" />
         </Field>
@@ -414,5 +421,34 @@ function TxForm({ item, onClose, onSaved, onError }) {
         </Modal>
       )}
     </>
+  );
+}
+
+function LotHistoryModal({ base, item, onClose }) {
+  const [hist, setHist] = useState(null);
+  useEffect(() => {
+    api.get(`/${base}/${item.id}/transactions`).then((d) => setHist(d.items)).catch(() => setHist([]));
+  }, [base, item.id]);
+  const label = base === 'raw-materials' ? item.itemName : item.name;
+  return (
+    <Modal title={`수불 이력 — ${label} (Lot ${item.lotNo})`} onClose={onClose} footer={<button className="btn secondary" onClick={onClose}>닫기</button>}>
+      {!hist ? <Loading /> : hist.length === 0 ? <Empty>이력이 없습니다.</Empty> : (
+        <table className="tbl compact">
+          <thead><tr><th>일시</th><th>구분</th><th className="num">수량</th><th className="num">처리후</th><th>비고</th><th>작성자</th></tr></thead>
+          <tbody>
+            {hist.map((t) => (
+              <tr key={t.id}>
+                <td className="muted">{(t.createdAt || '').slice(0, 16).replace('T', ' ')}</td>
+                <td><Badge color={['입고', '반입'].includes(t.type) ? 'green' : 'orange'}>{t.type}</Badge></td>
+                <td className="num">{Number(t.quantity).toLocaleString()}{t.unit}</td>
+                <td className="num muted">{Number(t.balanceAfter).toLocaleString()}{t.unit}</td>
+                <td className="muted">{t.note || '–'}</td>
+                <td className="muted">{t.createdBy}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </Modal>
   );
 }

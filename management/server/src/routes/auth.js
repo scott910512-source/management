@@ -21,6 +21,9 @@ router.post(
     const id = str(req.body.id);
     const password = str(req.body.password);
     const name = str(req.body.name) || id;
+    const VALID_PLANTS = require('../lib/store').PLANTS;
+    const rawPlant = str(req.body.plant);
+    const plant = VALID_PLANTS.includes(rawPlant) ? rawPlant : '2공장';
     if (!id || !password) throw badRequest('아이디와 비밀번호를 입력하세요.');
     if (!/^[A-Za-z0-9_.-]{3,20}$/.test(id)) throw badRequest('아이디는 영문/숫자 3~20자여야 합니다.');
     if (password.length < 4) throw badRequest('비밀번호는 4자 이상이어야 합니다.');
@@ -33,8 +36,8 @@ router.post(
         name,
         role: 'user',
         status: 'pending',
-        plant: '2공장',
-        plantScope: '2공장',
+        plant,
+        plantScope: plant,
         createdAt: now(),
         approvedAt: '',
         approvedBy: '',
