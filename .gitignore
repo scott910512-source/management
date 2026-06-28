@@ -19,3 +19,4 @@ uploads/
 management/data/
 data/
 management/server/backups/
+.claude/
