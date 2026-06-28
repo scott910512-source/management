@@ -24,6 +24,10 @@ router.get(
     const ym = `${year}-${String(month).padStart(2, '0')}`;
     const inMonth = (d) => (d || '').slice(0, 7) === ym;
     const today = nowStr.slice(0, 10);
+    const isCurrentMonth = year === curY && month === curM;
+    // 다음 달 시작(기준월 말 시점 재고 역산에 사용)
+    const nm = month === 12 ? `${year + 1}-01` : `${year}-${String(month + 1).padStart(2, '0')}`;
+    const nextStart = `${nm}-01T00:00:00`;
 
     const [items, raws, subs, txns, canisters, batches, boms, anomalies, tasks, slog, settings] = await Promise.all([
       readTable('items', req.plant), readTable('raw_materials', req.plant), readTable('sub_materials', req.plant),
@@ -81,6 +85,19 @@ router.get(
       return { min: mn, max: mx, shortCount, overCount };
     }
 
+    // 기준월 말 시점 재고(당월은 현재 시점). 지난달 보고서가 그 달 말 기준이 되도록.
+    function stockAsOf(cat, name) {
+      if (isCurrentMonth) return curTotal(cat, name);
+      const lots = cat === 'raw' ? raws.filter((r) => r.itemName === name) : subs.filter((s) => s.name === name);
+      let total = 0;
+      for (const lot of lots) {
+        const ltx = txns.filter((t) => t.materialId === lot.id && t.createdAt < nextStart).sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1));
+        if (ltx.length) total += num(ltx[ltx.length - 1].balanceAfter) || 0;
+        else total += txns.some((t) => t.materialId === lot.id) ? 0 : (lotCur.get(lot.id) || 0);
+      }
+      return total;
+    }
+
     // ===== 수불 흐름 =====
     const monthTx = txns.filter((t) => inMonth(t.createdAt));
     const matTx = monthTx.filter((t) => t.materialType === 'raw' || t.materialType === 'sub');
@@ -118,7 +135,7 @@ router.get(
       const unit = master ? master.unit : ((raws.find((r) => r.itemName === name) || {}).unit || (subs.find((s) => s.name === name) || {}).unit || '');
       const product = (master && master.product) ? master.product : '(제품 미지정)';
       const flow = flowMap[name] || { inQ: 0, outQ: 0 };
-      const current = curTotal(category, name);
+      const current = stockAsOf(category, name);
       const safety = master ? (num(master.safetyStock) || 0) : 0;
       const th = (master && master.warningPct && num(master.warningPct) > 0) ? num(master.warningPct) : threshold;
       const st = safety > 0 ? safetyStatus(current, safety, th) : { level: null, state: '-', below: false };
@@ -151,7 +168,7 @@ router.get(
       const tx = monthTx.filter((t) => lotName.get(t.materialId) === h.name);
       const mIn = tx.filter((t) => t.type === '입고').reduce((s, t) => s + (num(t.quantity) || 0), 0);
       const mOut = tx.filter((t) => t.type === '출고').reduce((s, t) => s + (num(t.quantity) || 0), 0);
-      const cur = curTotal(h.category, h.name);
+      const cur = stockAsOf(h.category, h.name);
       const maxQ = num(h.hazardousMaxQty) || 0;
       const pct = maxQ > 0 ? Math.round((cur / maxQ) * 100) : null;
       return { name: h.name, unit: h.unit, monthIn: mIn, monthOut: mOut, current: cur, maxQty: maxQ, pct, over: maxQ > 0 && cur >= maxQ * 0.9 };

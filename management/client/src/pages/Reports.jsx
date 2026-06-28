@@ -21,7 +21,7 @@ function reportHtml(d) {
   // 헤더
   parts.push(`<div class="rpt-head">
     <div class="rpt-title">월간 관리현황 보고서</div>
-    <div class="rpt-sub">${esc(m.plant)} · ${m.year}년 ${m.month}월 · 생성 ${esc((m.generatedAt || '').slice(0, 16).replace('T', ' '))}</div>
+    <div class="rpt-sub">${esc(m.plant)} · ${m.year}년 ${m.month}월 · 생성 ${esc((m.generatedAt || '').slice(0, 16).replace('T', ' '))} · 재고 기준: ${m.isCurrentMonth ? '현재 시점(당월)' : '기준월 말'}</div>
   </div>`);
 
   // 제품군별 그룹화
@@ -54,8 +54,8 @@ function reportHtml(d) {
   }
   parts.push(`<section><h2>1. 재고 현황 (제품군·품목별)</h2>
     <p>월 입고 <b>${n(d.flow.inSum)}</b> · 월 사용(출고) <b>${n(d.flow.outSum)}</b> · 순증감 <b>${n(d.flow.net)}</b></p>
-    <table><thead><tr><th>품목</th><th>입고</th><th>사용</th><th>순증감</th><th>현재고</th><th>안전재고</th><th>안전재고(월중)</th><th>유해 보관한도</th><th>유해초과(월중)</th></tr></thead><tbody>${invRows.join('')}</tbody></table>
-    <p class="muted" style="font-size:11.5px;margin-top:4px">※ 안전재고·유해초과는 <b>선택한 달 동안 발생한 횟수</b>(수불 이력 역산)와 <b>현재 지속/해소</b> 여부를 함께 표시합니다. 현재고는 생성 시점 값입니다.</p>
+    <table><thead><tr><th>품목</th><th>입고</th><th>사용</th><th>순증감</th><th>재고(기말)</th><th>안전재고</th><th>안전재고(월중)</th><th>유해 보관한도</th><th>유해초과(월중)</th></tr></thead><tbody>${invRows.join('')}</tbody></table>
+    <p class="muted" style="font-size:11.5px;margin-top:4px">※ 입고·사용·월중 발생은 <b>선택한 달 전체 기간</b> 기준입니다(당월은 현재까지). <b>재고(기말)</b>는 ${m.isCurrentMonth ? '<b>현재 시점</b>' : '<b>기준월 말 시점</b>(이력 역산)'} 값이며, 월중 발생은 횟수·최저/최고%·현재 지속/해소를 함께 표시합니다.</p>
   </section>`);
 
   // 2) 품목별 재고 그래프 (현재고 vs 안전재고 vs 최대보관)
@@ -72,7 +72,7 @@ function reportHtml(d) {
     }
   }
   parts.push(`<section><h2>2. 품목별 재고 그래프</h2>
-    <div class="ivlegend"><span class="lg okbar">■</span> 현재고 · <span class="lg-line safety">▏</span> 안전재고 · <span class="lg-line hazmax">▏</span> 최대보관(유해) <span class="muted">— 막대색: 정상(녹)/안전미달(주황)/유해초과(빨강)</span></div>
+    <div class="ivlegend"><span class="lg okbar">■</span> 재고(기말) · <span class="lg-line safety">▏</span> 안전재고 · <span class="lg-line hazmax">▏</span> 최대보관(유해) <span class="muted">— 막대색: 정상(녹)/안전미달(주황)/유해초과(빨강)</span></div>
     ${bars.join('')}
   </section>`);
 
