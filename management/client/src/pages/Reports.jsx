@@ -24,6 +24,52 @@ function reportHtml(d) {
     <div class="rpt-sub">${esc(m.plant)} · ${m.year}년 ${m.month}월 · 생성 ${esc((m.generatedAt || '').slice(0, 16).replace('T', ' '))}</div>
   </div>`);
 
+  // 제품군별 그룹화
+  const invGroups = [];
+  const gidx = {};
+  for (const it of (d.inventory || [])) {
+    if (!(it.product in gidx)) { gidx[it.product] = invGroups.length; invGroups.push({ product: it.product, items: [] }); }
+    invGroups[gidx[it.product]].items.push(it);
+  }
+
+  // 1) 재고 현황 (제품군·품목별) — 입고/사용/순증감/안전재고/유해 초과
+  const invRows = [];
+  for (const g of invGroups) {
+    invRows.push(`<tr class="grp"><td colspan="9">제품군: ${esc(g.product)}</td></tr>`);
+    for (const it of g.items) {
+      const safeCell = it.safety > 0
+        ? `<span class="${it.safetyState === '부족' ? 'st-danger' : it.safetyState === '임박' ? 'st-warn' : 'ok'}">${esc(it.safetyState)}${it.level != null ? ` (${it.level}%)` : ''}</span>`
+        : '<span class="muted">미설정</span>';
+      const hazMaxCell = it.hazardous && it.hazMax > 0 ? `${n(it.hazMax)}${esc(it.unit)}` : '<span class="muted">–</span>';
+      const hazCell = it.hazardous && it.hazMax > 0
+        ? `<span class="${it.hazOver ? 'st-danger' : ''}">${it.hazPct}%${it.hazOver ? ' 초과' : ''}</span>`
+        : '<span class="muted">–</span>';
+      invRows.push(`<tr><td>${esc(it.name)}</td><td>${n(it.monthIn)}</td><td>${n(it.monthOut)}</td><td>${n(it.net)}</td><td><b>${n(it.current)}</b>${esc(it.unit)}</td><td>${it.safety > 0 ? n(it.safety) : '–'}</td><td>${safeCell}</td><td>${hazMaxCell}</td><td>${hazCell}</td></tr>`);
+    }
+  }
+  parts.push(`<section><h2>1. 재고 현황 (제품군·품목별)</h2>
+    <p>월 입고 <b>${n(d.flow.inSum)}</b> · 월 사용(출고) <b>${n(d.flow.outSum)}</b> · 순증감 <b>${n(d.flow.net)}</b></p>
+    <table><thead><tr><th>품목</th><th>입고</th><th>사용</th><th>순증감</th><th>현재고</th><th>안전재고</th><th>안전재고 여부</th><th>유해 보관한도</th><th>초과여부</th></tr></thead><tbody>${invRows.join('')}</tbody></table>
+  </section>`);
+
+  // 2) 품목별 재고 그래프 (현재고 vs 안전재고 vs 최대보관)
+  const bars = [];
+  for (const g of invGroups) {
+    bars.push(`<div class="grp-label">제품군: ${esc(g.product)}</div>`);
+    for (const it of g.items) {
+      const scale = Math.max(it.current, it.safety, it.hazMax, 1) * 1.15;
+      const fillPct = Math.min(100, Math.round((it.current / scale) * 100));
+      const safetyPct = it.safety > 0 ? Math.round((it.safety / scale) * 100) : null;
+      const hazPos = it.hazMax > 0 ? Math.round((it.hazMax / scale) * 100) : null;
+      const cls = it.hazOver ? 'over' : (it.below ? 'low' : 'okbar');
+      bars.push(`<div class="ivbar"><div class="ivbar-label" title="${esc(it.name)}">${esc(it.name)}</div><div class="ivbar-track"><div class="ivbar-fill ${cls}" style="width:${fillPct}%"></div>${safetyPct != null ? `<div class="ivbar-mark safety" style="left:${safetyPct}%" title="안전재고 ${n(it.safety)}${esc(it.unit)}"></div>` : ''}${hazPos != null ? `<div class="ivbar-mark hazmax" style="left:${hazPos}%" title="최대보관 ${n(it.hazMax)}${esc(it.unit)}"></div>` : ''}</div><div class="ivbar-val">${n(it.current)}${esc(it.unit)}</div></div>`);
+    }
+  }
+  parts.push(`<section><h2>2. 품목별 재고 그래프</h2>
+    <div class="ivlegend"><span class="lg okbar">■</span> 현재고 · <span class="lg-line safety">▏</span> 안전재고 · <span class="lg-line hazmax">▏</span> 최대보관(유해) <span class="muted">— 막대색: 정상(녹)/안전미달(주황)/유해초과(빨강)</span></div>
+    ${bars.join('')}
+  </section>`);
+
   // 1) 경영 요약
   const kpiRows = [
     ['월 입고 합계', `${n(k.monthIn)}`, ''],
@@ -38,7 +84,7 @@ function reportHtml(d) {
     ['고우선순위 지연 업무', `${k.highOverdue}건`, sig(k.highOverdue > 0 ? 'danger' : 'ok')],
     ['이번 달 생성 Batch', `${k.batchCount}건`, ''],
   ];
-  parts.push(`<section><h2>1. 경영 요약</h2>
+  parts.push(`<section><h2>3. 경영 요약</h2>
     ${tbl(['지표', '수치', '신호'], kpiRows.map((r) => [esc(r[0]), `<b>${esc(r[1])}</b>`, esc(r[2])]))}
     <h3>이번 달 핵심</h3>
     ${d.top3.length ? `<ul class="hl">${d.top3.map((h) => `<li class="${h.level}"><b>${esc(h.title)}</b> — ${esc(h.detail)}</li>`).join('')}</ul>` : '<p class="ok">특이사항 없음 — 정상 운영</p>'}
@@ -52,19 +98,6 @@ function reportHtml(d) {
       ${d.limits.hazardousTracked === 0 ? '<li>유해화학물질로 지정된 품목이 없어 유해 지표는 0건입니다(미지정 ≠ 이상 없음).</li>' : ''}
       ${d.bom.batchTxCount === 0 ? '<li>Batch 번호가 기재된 출고가 없어 BOM 대비 분석은 신규 출고만 대상입니다.</li>' : ''}
     </ul></section>`);
-
-  // 2) 재고 건전성
-  parts.push(`<section><h2>2. 재고 건전성 (부족·임박)</h2>
-    ${tbl(['품목', '구분', '제품명', '현재고', '안전재고', '재고수준%', '상태'],
-      d.stockHealth.map((s) => [esc(s.name), s.category === 'raw' ? '원재료' : '부재료', esc(s.product || '–'), `${n(s.current)}${esc(s.unit)}`, n(s.safety), `${s.level}%`, `<span class="st-${s.state === '부족' ? 'danger' : 'warn'}">${esc(s.state)}</span>`]))}
-  </section>`);
-
-  // 3) 수불 흐름
-  parts.push(`<section><h2>3. 수불 흐름 · 사용량</h2>
-    <p>월 입고 <b>${n(d.flow.inSum)}</b> · 월 출고 <b>${n(d.flow.outSum)}</b> · 순증감 <b>${n(d.flow.net)}</b></p>
-    ${tbl(['품목', '입고', '출고(사용)', '순증감', '단위'],
-      d.flow.byItem.slice(0, 25).map((g) => [esc(g.name), n(g.inQ), n(g.outQ), n(g.net), esc(g.unit)]))}
-  </section>`);
 
   // 4) 제품별 Batch 투입 — BOM 대비
   parts.push(`<section><h2>4. 제품별 Batch 투입 (BOM 대비)</h2>
@@ -138,6 +171,23 @@ const REPORT_CSS = `
 .report ul.hl li.warn { background: #fff8ec; border-color: #d98318; }
 .report .note-box { background: #f6f7f9; border: 1px solid #e3e5ea; border-radius: 8px; padding: 12px 16px; font-size: 12.5px; }
 .report .note-box ul { margin: 6px 0 0; padding-left: 18px; }
+.report tr.grp td { background: #eef2f8; font-weight: 700; }
+.report .grp-label { font-weight: 700; font-size: 13px; margin: 12px 0 4px; color: #333; }
+.report .ivlegend { font-size: 12px; color: #555; margin: 6px 0 10px; }
+.report .lg.okbar { color: #1f9d4d; font-weight: 700; }
+.report .lg-line.safety { color: #d98318; font-weight: 700; }
+.report .lg-line.hazmax { color: #e5453a; font-weight: 700; }
+.report .ivbar { display: flex; align-items: center; gap: 8px; margin: 3px 0; page-break-inside: avoid; }
+.report .ivbar-label { width: 130px; flex-shrink: 0; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.report .ivbar-track { position: relative; flex: 1; height: 16px; background: #eef0f4; border-radius: 4px; overflow: visible; }
+.report .ivbar-fill { height: 100%; border-radius: 4px; }
+.report .ivbar-fill.okbar { background: #34c759; }
+.report .ivbar-fill.low { background: #ff9f0a; }
+.report .ivbar-fill.over { background: #e5453a; }
+.report .ivbar-mark { position: absolute; top: -2px; width: 2px; height: 20px; }
+.report .ivbar-mark.safety { background: #d98318; }
+.report .ivbar-mark.hazmax { background: #e5453a; }
+.report .ivbar-val { width: 110px; flex-shrink: 0; font-size: 12px; text-align: right; font-weight: 600; }
 `;
 
 export default function Reports() {

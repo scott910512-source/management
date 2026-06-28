@@ -70,6 +70,33 @@ router.get(
     }
     stockHealth.sort((a, b) => (a.level || 0) - (b.level || 0));
 
+    // ===== 재고 현황(제품군/품목별 종합) — 보고서 최상단 =====
+    const allNames = new Set([...items.map((i) => i.name), ...raws.map((r) => r.itemName), ...subs.map((s) => s.name)]);
+    const inventory = [];
+    for (const name of allNames) {
+      const master = items.find((i) => i.name === name);
+      const category = master ? master.category : (raws.some((r) => r.itemName === name) ? 'raw' : 'sub');
+      const unit = master ? master.unit : ((raws.find((r) => r.itemName === name) || {}).unit || (subs.find((s) => s.name === name) || {}).unit || '');
+      const product = (master && master.product) ? master.product : '(제품 미지정)';
+      const flow = flowMap[name] || { inQ: 0, outQ: 0 };
+      const current = curTotal(category, name);
+      const safety = master ? (num(master.safetyStock) || 0) : 0;
+      const th = (master && master.warningPct && num(master.warningPct) > 0) ? num(master.warningPct) : threshold;
+      const st = safety > 0 ? safetyStatus(current, safety, th) : { level: null, state: '-', below: false };
+      const isHaz = !!(master && master.hazardous === '1');
+      const hazMax = isHaz ? (num(master.hazardousMaxQty) || 0) : 0;
+      const hazWarnPct = (isHaz && master.hazardousWarnPct && num(master.hazardousWarnPct) > 0) ? num(master.hazardousWarnPct) : 80;
+      const hazPct = hazMax > 0 ? Math.round((current / hazMax) * 100) : null;
+      const hazOver = hazMax > 0 && hazPct >= hazWarnPct;
+      inventory.push({
+        product, name, category, unit,
+        monthIn: flow.inQ, monthOut: flow.outQ, net: flow.inQ - flow.outQ,
+        current, safety, level: st.level, safetyState: st.state, below: st.below,
+        hazardous: isHaz, hazMax, hazPct, hazOver,
+      });
+    }
+    inventory.sort((a, b) => (a.product === b.product ? a.name.localeCompare(b.name) : a.product.localeCompare(b.product)));
+
     // ===== 유해화학물질 =====
     const hazardous = items.filter((i) => i.hazardous === '1').map((h) => {
       const tx = monthTx.filter((t) => lotName.get(t.materialId) === h.name);
@@ -179,6 +206,7 @@ router.get(
     res.json({
       meta: { plant: req.plant, year, month, ym, generatedAt: nowStr, isCurrentMonth: year === curY && month === curM },
       kpi, top3,
+      inventory,
       flow: { inSum, outSum, net: inSum - outSum, byItem: flowItems },
       stockHealth,
       hazardous,
