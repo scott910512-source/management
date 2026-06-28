@@ -73,7 +73,11 @@ router.patch(
         if (!['입고', '출고', '반입', '반출'].includes(t)) throw badRequest('구분 값이 올바르지 않습니다.');
         r.type = t;
       }
-      if (req.body.quantity !== undefined) r.quantity = str(req.body.quantity);
+      if (req.body.quantity !== undefined) {
+        const q = parseFloat(req.body.quantity);
+        if (Number.isNaN(q)) throw badRequest('수량은 숫자여야 합니다.');
+        r.quantity = String(q);
+      }
       return r;
     });
     res.json({ item });

@@ -6,6 +6,8 @@ import { Modal, Field, TextInput, Select, useToast, ConfirmDialog, Empty, Loadin
 const blank = { title: '', category: '공정', categoryEtc: '', priority: '중', assignee: '', dueDate: '', status: '대기', note: '' };
 const prioColor = { 상: 'red', 중: 'orange', 하: '' };
 const statColor = { 완료: 'green', 진행중: 'blue', 대기: '', 지연: 'red' };
+const today = () => new Date().toISOString().slice(0, 10);
+function isOverdue(t) { return t.dueDate && t.status !== '완료' && t.dueDate < today(); }
 
 export default function Tasks() {
   const { isAdmin, canWrite } = useAuth();
@@ -62,12 +64,12 @@ export default function Tasks() {
             </thead>
             <tbody>
               {items.map((t) => (
-                <tr key={t.id} style={t.status === '완료' ? { opacity: 0.55 } : {}}>
+                <tr key={t.id} style={t.status === '완료' ? { opacity: 0.55 } : isOverdue(t) ? { background: 'var(--red-bg, #fff1f1)' } : {}}>
                   <td><Badge color={prioColor[t.priority]}>{t.priority}</Badge></td>
                   <td><b>{t.title}</b>{t.note && <div className="muted" style={{ fontSize: 12 }}>{t.note}</div>}</td>
                   <td className="muted">{t.category === '기타' ? t.categoryEtc || '기타' : t.category}</td>
                   <td className="muted">{nameOf(t.assignee)}</td>
-                  <td className="muted">{t.dueDate || '–'}</td>
+                  <td className="muted" style={isOverdue(t) ? { color: 'var(--red)', fontWeight: 600 } : {}}>{t.dueDate || '–'}{isOverdue(t) && ' ⚠'}</td>
                   <td><Badge color={statColor[t.status]} dot>{t.status}</Badge></td>
                   <td className="muted">{(t.createdAt || '').slice(0, 10)}</td>
                   <td>

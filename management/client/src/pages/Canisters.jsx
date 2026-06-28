@@ -188,7 +188,6 @@ function CanisterForm({ meta, onClose, onSaved, onError }) {
   async function submit() {
     if (!f.canisterNo.trim()) return onError('Canister No.를 입력하세요.');
     const content = f.content === '기타' ? (f.contentEtc || '').trim() : f.content;
-    if (!content) return onError('내용물을 입력하세요.');
     setBusy(true);
     try {
       await api.post('/canisters', { ...f, content, canisterNo: f.canisterNo.trim(), weight: f.weight === '' ? 0 : Number(f.weight) });
@@ -255,6 +254,7 @@ function MoveForm({ meta, canisters, onClose, onSaved, onError }) {
 
   async function submit() {
     if (!cid) return onError('Canister를 선택하세요.');
+    if (f.type !== '상태변경' && (!f.weight || Number(f.weight) <= 0)) return onError('무게를 입력하세요.');
     const content = f.content === '기타' ? (f.contentEtc || '').trim() : f.content;
     setBusy(true);
     try {

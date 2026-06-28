@@ -109,6 +109,7 @@ function DetailMoveForm({ meta, item, onClose, onSaved, onError }) {
   const set = (k, v) => setF((p) => ({ ...p, [k]: v }));
 
   async function submit() {
+    if (f.type !== '상태변경' && (!f.weight || Number(f.weight) <= 0)) return onError('무게를 입력하세요.');
     setBusy(true);
     try {
       await api.post(`/canisters/${item.id}/move`, { ...f, weight: f.weight === '' ? 0 : Number(f.weight) });

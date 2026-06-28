@@ -280,7 +280,6 @@ function SubForm({ mode, initial, onClose, onSaved, onError }) {
         }
         await api.post('/sub-materials', payload);
       } else {
-        payload.weight = Number(f.weight);
         await api.patch('/sub-materials/' + initial.id, payload);
       }
       onSaved();
@@ -332,8 +331,8 @@ function SubForm({ mode, initial, onClose, onSaved, onError }) {
             <TextInput type="number" value={f.pkgCount} onChange={(e) => set('pkgCount', e.target.value)} placeholder="예: 2" />
           </Field>
         ) : (
-          <Field label={mode === 'create' ? '무게(입고)' : '잔량'} required>
-            <TextInput type="number" value={f.weight} onChange={(e) => set('weight', e.target.value)} placeholder="0" />
+          <Field label={mode === 'create' ? '무게(입고)' : '잔량 (수불로만 변경)'} required={mode === 'create'}>
+            <TextInput type="number" value={f.weight} onChange={(e) => set('weight', e.target.value)} placeholder="0" disabled={mode === 'edit'} />
           </Field>
         )}
         <Field label="단위" required>
