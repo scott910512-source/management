@@ -37,15 +37,16 @@ function reportHtml(d) {
   for (const g of invGroups) {
     invRows.push(`<tr class="grp"><td colspan="9">제품군: ${esc(g.product)}</td></tr>`);
     for (const it of g.items) {
+      const curTag = (active, ever) => (active ? ' <span class="st-danger">· 현재 지속</span>' : (ever ? ' <span class="muted">· 현재 해소</span>' : ''));
       const safeCell = it.safety > 0
         ? (it.everShort
-          ? `<span class="st-danger">월중 부족 발생 (최저 ${it.monthMinPct}%)</span>`
+          ? `<span class="st-danger">월중 부족 ${it.shortCount}회 (최저 ${it.monthMinPct}%)</span>${curTag(it.currentShort, true)}`
           : `<span class="ok">정상 (월최저 ${it.monthMinPct}%)</span>`)
         : '<span class="muted">미설정</span>';
       const hazMaxCell = it.hazardous && it.hazMax > 0 ? `${n(it.hazMax)}${esc(it.unit)}` : '<span class="muted">–</span>';
       const hazCell = it.hazardous && it.hazMax > 0
         ? (it.everHazOver
-          ? `<span class="st-danger">월중 초과 발생 (최고 ${it.monthMaxHazPct}%)</span>`
+          ? `<span class="st-danger">월중 초과 ${it.hazOverCount}회 (최고 ${it.monthMaxHazPct}%)</span>${curTag(it.currentHazOver, true)}`
           : `<span class="ok">정상 (월최고 ${it.monthMaxHazPct}%)</span>`)
         : '<span class="muted">–</span>';
       invRows.push(`<tr><td>${esc(it.name)}</td><td>${n(it.monthIn)}</td><td>${n(it.monthOut)}</td><td>${n(it.net)}</td><td><b>${n(it.current)}</b>${esc(it.unit)}</td><td>${it.safety > 0 ? n(it.safety) : '–'}</td><td>${safeCell}</td><td>${hazMaxCell}</td><td>${hazCell}</td></tr>`);
@@ -54,7 +55,7 @@ function reportHtml(d) {
   parts.push(`<section><h2>1. 재고 현황 (제품군·품목별)</h2>
     <p>월 입고 <b>${n(d.flow.inSum)}</b> · 월 사용(출고) <b>${n(d.flow.outSum)}</b> · 순증감 <b>${n(d.flow.net)}</b></p>
     <table><thead><tr><th>품목</th><th>입고</th><th>사용</th><th>순증감</th><th>현재고</th><th>안전재고</th><th>안전재고(월중)</th><th>유해 보관한도</th><th>유해초과(월중)</th></tr></thead><tbody>${invRows.join('')}</tbody></table>
-    <p class="muted" style="font-size:11.5px;margin-top:4px">※ 안전재고·유해초과는 <b>선택한 달 동안 1회라도 발생</b>했는지(수불 이력 역산) 기준입니다. 현재고는 생성 시점 값입니다.</p>
+    <p class="muted" style="font-size:11.5px;margin-top:4px">※ 안전재고·유해초과는 <b>선택한 달 동안 발생한 횟수</b>(수불 이력 역산)와 <b>현재 지속/해소</b> 여부를 함께 표시합니다. 현재고는 생성 시점 값입니다.</p>
   </section>`);
 
   // 2) 품목별 재고 그래프 (현재고 vs 안전재고 vs 최대보관)

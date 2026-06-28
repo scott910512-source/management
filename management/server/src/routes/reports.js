@@ -45,16 +45,17 @@ router.get(
 
     // 선택한 달 동안 품목 총재고를 이력(balanceAfter)으로 역산 → 월중 최저/최고 총재고
     const monthStart = `${ym}-01T00:00:00`;
-    function reconstructMonth(cat, name) {
+    // shortLevel/hazLevel: 부족/초과 절대 임계(없으면 null) → 월중 발생 횟수(episode) 집계
+    function reconstructMonth(cat, name, shortLevel, hazLevel) {
+      const cnt = (c) => ({ min: c, max: c, shortCount: (shortLevel != null && c < shortLevel) ? 1 : 0, overCount: (hazLevel != null && c >= hazLevel) ? 1 : 0 });
       const lotIds = (cat === 'raw' ? raws.filter((r) => r.itemName === name) : subs.filter((s) => s.name === name)).map((x) => x.id);
-      if (lotIds.length === 0) { const c = curTotal(cat, name); return { min: c, max: c }; }
+      if (lotIds.length === 0) return cnt(curTotal(cat, name));
       const lotSet = new Set(lotIds);
       const tx = txns.filter((t) => lotSet.has(t.materialId)).sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1));
       const hasTx = {};
       for (const t of tx) hasTx[t.materialId] = true;
       const bal = {};
       for (const id of lotIds) bal[id] = null;
-      // 월초 이전 마지막 잔량으로 시작값 설정
       for (const t of tx) if (t.createdAt < monthStart) bal[t.materialId] = num(t.balanceAfter) || 0;
       for (const id of lotIds) {
         if (bal[id] !== null) continue;          // 월초 이전 거래 있음
@@ -62,16 +63,22 @@ router.get(
         else bal[id] = lotCur.get(id) || 0;      // 거래 자체가 없는 lot(직접등록) → 현재값을 상수로
       }
       const total = () => Object.values(bal).reduce((s, v) => s + (v || 0), 0);
-      let mn = total(); let mx = mn; // 월초 샘플
+      let mn = null; let mx = null; let shortCount = 0; let overCount = 0; let prevBelow = false; let prevOver = false;
+      const sample = () => {
+        const v = total();
+        if (mn === null || v < mn) mn = v;
+        if (mx === null || v > mx) mx = v;
+        if (shortLevel != null) { const below = v < shortLevel; if (below && !prevBelow) shortCount++; prevBelow = below; }
+        if (hazLevel != null) { const over = v >= hazLevel; if (over && !prevOver) overCount++; prevOver = over; }
+      };
+      sample(); // 월초
       for (const t of tx) {
         if (t.createdAt < monthStart) continue;
         if ((t.createdAt || '').slice(0, 7) !== ym) continue;
         bal[t.materialId] = num(t.balanceAfter) || 0;
-        const v = total();
-        if (v < mn) mn = v;
-        if (v > mx) mx = v;
+        sample();
       }
-      return { min: mn, max: mx };
+      return { min: mn, max: mx, shortCount, overCount };
     }
 
     // ===== 수불 흐름 =====
@@ -120,18 +127,21 @@ router.get(
       const hazWarnPct = (isHaz && master.hazardousWarnPct && num(master.hazardousWarnPct) > 0) ? num(master.hazardousWarnPct) : 80;
       const hazPct = hazMax > 0 ? Math.round((current / hazMax) * 100) : null;
       const hazOver = hazMax > 0 && hazPct >= hazWarnPct;
-      // 월중 발생 여부(이력 역산)
-      const rec = reconstructMonth(category, name);
+      // 월중 발생(이력 역산) — 횟수 + 최저/최고 + 현재 지속여부
+      const shortLevel = safety > 0 ? safety * (th / 100) : null;
+      const hazLevel = hazMax > 0 ? hazMax * (hazWarnPct / 100) : null;
+      const rec = reconstructMonth(category, name, shortLevel, hazLevel);
       const monthMinPct = safety > 0 ? Math.round((rec.min / safety) * 100) : null;
-      const everShort = safety > 0 && rec.min < safety * (th / 100);
+      const everShort = rec.shortCount > 0;
       const monthMaxHazPct = hazMax > 0 ? Math.round((rec.max / hazMax) * 100) : null;
-      const everHazOver = hazMax > 0 && rec.max >= hazMax * (hazWarnPct / 100);
+      const everHazOver = rec.overCount > 0;
       inventory.push({
         product, name, category, unit,
         monthIn: flow.inQ, monthOut: flow.outQ, net: flow.inQ - flow.outQ,
         current, safety, level: st.level, safetyState: st.state, below: st.below,
         hazardous: isHaz, hazMax, hazPct, hazOver,
-        everShort, monthMinPct, everHazOver, monthMaxHazPct,
+        everShort, shortCount: rec.shortCount, monthMinPct, currentShort: st.below,
+        everHazOver, hazOverCount: rec.overCount, monthMaxHazPct, currentHazOver: hazOver,
       });
     }
     inventory.sort((a, b) => (a.product === b.product ? a.name.localeCompare(b.name) : a.product.localeCompare(b.product)));
