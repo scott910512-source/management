@@ -7,6 +7,7 @@ import { UnitInput, ItemSelect, expandLot } from '../components/inputs';
 import { TrendModal } from '../components/TrendModal';
 import { UseModal } from '../components/UseModal';
 import { BulkUseModal } from '../components/BulkUseModal';
+import { BulkReceiveModal } from '../components/BulkReceiveModal';
 
 const blank = { name: '', receivedDate: '', lotNo: '', vendor: '', unit: 'kg', weight: '', note: '', pkgCount: '', pkgSize: '', pkgUnit: '', pkgType: '' };
 const today = () => new Date().toISOString().slice(0, 10);
@@ -37,6 +38,7 @@ export default function SubMaterials() {
   const [trend, setTrend] = useState(false);
   const [useOpen, setUseOpen] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkReceiveOpen, setBulkReceiveOpen] = useState(false);
   const [lotHistory, setLotHistory] = useState(null);
   const [edit, setEdit] = useState(null);
   const [tx, setTx] = useState(null);
@@ -111,6 +113,7 @@ export default function SubMaterials() {
           <button className="btn secondary sm" onClick={exportCsv}>⬇ CSV</button>
           {canWrite && <button className="btn secondary sm" onClick={() => setBulkOpen(true)}>− 일괄 출고</button>}
           {canWrite && <button className="btn secondary sm" onClick={() => setUseOpen(true)}>− 부재료 사용</button>}
+          {canWrite && <button className="btn secondary sm" onClick={() => setBulkReceiveOpen(true)}>+ 다량 입고</button>}
           {canWrite && <button className="btn sm" onClick={() => setEdit({ mode: 'create', data: { ...blank, receivedDate: today() } })}>+ 부재료 입고</button>}
         </div>
       </div>
@@ -264,6 +267,14 @@ export default function SubMaterials() {
             try { await api.del('/sub-materials/' + del.id); setDel(null); load(); toast.ok('삭제했습니다.'); }
             catch (e) { toast.err(e.message); }
           }}
+        />
+      )}
+      {bulkReceiveOpen && (
+        <BulkReceiveModal
+          base="sub-materials"
+          onClose={() => setBulkReceiveOpen(false)}
+          onSaved={(msg) => { setBulkReceiveOpen(false); load(); toast.ok(msg); }}
+          onError={(m) => toast.err(m)}
         />
       )}
       {lotHistory && <LotHistoryModal base="sub-materials" item={lotHistory} onClose={() => setLotHistory(null)} />}
