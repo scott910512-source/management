@@ -8,6 +8,7 @@ const { appendTransaction } = require('../lib/tx');
 const { requireAuth, requireAdmin, requireWrite } = require('../middleware/auth');
 const { resolvePlant } = require('../middleware/plant');
 const { readSettings } = require('./settings');
+const { parseSizeMaxKg, CANISTER_WARN_RATIO } = require('../lib/warnings');
 
 const router = express.Router();
 
@@ -21,12 +22,17 @@ router.use(requireAuth, resolvePlant);
 function disp(value, etc) {
   return value === '기타' ? (etc || '기타') : value;
 }
-function decorate(r) {
+function decorate(r, maxMap) {
+  const max = maxMap ? maxMap[r.size] : null;
+  const w = num(r.weight) || 0;
   return {
     ...r,
     sizeLabel: disp(r.size, r.sizeEtc),
     locationLabel: disp(r.location, r.locationEtc),
     statusLabel: disp(r.status, r.statusEtc),
+    maxKg: max != null ? max : null,
+    capPct: max != null && max > 0 ? Math.round((w / max) * 100) : null,
+    capWarn: max != null && max > 0 && w >= max * CANISTER_WARN_RATIO, // 90% 이상
   };
 }
 function filterRows(rows, query) {
@@ -59,7 +65,8 @@ async function getDynamicEnums(plant) {
 router.get(
   '/',
   asyncHandler(async (req, res) => {
-    const rows = await readTable('canisters', req.plant);
+    const [rows, settings] = await Promise.all([readTable('canisters', req.plant), readSettings(req.plant)]);
+    const maxMap = parseSizeMaxKg(settings.canisterSizeMaxKg);
     // 기본 정렬: 제품(내용물) 그룹 → Canister No.
     const sorted = filterRows(rows, req.query).sort((a, b) => {
       const ca = a.content || '~';
@@ -67,7 +74,7 @@ router.get(
       if (ca !== cb) return ca < cb ? -1 : 1;
       return a.canisterNo.localeCompare(b.canisterNo);
     });
-    res.json({ items: sorted.map(decorate) });
+    res.json({ items: sorted.map((r) => decorate(r, maxMap)) });
   }),
 );
 
@@ -105,10 +112,10 @@ router.get(
 router.get(
   '/:id',
   asyncHandler(async (req, res) => {
-    const rows = await readTable('canisters', req.plant);
+    const [rows, settings] = await Promise.all([readTable('canisters', req.plant), readSettings(req.plant)]);
     const r = rows.find((x) => x.id === req.params.id);
     if (!r) throw notFound('Canister를 찾을 수 없습니다.');
-    res.json({ item: decorate(r) });
+    res.json({ item: decorate(r, parseSizeMaxKg(settings.canisterSizeMaxKg)) });
   }),
 );
 

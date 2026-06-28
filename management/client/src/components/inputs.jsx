@@ -80,8 +80,10 @@ export function BatchFields({ category, materialName, date, onChange }) {
  * cur: 현재 잔량, qty: 입력 수량, type: '입고'|'출고', unit, over: 초과 여부, hasQty: 수량 입력 여부
  */
 export function BalanceBox({ cur, qty, type, unit, over, hasQty }) {
-  const after = type === '입고' ? cur + (qty || 0) : cur - (qty || 0);
-  const afterLabel = type === '입고' ? '입고 후 잔여수량' : '사용 후 잔여수량';
+  const isAdd = type === '입고' || type === '반입';
+  const after = isAdd ? cur + (qty || 0) : cur - (qty || 0);
+  const afterLabel =
+    type === '반입' ? '반입 후 잔량' : type === '반출' ? '반출 후 잔량' : type === '입고' ? '입고 후 잔여수량' : '사용 후 잔여수량';
   return (
     <div style={{ display: 'flex', gap: 12, margin: '4px 0 16px' }}>
       <div style={{ flex: 1, background: 'var(--bg2)', borderRadius: 10, padding: '12px 16px' }}>

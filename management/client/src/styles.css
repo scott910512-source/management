@@ -174,6 +174,10 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .group-row.gt4 td { background: #ffe7ec !important; }
 /* 부족 행 — 옅은 붉은 박스 */
 .tbl tr.row-low td { background: var(--red-soft); border-bottom-color: #f4cdca; }
+/* Canister 사용가능량 임박(90%↑) — 빨간 테두리 */
+.tbl tr.cap-warn td { background: #fff1f1; border-top: 1.5px solid var(--red); border-bottom: 1.5px solid var(--red); }
+.tbl tr.cap-warn td:first-child { border-left: 1.5px solid var(--red); }
+.tbl tr.cap-warn td:last-child { border-right: 1.5px solid var(--red); }
 .tbl tr.row-low td:first-child { border-top-left-radius: 10px; border-bottom-left-radius: 10px; }
 .tbl tr.row-low td:last-child { border-top-right-radius: 10px; border-bottom-right-radius: 10px; }
 /* 표 안 액션 버튼은 항상 가로 한 줄로 */

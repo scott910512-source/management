@@ -6,7 +6,7 @@ const { asyncHandler, str, num, badRequest } = require('../lib/http');
 const { newId, now } = require('../lib/ids');
 const { requireAuth } = require('../middleware/auth');
 const { resolvePlant } = require('../middleware/plant');
-const { computeWarnings } = require('../lib/warnings');
+const { computeWarnings, parseSizeMaxKg } = require('../lib/warnings');
 const { readSettings } = require('./settings');
 
 const router = express.Router();
@@ -17,7 +17,8 @@ async function activeWarnings(plant) {
     readTable('items', plant), readTable('raw_materials', plant), readTable('sub_materials', plant), readTable('canisters', plant), readSettings(plant),
   ]);
   const threshold = num(settings.safetyRatioPercent) || 100;
-  return computeWarnings({ items, raws, subs, canisters, threshold });
+  const canisterMax = parseSizeMaxKg(settings.canisterSizeMaxKg);
+  return computeWarnings({ items, raws, subs, canisters, threshold, canisterMax });
 }
 
 // 활성 경고 + 확인/삭제 상태

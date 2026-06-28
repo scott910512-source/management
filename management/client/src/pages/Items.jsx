@@ -244,9 +244,12 @@ function CanisterDefaultsCard({ toast }) {
   const [newLoc, setNewLoc] = useState('');
   const [newStat, setNewStat] = useState('');
   const [newContent, setNewContent] = useState('');
+  const [sizeMax, setSizeMax] = useState({}); // { size: 'kg' } 사이즈별 최대 사용가능 무게
   const [busy, setBusy] = useState(false);
 
   function toArr(str) { return (str || '').split(',').map(s => s.trim()).filter(Boolean); }
+  function parseMax(str) { const m = {}; (str || '').split(',').forEach(p => { const [s, k] = p.split(':').map(x => (x || '').trim()); if (s) m[s] = k || ''; }); return m; }
+  function serializeMax(map, sizes) { return sizes.filter(s => map[s] !== '' && map[s] != null).map(s => `${s}:${map[s]}`).join(','); }
 
   function addItem(current, newVal, setter, newSetter) {
     const val = newVal.trim();
@@ -269,6 +272,7 @@ function CanisterDefaultsCard({ toast }) {
       setCnLocs(s.canisterLocations || '2공장현장,3류창고,4류창고');
       setCnStats(s.canisterStatuses || '수령,사용중,사용완료,세정의뢰,사용금지');
       setCnContents(s.canisterContents || '톨루엔,황산,활성탄,실링패드');
+      setSizeMax(parseMax(s.canisterSizeMaxKg || '5gal:20,50L:50,100L:100,200L:200'));
       setDefSize(s.canisterDefaultSize || '50L');
       setDefLoc(s.canisterDefaultLocation || '2공장현장');
       setDefStat(s.canisterDefaultStatus || '수령');
@@ -288,6 +292,7 @@ function CanisterDefaultsCard({ toast }) {
         canisterDefaultLocation: defLoc,
         canisterDefaultStatus: defStat,
         canisterDefaultContent: defContent,
+        canisterSizeMaxKg: serializeMax(sizeMax, toArr(cnSizes)),
       });
       toast.ok('Canister 기준정보를 저장했습니다.');
     } catch (e) { toast.err(e.message); } finally { setBusy(false); }
@@ -306,7 +311,7 @@ function CanisterDefaultsCard({ toast }) {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 20, marginBottom: 20 }}>
         {/* 사이즈 */}
         <div>
-          <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 13 }}>사이즈 목록</div>
+          <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 13 }}>사이즈 목록 · 최대 사용가능(kg)</div>
           <Field label="기본값" style={{ marginBottom: 8 }}>
             <Select value={defSize} onChange={e => setDefSize(e.target.value)}>
               {toArr(cnSizes).map(s => <option key={s} value={s}>{s}</option>)}
@@ -318,12 +323,22 @@ function CanisterDefaultsCard({ toast }) {
           </div>
           <div style={colStyle}>
             {toArr(cnSizes).map(s => (
-              <div key={s} style={tagStyle}>
-                <span style={{ fontSize: 13 }}>{s}</span>
+              <div key={s} style={{ ...tagStyle, gap: 6 }}>
+                <span style={{ fontSize: 13, flex: 1 }}>{s}</span>
+                <input
+                  type="number"
+                  value={sizeMax[s] ?? ''}
+                  onChange={(e) => setSizeMax((p) => ({ ...p, [s]: e.target.value }))}
+                  placeholder="Max kg"
+                  title="최대 사용가능 무게(kg) — 90% 이상이면 경고"
+                  style={{ width: 70, fontSize: 12, padding: '2px 6px', border: '1px solid var(--line-2)', borderRadius: 6, fontFamily: 'inherit' }}
+                />
+                <span className="muted" style={{ fontSize: 11 }}>kg</span>
                 <button className="btn ghost sm" style={{ padding: '2px 8px', fontSize: 12 }} onClick={() => removeItem(cnSizes, s, setCnSizes)}>×</button>
               </div>
             ))}
           </div>
+          <div className="hint" style={{ marginTop: 6 }}>무게가 최대 사용가능값의 90% 이상이면 현황에서 경고(빨간 테두리)됩니다.</div>
         </div>
 
         {/* 위치 */}

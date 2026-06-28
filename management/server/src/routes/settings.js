@@ -19,10 +19,12 @@ const DEFAULTS = {
   canisterLocations: '2공장현장,3류창고,4류창고',
   canisterStatuses: '수령,사용중,사용완료,세정의뢰,사용금지',
   canisterContents: '톨루엔,황산,활성탄,실링패드',
+  // 사이즈별 최대 사용가능 무게(kg). "size:kg" 쉼표 구분. 90% 이상이면 경고.
+  canisterSizeMaxKg: '5gal:20,50L:50,100L:100,200L:200',
 };
 const STRING_KEYS = [
   'canisterDefaultSize', 'canisterDefaultLocation', 'canisterDefaultStatus', 'canisterDefaultContent',
-  'canisterSizes', 'canisterLocations', 'canisterStatuses', 'canisterContents',
+  'canisterSizes', 'canisterLocations', 'canisterStatuses', 'canisterContents', 'canisterSizeMaxKg',
 ];
 
 async function readSettings(plant) {

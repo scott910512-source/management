@@ -2,8 +2,22 @@
 
 const { num } = require('./http');
 
-// Canister 사이즈별 용량 기준(이 무게 이상이면 잔여공간 없음/초과 경고)
+// Canister 사이즈별 용량 기준(기본값 — 설정(canisterSizeMaxKg)에서 덮어씀)
 const CANISTER_CAP = { '5gal': 20, '50L': 50, '100L': 100, '200L': 200 };
+
+// 사이즈 한도 경고 비율 — 최대 사용가능 무게의 이 % 이상이면 경고
+const CANISTER_WARN_RATIO = 0.9;
+
+// "5gal:20,50L:50" 형태 문자열을 {size: kg} 맵으로 파싱
+function parseSizeMaxKg(str) {
+  const map = {};
+  for (const pair of String(str || '').split(',')) {
+    const [size, kg] = pair.split(':').map((v) => (v || '').trim());
+    const n = Number(kg);
+    if (size && !Number.isNaN(n) && n > 0) map[size] = n;
+  }
+  return map;
+}
 
 /** 현재고/최소재고/경고기준(%)으로 재고수준%와 상태(정상/임박/부족)를 계산. */
 function safetyStatus(current, min, threshold) {
@@ -26,8 +40,9 @@ function canisterCap(size) {
  * - Canister 용량 초과(무게 >= 사이즈 기준)
  * 각 경고는 안정적인 key를 가진다.
  */
-function computeWarnings({ items, raws, subs, canisters, threshold }) {
+function computeWarnings({ items, raws, subs, canisters, threshold, canisterMax }) {
   const out = [];
+  const maxMap = canisterMax || CANISTER_CAP;
 
   const buildSafety = (cat, masters, rows, getName, getQty, label) => {
     for (const m of masters) {
@@ -68,18 +83,19 @@ function computeWarnings({ items, raws, subs, canisters, threshold }) {
   }
 
   for (const c of canisters) {
-    const cap = canisterCap(c.size);
+    const max = maxMap[c.size];
     const w = num(c.weight) || 0;
-    if (cap != null && w >= cap) {
+    if (max != null && max > 0 && w >= max * CANISTER_WARN_RATIO) {
+      const pct = Math.round((w / max) * 100);
       out.push({
         key: `canister:${c.id}`,
         kind: 'canister',
-        level: 'warn',
-        content: `Canister ${c.canisterNo}(${c.size}) 용량 초과 — 무게 ${w.toLocaleString()} (기준 ${cap} 이상). 수불 필요`,
+        level: w >= max ? 'danger' : 'warn',
+        content: `Canister ${c.canisterNo}(${c.size}) 사용가능량 임박 — 무게 ${w.toLocaleString()}kg / 최대 ${max.toLocaleString()}kg (${pct}%). 수불 필요`,
       });
     }
   }
   return out;
 }
 
-module.exports = { computeWarnings, safetyStatus, canisterCap, CANISTER_CAP };
+module.exports = { computeWarnings, safetyStatus, canisterCap, CANISTER_CAP, parseSizeMaxKg, CANISTER_WARN_RATIO };

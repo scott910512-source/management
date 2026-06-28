@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { api, downloadCsv } from '../api';
 import { useAuth } from '../auth/AuthContext';
 import { Modal, Field, TextInput, Select, useToast, ConfirmDialog, Empty, Loading, Badge, statusColor } from '../components/ui';
-import { EtcSelect } from '../components/inputs';
+import { EtcSelect, BalanceBox } from '../components/inputs';
 
 const blankCreate = { canisterNo: '', size: '50L', sizeEtc: '', location: '2공장현장', locationEtc: '', status: '수령', statusEtc: '', content: '', weight: '', note: '' };
 
@@ -125,13 +125,17 @@ export default function Canisters() {
                 <Fragment key={g.content}>
                   <tr className="group-row"><td colSpan={8}>🛢 사용제품: {g.content} · {g.rows.length}개</td></tr>
                   {g.rows.map((c) => (
-                    <tr key={c.id}>
+                    <tr key={c.id} className={c.capWarn ? 'cap-warn' : ''}>
                       <td style={{ paddingLeft: 24 }}><Link to={`/canisters/${c.id}`} className="inline-link"><b>{c.canisterNo}</b></Link></td>
                       <td><Badge>{c.sizeLabel}</Badge></td>
                       <td>{c.content ? c.content : <span className="muted">(비어있음)</span>}</td>
-                      <td className="num">{Number(c.weight || 0).toLocaleString()}</td>
+                      <td className="num">
+                        <span style={{ color: c.capWarn ? 'var(--red)' : undefined, fontWeight: c.capWarn ? 700 : undefined }}>{Number(c.weight || 0).toLocaleString()}</span>
+                        {c.maxKg != null && <span className="muted" style={{ fontSize: 11 }}> / {c.maxKg}kg{c.capPct != null ? ` (${c.capPct}%)` : ''}</span>}
+                        {c.capWarn && <span className="badge red" style={{ marginLeft: 4 }}>임박</span>}
+                      </td>
                       <td className="muted">{c.locationLabel}</td>
-                      <td><Badge color={statusColor(c.status)} dot>{c.statusLabel}</Badge></td>
+                      <td>{canWrite ? <StatusSelect c={c} statuses={meta.canisterStatuses} onChanged={load} onError={(m) => toast.err(m)} /> : <Badge color={statusColor(c.status)} dot>{c.statusLabel}</Badge>}</td>
                       <td className="muted">{(c.updatedAt || '').slice(0, 10)}</td>
                       <td>
                         <div className="btn-row">
@@ -170,6 +174,34 @@ export default function Canisters() {
         />
       )}
     </>
+  );
+}
+
+// 목록에서 상태를 바로 변경(클릭 → 선택). 변경 시 '상태변경' 이력으로 기록된다.
+function StatusSelect({ c, statuses, onChanged, onError }) {
+  const [busy, setBusy] = useState(false);
+  const opts = statuses.includes(c.status) ? statuses : [c.status, ...statuses];
+  async function change(next) {
+    if (next === c.status) return;
+    setBusy(true);
+    try {
+      await api.post(`/canisters/${c.id}/move`, { type: '상태변경', status: next });
+      onChanged();
+    } catch (e) { onError(e.message); } finally { setBusy(false); }
+  }
+  return (
+    <select
+      value={c.status}
+      disabled={busy}
+      onChange={(e) => change(e.target.value)}
+      title="클릭하여 상태 변경"
+      style={{
+        border: '1px solid var(--line-2)', borderRadius: 6, padding: '2px 6px', fontSize: 12,
+        fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', color: `var(--${statusColor(c.status) || 'text'})`, background: 'var(--surface)',
+      }}
+    >
+      {opts.map((s) => <option key={s} value={s} style={{ color: 'var(--text)' }}>{s}</option>)}
+    </select>
   );
 }
 
@@ -302,8 +334,21 @@ function MoveForm({ meta, canisters, onClose, onSaved, onError }) {
           <Field label="제품(내용물)">
             <EtcSelect options={meta.canisterContents || []} value={f.content} etc={f.contentEtc || ''} onChange={(v, etc) => setF((p) => ({ ...p, content: v, contentEtc: etc || '' }))} placeholder="내용물 직접 입력" />
           </Field>
+          {sel && (
+            <BalanceBox
+              cur={Number(sel.weight) || 0}
+              qty={Number(f.weight) || 0}
+              type={f.type}
+              unit={sel.unit || 'kg'}
+              over={f.type === '반출' && Number(f.weight) > (Number(sel.weight) || 0)}
+              hasQty={!!f.weight}
+            />
+          )}
           <Field label={f.type === '반입' ? '반입 무게' : '반출 무게'} required>
-            <TextInput type="number" value={f.weight} onChange={(e) => set('weight', e.target.value)} placeholder="0" />
+            <div style={{ display: 'flex', gap: 6 }}>
+              <TextInput type="number" value={f.weight} onChange={(e) => set('weight', e.target.value)} placeholder="0" />
+              {f.type === '반출' && sel && <button type="button" className="btn secondary sm" style={{ whiteSpace: 'nowrap' }} onClick={() => set('weight', String(Number(sel.weight) || 0))}>전량</button>}
+            </div>
           </Field>
         </>
       )}
