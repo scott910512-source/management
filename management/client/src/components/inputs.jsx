@@ -11,12 +11,13 @@ const UNIT_PRESET = ['kg', 'ea', 'L'];
  * - 신규 배치면 합성시작일을 입력(기본: 수불 날짜).
  * onChange({ batchNo, product, batchStartDate })로 상위 폼에 전파.
  */
-export function BatchFields({ category, materialName, date, onChange }) {
+export function BatchFields({ category, materialName, date, onChange, onAutofillQty }) {
   const [product, setProduct] = useState('');
   const [no, setNo] = useState('');
   const [startDate, setStartDate] = useState('');
   const [exists, setExists] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [standardQty, setStandardQty] = useState(0);
 
   // 초기 컨텍스트: 다음 번호 + 제품(사용처)
   useEffect(() => {
@@ -44,6 +45,22 @@ export function BatchFields({ category, materialName, date, onChange }) {
     return () => { alive = false; };
   }, [product, no, loaded, date]);
 
+  // 제품(사용처)별 BOM 기준량 → 사용 수량 자동 채움
+  useEffect(() => {
+    if (!product || !materialName) { setStandardQty(0); return; }
+    let alive = true;
+    api
+      .get(`/products/standard-qty?product=${encodeURIComponent(product)}&category=${category}&materialName=${encodeURIComponent(materialName)}`)
+      .then((d) => {
+        if (!alive) return;
+        const q = Number(d.qtyPerBatch) || 0;
+        setStandardQty(q);
+        if (q > 0 && onAutofillQty) onAutofillQty(q);
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [product, materialName, category]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // 상위 폼으로 전파
   useEffect(() => {
     if (onChange) onChange({ batchNo: no, product, batchStartDate: startDate });
@@ -70,6 +87,7 @@ export function BatchFields({ category, materialName, date, onChange }) {
         {!no ? 'Batch 번호를 입력하면 투입이력에 기록됩니다.'
           : exists ? `기존 배치 #${no} — 합성시작일을 공유합니다.`
           : `신규 배치 #${no} — 합성시작일을 입력하세요.`}
+        {standardQty > 0 && <span style={{ color: 'var(--green)', marginLeft: 6 }}>· 기준량 {standardQty.toLocaleString()} 자동입력됨</span>}
       </div>
     </div>
   );

@@ -414,7 +414,7 @@ function TxForm({ item, onClose, onSaved, onError }) {
         <Field label="수불 날짜" hint="실제 발생 날짜 (기본: 오늘)">
           <TextInput type="date" value={txDate} onChange={(e) => setTxDate(e.target.value)} />
         </Field>
-        {type === '출고' && <BatchFields category="raw" materialName={item.itemName} date={txDate} onChange={setBatch} />}
+        {type === '출고' && <BatchFields category="raw" materialName={item.itemName} date={txDate} onChange={setBatch} onAutofillQty={(q) => setQuantity(String(q))} />}
         <Field label="비고">
           <TextInput value={note} onChange={(e) => setNote(e.target.value)} placeholder="예: 3공정 투입" />
         </Field>

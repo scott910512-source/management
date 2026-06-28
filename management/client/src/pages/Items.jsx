@@ -1,9 +1,9 @@
 import { useEffect, useState, useCallback } from 'react';
 import { api } from '../api';
 import { Modal, Field, TextInput, Select, useToast, ConfirmDialog, Empty, Loading, Badge } from '../components/ui';
-import { UnitInput } from '../components/inputs';
+import { UnitInput, EtcSelect } from '../components/inputs';
 
-const blank = { category: 'raw', name: '', unit: 'kg', safetyStock: '', warningPct: '', vendor: '', product: '', defaultQty: '', lotPattern: '', pkgSize: '', pkgUnit: '', pkgType: '', hazardous: false, hazardousMaxQty: '', hazardousWarnPct: '', note: '' };
+const blank = { category: 'raw', name: '', unit: 'kg', safetyStock: '', warningPct: '', vendor: '', product: '', productEtc: '', defaultQty: '', lotPattern: '', pkgSize: '', pkgUnit: '', pkgType: '', hazardous: false, hazardousMaxQty: '', hazardousWarnPct: '', note: '' };
 
 export default function Items() {
   const toast = useToast();
@@ -91,6 +91,7 @@ export default function Items() {
           onError={(m) => toast.err(m)}
         />
       )}
+      <ProductBomCard toast={toast} />
       <CanisterDefaultsCard toast={toast} />
 
       {del && (
@@ -111,13 +112,22 @@ export default function Items() {
 function ItemForm({ mode, initial, onClose, onSaved, onError }) {
   const [f, setF] = useState({ ...blank, ...initial });
   const [busy, setBusy] = useState(false);
+  const [productNames, setProductNames] = useState([]);
   const set = (k, v) => setF((p) => ({ ...p, [k]: v }));
+
+  useEffect(() => {
+    api.get('/products').then((d) => setProductNames((d.items || []).map((p) => p.name))).catch(() => {});
+  }, []);
+
+  // 제품 셀렉트 옵션 — 마스터 + 현재값(레거시 자유입력) 포함
+  const productOptions = Array.from(new Set([...productNames, ...(f.product && f.product !== '기타' ? [f.product] : [])]));
 
   async function submit() {
     if (!f.name.trim()) return onError('품목명을 입력하세요.');
+    const product = f.product === '기타' ? (f.productEtc || '').trim() : f.product;
     setBusy(true);
     try {
-      const payload = { category: f.category, name: f.name.trim(), unit: f.unit, safetyStock: f.safetyStock === '' ? 0 : Number(f.safetyStock), warningPct: f.warningPct, vendor: f.vendor, product: f.product, defaultQty: f.defaultQty, lotPattern: f.lotPattern, pkgSize: f.pkgSize, pkgUnit: f.pkgUnit, pkgType: f.pkgType, hazardous: f.hazardous, hazardousMaxQty: f.hazardousMaxQty, hazardousWarnPct: f.hazardousWarnPct, note: f.note };
+      const payload = { category: f.category, name: f.name.trim(), unit: f.unit, safetyStock: f.safetyStock === '' ? 0 : Number(f.safetyStock), warningPct: f.warningPct, vendor: f.vendor, product, defaultQty: f.defaultQty, lotPattern: f.lotPattern, pkgSize: f.pkgSize, pkgUnit: f.pkgUnit, pkgType: f.pkgType, hazardous: f.hazardous, hazardousMaxQty: f.hazardousMaxQty, hazardousWarnPct: f.hazardousWarnPct, note: f.note };
       if (mode === 'create') await api.post('/items', payload);
       else await api.patch('/items/' + initial.id, payload);
       onSaved();
@@ -183,8 +193,8 @@ function ItemForm({ mode, initial, onClose, onSaved, onError }) {
           <TextInput type="number" value={f.warningPct} onChange={(e) => set('warningPct', e.target.value)} placeholder="예: 80" />
         </Field>
       </div>
-      <Field label="제품(사용처)" hint="원재료=사용 제품 / 부재료=공통 또는 제품">
-        <TextInput value={f.product} onChange={(e) => set('product', e.target.value)} placeholder="예: A제품 / 공통" />
+      <Field label="제품(사용처)" hint="기준정보 제품 목록에서 선택(없으면 기타로 직접입력). BOM·자동입력 기준이 됩니다">
+        <EtcSelect options={productOptions} value={f.product} etc={f.productEtc} onChange={(v, etc) => setF((p) => ({ ...p, product: v, productEtc: etc || '' }))} placeholder="제품 직접 입력" />
       </Field>
       <div className="form-row">
         <Field label="기본 입고수량" hint="등록 시 자동 입력">
@@ -227,6 +237,109 @@ function ItemForm({ mode, initial, onClose, onSaved, onError }) {
         <TextInput value={f.note} onChange={(e) => set('note', e.target.value)} placeholder="선택 입력" />
       </Field>
     </Modal>
+  );
+}
+
+function ProductBomCard({ toast }) {
+  const [products, setProducts] = useState([]);
+  const [items, setItems] = useState([]);
+  const [boms, setBoms] = useState([]);
+  const [sel, setSel] = useState('');
+  const [newProduct, setNewProduct] = useState('');
+  const [lineItem, setLineItem] = useState('');
+  const [lineQty, setLineQty] = useState('');
+
+  const load = useCallback(async () => {
+    const [p, it, b] = await Promise.all([api.get('/products'), api.get('/items'), api.get('/products/bom')]);
+    setProducts(p.items);
+    setItems(it.items);
+    setBoms(b.items);
+    setSel((prev) => (p.items.some((x) => x.name === prev) ? prev : (p.items[0]?.name || '')));
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  async function addProduct() {
+    const name = newProduct.trim();
+    if (!name) return;
+    try { await api.post('/products', { name }); setNewProduct(''); await load(); setSel(name); toast.ok('제품을 추가했습니다.'); }
+    catch (e) { toast.err(e.message); }
+  }
+  async function delProduct(p) {
+    if (!window.confirm(`'${p.name}' 제품과 해당 BOM을 삭제할까요?`)) return;
+    try { await api.del('/products/' + p.id); await load(); toast.ok('삭제했습니다.'); } catch (e) { toast.err(e.message); }
+  }
+  async function addLine() {
+    const it = items.find((x) => x.name === lineItem);
+    if (!it) return toast.err('품목을 선택하세요.');
+    if (lineQty === '' || Number(lineQty) < 0) return toast.err('기준량을 입력하세요.');
+    try {
+      await api.post('/products/bom', { product: sel, category: it.category, materialName: it.name, qtyPerBatch: Number(lineQty) });
+      setLineItem(''); setLineQty(''); await load(); toast.ok('기준량을 저장했습니다.');
+    } catch (e) { toast.err(e.message); }
+  }
+  async function delLine(id) {
+    try { await api.del('/products/bom/' + id); await load(); } catch (e) { toast.err(e.message); }
+  }
+
+  const selBoms = boms.filter((b) => b.product === sel);
+  const unitOf = (name) => items.find((i) => i.name === name)?.unit || '';
+
+  return (
+    <div className="card card-pad" style={{ marginBottom: 16 }}>
+      <h3 style={{ marginBottom: 4 }}>제품(사용처) · Batch 사용기준값 (BOM)</h3>
+      <p className="hint" style={{ marginBottom: 16 }}>제품을 만들고 제품별로 원·부재료의 <b>Batch당 기준 투입량</b>을 설정합니다. 사용(출고) 시 제품·Batch를 지정하면 이 수량이 자동 입력됩니다.</p>
+
+      <div className="form-row" style={{ marginBottom: 12, maxWidth: 420 }}>
+        <TextInput placeholder="새 제품(사용처) 이름 (예: A제품)" value={newProduct} onChange={(e) => setNewProduct(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addProduct()} />
+        <button className="btn sm" onClick={addProduct}>+ 제품 추가</button>
+      </div>
+
+      {products.length === 0 ? (
+        <Empty>등록된 제품이 없습니다. 위에서 제품을 먼저 추가하세요.</Empty>
+      ) : (
+        <>
+          <div className="sheet-tabs" style={{ marginBottom: 0 }}>
+            {products.map((p) => (
+              <button key={p.id} className={`sheet-tab ${sel === p.name ? 'active' : ''}`} onClick={() => setSel(p.name)}>{p.name}</button>
+            ))}
+          </div>
+          <div className="card table-wrap" style={{ borderTopLeftRadius: 0 }}>
+            <table className="tbl compact">
+              <thead>
+                <tr><th style={{ width: 80 }}>구분</th><th>품목</th><th className="num" style={{ width: 140 }}>Batch당 기준량</th><th style={{ width: 60 }}>단위</th><th style={{ width: 1 }}></th></tr>
+              </thead>
+              <tbody>
+                {selBoms.length === 0 ? (
+                  <tr><td colSpan={5}><span className="muted">설정된 기준량이 없습니다. 아래에서 추가하세요.</span></td></tr>
+                ) : selBoms.map((b) => (
+                  <tr key={b.id}>
+                    <td><Badge color={b.category === 'raw' ? 'blue' : 'orange'}>{b.category === 'raw' ? '원재료' : '부재료'}</Badge></td>
+                    <td><b>{b.materialName}</b></td>
+                    <td className="num">{Number(b.qtyPerBatch).toLocaleString()}</td>
+                    <td className="muted">{unitOf(b.materialName)}</td>
+                    <td><button className="btn danger sm" onClick={() => delLine(b.id)}>삭제</button></td>
+                  </tr>
+                ))}
+                <tr>
+                  <td colSpan={2}>
+                    <Select value={lineItem} onChange={(e) => setLineItem(e.target.value)}>
+                      <option value="">+ 품목 선택</option>
+                      {items.map((i) => <option key={i.id} value={i.name}>[{i.category === 'raw' ? '원' : '부'}] {i.name}</option>)}
+                    </Select>
+                  </td>
+                  <td><TextInput type="number" value={lineQty} onChange={(e) => setLineQty(e.target.value)} placeholder="기준량" style={{ width: 120 }} /></td>
+                  <td className="muted">{unitOf(lineItem)}</td>
+                  <td><button className="btn sm" onClick={addLine} disabled={!lineItem}>추가</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div style={{ marginTop: 10 }}>
+            <button className="btn secondary sm danger" onClick={() => delProduct(products.find((p) => p.name === sel))}>현재 제품 삭제</button>
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 

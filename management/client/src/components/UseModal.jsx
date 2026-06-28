@@ -84,7 +84,7 @@ export function UseModal({ title = '사용 처리', base, items, nameField, qtyF
             {sel && <button type="button" className="btn secondary sm" style={{ whiteSpace: 'nowrap' }} onClick={() => setQuantity(String(cur))}>전량</button>}
           </div>
         </Field>
-        <BatchFields category={category} materialName={name} onChange={setBatch} />
+        <BatchFields category={category} materialName={name} onChange={setBatch} onAutofillQty={(q) => setQuantity(String(q))} />
         <Field label="비고">
           <TextInput value={note} onChange={(e) => setNote(e.target.value)} placeholder="예: 3공정 투입" />
         </Field>

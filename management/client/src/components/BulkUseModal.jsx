@@ -1,6 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { api } from '../api';
-import { Modal, Field, TextInput } from './ui';
+import { Modal, Field, TextInput, Select } from './ui';
 
 /**
  * 일괄 출고 모달 — 여러 품목을 한 번에 출고 처리한다.
@@ -12,6 +12,16 @@ export function BulkUseModal({ base, items, nameField, qtyField, title, onClose,
   const [qtys, setQtys] = useState({});
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState('');
+  // 공통 합성 Batch (전체 품목 동일 적용, 수정 가능)
+  const [product, setProduct] = useState('');
+  const [batchNo, setBatchNo] = useState('1');
+  const [batchStartDate, setBatchStartDate] = useState(new Date().toISOString().slice(0, 10));
+  const [productList, setProductList] = useState([]);
+  const category = base === 'sub-materials' ? 'sub' : 'raw';
+
+  useEffect(() => {
+    api.get('/products').then((d) => setProductList((d.items || []).map((p) => p.name))).catch(() => {});
+  }, []);
 
   // 품목별 그룹 + FIFO 정렬된 Lot 목록(입고일 → Lot번호 오름차순: A01 먼저)
   const grouped = useMemo(() => {
@@ -35,6 +45,23 @@ export function BulkUseModal({ base, items, nameField, qtyField, title, onClose,
     }
     return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [items, nameField, qtyField]);
+
+  // 제품(사용처) 선택 시 BOM 기준량으로 각 품목 사용수량 자동 채움
+  useEffect(() => {
+    if (!product) return;
+    let alive = true;
+    api.get(`/products/bom?product=${encodeURIComponent(product)}`).then((d) => {
+      if (!alive) return;
+      const std = {};
+      for (const b of d.items || []) if (b.category === category) std[b.materialName] = Number(b.qtyPerBatch) || 0;
+      setQtys((prev) => {
+        const next = { ...prev };
+        for (const g of grouped) if (std[g.name] != null && std[g.name] > 0) next[g.name] = String(std[g.name]);
+        return next;
+      });
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, [product]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // FIFO 분배 미리보기 — 입력 수량이 어느 Lot에 얼마씩 들어가는지
   function distribute(g) {
@@ -68,7 +95,7 @@ export function BulkUseModal({ base, items, nameField, qtyField, title, onClose,
       try {
         for (const { lot, take } of used) {
           // FIFO 순서대로 가장 오래된 Lot부터 출고하므로 선입선출 위반이 발생하지 않는다.
-          await api.post(`/${base}/${lot.id}/transaction`, { type: '출고', quantity: take, note: note || '일괄 출고(FIFO 분배)' });
+          await api.post(`/${base}/${lot.id}/transaction`, { type: '출고', quantity: take, note: note || '일괄 출고(FIFO 분배)', batchNo, product, batchStartDate });
           lotCount++;
         }
         okItems.push(g.name);
@@ -99,6 +126,27 @@ export function BulkUseModal({ base, items, nameField, qtyField, title, onClose,
         </button>
       </>}
     >
+      {/* 공통 합성 Batch — 전체 품목 동일 적용(수정 가능) */}
+      <div style={{ background: 'var(--bg2)', borderRadius: 8, padding: '12px 14px', marginBottom: 12 }}>
+        <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 10 }}>합성 Batch (공통 적용 · 투입이력 기록)</div>
+        <div className="form-row">
+          <Field label="제품(사용처)" hint="선택 시 BOM 기준량 자동 입력">
+            <Select value={product} onChange={(e) => setProduct(e.target.value)}>
+              <option value="">선택 안 함</option>
+              {productList.map((p) => <option key={p} value={p}>{p}</option>)}
+            </Select>
+          </Field>
+          <Field label="Batch No.">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ fontWeight: 700, color: 'var(--accent)' }}>#</span>
+              <TextInput type="number" value={batchNo} onChange={(e) => setBatchNo(e.target.value)} placeholder="1" />
+            </div>
+          </Field>
+          <Field label="합성 시작일">
+            <TextInput type="date" value={batchStartDate} onChange={(e) => setBatchStartDate(e.target.value)} />
+          </Field>
+        </div>
+      </div>
       <Field label="공통 비고" hint="모든 출고 내역에 동일하게 적용됩니다">
         <TextInput value={note} onChange={(e) => setNote(e.target.value)} placeholder="예: 3공정 A배치 투입" />
       </Field>

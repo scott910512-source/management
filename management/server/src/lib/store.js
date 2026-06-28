@@ -28,6 +28,10 @@ const TABLES = {
   settings_log: ['id', 'key', 'oldValue', 'newValue', 'changedBy', 'createdAt'],
   // 건의사항 게시판 — 작성자 수정/삭제, 관리자 완료처리
   suggestions: ['id', 'title', 'category', 'categoryEtc', 'content', 'status', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt', 'completedBy', 'completedAt'],
+  // 제품(사용처) 마스터
+  products: ['id', 'name', 'note', 'createdBy', 'createdAt'],
+  // 제품별 BOM — Batch당 원·부재료 사용 기준량
+  boms: ['id', 'product', 'category', 'materialName', 'qtyPerBatch', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt'],
 };
 
 // 전역(공장 공통) 테이블 — 공장 하위 폴더가 아닌 DATA_DIR 루트에 저장
