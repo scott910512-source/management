@@ -7,7 +7,7 @@ import { EtcSelect, BalanceBox } from '../components/inputs';
 
 const blankCreate = { canisterNo: '', size: '50L', sizeEtc: '', location: '2공장현장', locationEtc: '', status: '수령', statusEtc: '', content: '', weight: '', note: '' };
 
-/** Canister 목록을 제품(내용물)별로 묶는다. */
+/** Canister 목록을 제품명별로 묶는다. */
 function groupByContent(rows) {
   const groups = [];
   const idx = {};
@@ -26,7 +26,7 @@ export default function Canisters() {
   const [items, setItems] = useState(null);
   const [allCanisters, setAllCanisters] = useState([]);
   const [summary, setSummary] = useState(null);
-  const [filters, setFilters] = useState({ q: '', size: '', location: '', status: '' });
+  const [filters, setFilters] = useState({ q: '', content: '', size: '', location: '', status: '' });
   const [create, setCreate] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
   const [edit, setEdit] = useState(null);
@@ -87,6 +87,10 @@ export default function Canisters() {
           <span>🔍</span>
           <input placeholder="Canister No. / 내용물 검색" value={filters.q} onChange={(e) => setF('q', e.target.value)} />
         </div>
+        <Select value={filters.content} onChange={(e) => setF('content', e.target.value)} style={{ width: 140 }}>
+          <option value="">제품명 전체</option>
+          {(meta.canisterContents || []).map((s) => <option key={s} value={s}>{s}</option>)}
+        </Select>
         <Select value={filters.size} onChange={(e) => setF('size', e.target.value)} style={{ width: 120 }}>
           <option value="">사이즈 전체</option>
           {meta.canisterSizes.map((s) => <option key={s} value={s}>{s}</option>)}
@@ -112,7 +116,7 @@ export default function Canisters() {
               <tr>
                 <th>Canister No.</th>
                 <th>사이즈</th>
-                <th>제품(내용물)</th>
+                <th>제품명</th>
                 <th className="num">무게</th>
                 <th>위치</th>
                 <th>상태</th>
@@ -123,7 +127,7 @@ export default function Canisters() {
             <tbody>
               {groupByContent(items).map((g) => (
                 <Fragment key={g.content}>
-                  <tr className="group-row"><td colSpan={8}>🛢 사용제품: {g.content} · {g.rows.length}개</td></tr>
+                  <tr className="group-row"><td colSpan={8}>제품명: {g.content} · {g.rows.length}개</td></tr>
                   {g.rows.map((c) => (
                     <tr key={c.id} className={c.capWarn ? 'cap-warn' : ''}>
                       <td style={{ paddingLeft: 24 }}><Link to={`/canisters/${c.id}`} className="inline-link"><b>{c.canisterNo}</b></Link></td>
@@ -250,7 +254,7 @@ function CanisterForm({ meta, onClose, onSaved, onError }) {
         <button className="btn" onClick={submit} disabled={busy}>{busy ? '저장 중…' : '저장'}</button>
       </>}
     >
-      <Field label="제품(내용물)" required>
+      <Field label="제품명" required>
         <EtcSelect options={meta.canisterContents || []} value={f.content} etc={f.contentEtc || ''} onChange={(v, etc) => setF((p) => ({ ...p, content: v, contentEtc: etc || '' }))} placeholder="내용물 직접 입력" />
       </Field>
       <Field label="무게">
@@ -331,7 +335,7 @@ function MoveForm({ meta, canisters, onClose, onSaved, onError }) {
       </Field>
       {f.type !== '상태변경' && (
         <>
-          <Field label="제품(내용물)">
+          <Field label="제품명">
             <EtcSelect options={meta.canisterContents || []} value={f.content} etc={f.contentEtc || ''} onChange={(v, etc) => setF((p) => ({ ...p, content: v, contentEtc: etc || '' }))} placeholder="내용물 직접 입력" />
           </Field>
           {sel && (
@@ -352,18 +356,22 @@ function MoveForm({ meta, canisters, onClose, onSaved, onError }) {
           </Field>
         </>
       )}
-      <Field label="위치">
-        <EtcSelect options={meta.canisterLocations} value={f.location || meta.canisterLocations[0]} etc={f.locationEtc} onChange={(v, etc) => setF((p) => ({ ...p, location: v, locationEtc: etc }))} />
-      </Field>
-      <Field label="상태">
-        <EtcSelect options={meta.canisterStatuses} value={f.status || meta.canisterStatuses[0]} etc={f.statusEtc} onChange={(v, etc) => setF((p) => ({ ...p, status: v, statusEtc: etc }))} />
-      </Field>
-      <Field label="이력 날짜" hint="실제 발생 날짜 (기본: 오늘)">
-        <TextInput type="date" value={txDate} onChange={(e) => setTxDate(e.target.value)} />
-      </Field>
-      <Field label="비고">
-        <TextInput value={f.note} onChange={(e) => set('note', e.target.value)} placeholder="예: 2공장 충전 후 반입" />
-      </Field>
+      <div className="form-row">
+        <Field label="위치">
+          <EtcSelect options={meta.canisterLocations} value={f.location || meta.canisterLocations[0]} etc={f.locationEtc} onChange={(v, etc) => setF((p) => ({ ...p, location: v, locationEtc: etc }))} />
+        </Field>
+        <Field label="상태">
+          <EtcSelect options={meta.canisterStatuses} value={f.status || meta.canisterStatuses[0]} etc={f.statusEtc} onChange={(v, etc) => setF((p) => ({ ...p, status: v, statusEtc: etc }))} />
+        </Field>
+      </div>
+      <div className="form-row">
+        <Field label="이력 날짜" hint="실제 발생 날짜 (기본: 오늘)">
+          <TextInput type="date" value={txDate} onChange={(e) => setTxDate(e.target.value)} />
+        </Field>
+        <Field label="비고">
+          <TextInput value={f.note} onChange={(e) => set('note', e.target.value)} placeholder="예: 2공장 충전 후 반입" />
+        </Field>
+      </div>
     </Modal>
   );
 }

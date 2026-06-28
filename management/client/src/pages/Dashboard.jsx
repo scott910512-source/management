@@ -181,7 +181,7 @@ export default function Dashboard() {
                 <tbody>
                   {groupByProduct(dash.canisterSummary.map((c) => ({ ...c, product: c.content }))).map((g, gi) => (
                     <Fragment key={g.product}>
-                      <tr className={`group-row gt${gi % 5}`}><td colSpan={4}>사용제품: {g.product}</td></tr>
+                      <tr className={`group-row gt${gi % 5}`}><td colSpan={4}>제품명: {g.product}</td></tr>
                       {g.rows.map((c, i) => (
                         <tr key={i} style={{ cursor: 'pointer', background: ROW_TINTS[gi % 5] }} onClick={() => navigate('/canisters')}>
                           <td style={{ paddingLeft: 24 }}><Badge>{c.size}</Badge></td>

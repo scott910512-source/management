@@ -25,6 +25,23 @@ function groupByName(rows) {
   return groups;
 }
 
+/** 품목 그룹을 제품명(사용처)별로 묶는다. summaryArr: [{name, product}] */
+function groupByProductThenName(rows, summaryArr) {
+  const itemGroups = groupByName(rows);
+  const productOf = (name) => {
+    const s = (summaryArr || []).find((x) => x.name === name);
+    return (s && s.product) ? s.product : '(제품 미지정)';
+  };
+  const out = [];
+  const pidx = {};
+  for (const ig of itemGroups) {
+    const p = productOf(ig.name);
+    if (!(p in pidx)) { pidx[p] = out.length; out.push({ product: p, items: [] }); }
+    out[pidx[p]].items.push(ig);
+  }
+  return out;
+}
+
 export default function SubMaterials() {
   const { isAdmin, canWrite } = useAuth();
   const toast = useToast();
@@ -157,7 +174,10 @@ export default function SubMaterials() {
                 </tr>
               </thead>
               <tbody>
-                {groupByName(items).map((g) => {
+                {groupByProductThenName(items, summary).map((pg, pi) => (
+                <Fragment key={pg.product}>
+                  <tr className={`group-row gt${pi % 5}`}><td colSpan={7}>제품명: {pg.product}</td></tr>
+                  {pg.items.map((g) => {
                   const totalW = g.lots.reduce((s, r) => s + (Number(r.weight) || 0), 0);
                   const unit = g.lots[0]?.unit || '';
                   const totalPkg = g.lots.reduce((s, r) => s + (Number(r.pkgCount) || 0), 0);
@@ -166,7 +186,7 @@ export default function SubMaterials() {
                   return (
                   <Fragment key={g.name}>
                     <tr className={`group-row ${lowSet.has(g.name) ? 'row-low' : ''}`}>
-                      <td>📦 <b>{g.name}</b> · {g.lots.length} Lot {lowSet.has(g.name) && <span className="badge red" style={{ marginLeft: 4 }}>안전재고 부족</span>}</td>
+                      <td style={{ paddingLeft: 20 }}>📦 <b>{g.name}</b> · {g.lots.length} Lot {lowSet.has(g.name) && <span className="badge red" style={{ marginLeft: 4 }}>안전재고 부족</span>}</td>
                       <td className="num"><b>{totalW.toLocaleString()}{unit}</b>{totalPkg > 0 && <span className="muted"> ({totalPkg}{pkgType})</span>}</td>
                       <td></td>
                       <td className="muted">{oldest?.receivedDate || ''}</td>
@@ -199,7 +219,9 @@ export default function SubMaterials() {
                     ))}
                   </Fragment>
                   );
-                })}
+                  })}
+                </Fragment>
+                ))}
               </tbody>
             </table>
           )}

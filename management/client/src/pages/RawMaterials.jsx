@@ -27,6 +27,23 @@ function groupByItem(rows, key) {
   return groups;
 }
 
+/** 품목 그룹을 다시 제품명(사용처)별로 묶는다. summary로 품목→제품 매핑. */
+function groupByProductThenItem(rows, key, summary) {
+  const itemGroups = groupByItem(rows, key);
+  const productOf = (name) => {
+    const s = (summary?.items || []).find((x) => x.name === name);
+    return (s && s.product) ? s.product : '(제품 미지정)';
+  };
+  const out = [];
+  const pidx = {};
+  for (const ig of itemGroups) {
+    const p = productOf(ig.name);
+    if (!(p in pidx)) { pidx[p] = out.length; out.push({ product: p, items: [] }); }
+    out[pidx[p]].items.push(ig);
+  }
+  return out;
+}
+
 export default function RawMaterials() {
   const { isAdmin, canWrite } = useAuth();
   const toast = useToast();
@@ -157,7 +174,10 @@ export default function RawMaterials() {
               </tr>
             </thead>
             <tbody>
-              {groupByItem(items, 'itemName').map((g) => {
+              {groupByProductThenItem(items, 'itemName', summary).map((pg, pi) => (
+              <Fragment key={pg.product}>
+                <tr className={`group-row gt${pi % 5}`}><td colSpan={8}>제품명: {pg.product}</td></tr>
+                {pg.items.map((g) => {
                 const totalQty = g.lots.reduce((s, r) => s + (Number(r.quantity) || 0), 0);
                 const unit = g.lots[0]?.unit || '';
                 const totalPkg = g.lots.reduce((s, r) => s + (Number(r.pkgCount) || 0), 0);
@@ -166,7 +186,7 @@ export default function RawMaterials() {
                 return (
                 <Fragment key={g.name}>
                   <tr className={`group-row ${lowSet.has(g.name) ? 'row-low' : ''}`}>
-                    <td>📦 <b>{g.name}</b> · {g.lots.length} Lot {lowSet.has(g.name) && <span className="badge red" style={{ marginLeft: 4 }}>안전재고 부족</span>}</td>
+                    <td style={{ paddingLeft: 20 }}>📦 <b>{g.name}</b> · {g.lots.length} Lot {lowSet.has(g.name) && <span className="badge red" style={{ marginLeft: 4 }}>안전재고 부족</span>}</td>
                     <td className="num"><b>{totalQty.toLocaleString()}</b>{totalPkg > 0 && <span className="muted"> ({totalPkg}{pkgType})</span>}</td>
                     <td className="muted">{unit}</td>
                     <td></td>
@@ -201,7 +221,9 @@ export default function RawMaterials() {
                   ))}
                 </Fragment>
                 );
-              })}
+                })}
+              </Fragment>
+              ))}
             </tbody>
           </table>
         )}

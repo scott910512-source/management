@@ -37,11 +37,13 @@ function decorate(r, maxMap) {
 }
 function filterRows(rows, query) {
   const q = str(query.q).toLowerCase();
+  const content = str(query.content);
   const size = str(query.size);
   const location = str(query.location);
   const status = str(query.status);
   return rows.filter((r) => {
     if (q && !`${r.canisterNo} ${r.content}`.toLowerCase().includes(q)) return false;
+    if (content && r.content !== content) return false;
     if (size && r.size !== size) return false;
     if (location && r.location !== location) return false;
     if (status && r.status !== status) return false;

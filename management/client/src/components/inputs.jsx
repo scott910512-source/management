@@ -70,7 +70,7 @@ export function BatchFields({ category, materialName, date, onChange, onAutofill
     <div style={{ background: 'var(--bg2)', borderRadius: 8, padding: '12px 14px', margin: '4px 0 14px' }}>
       <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 10 }}>합성 Batch (투입이력 기록)</div>
       <div className="form-row">
-        <Field label="제품(사용처)">
+        <Field label="제품명">
           <TextInput value={product} onChange={(e) => setProduct(e.target.value)} placeholder="예: A제품" />
         </Field>
         <Field label="Batch No.">

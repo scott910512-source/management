@@ -130,7 +130,7 @@ export function BulkUseModal({ base, items, nameField, qtyField, title, onClose,
       <div style={{ background: 'var(--bg2)', borderRadius: 8, padding: '12px 14px', marginBottom: 12 }}>
         <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 10 }}>합성 Batch (공통 적용 · 투입이력 기록)</div>
         <div className="form-row">
-          <Field label="제품(사용처)" hint="선택 시 BOM 기준량 자동 입력">
+          <Field label="제품명" hint="선택 시 BOM 기준량 자동 입력">
             <Select value={product} onChange={(e) => setProduct(e.target.value)}>
               <option value="">선택 안 함</option>
               {productList.map((p) => <option key={p} value={p}>{p}</option>)}

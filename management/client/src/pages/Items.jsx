@@ -44,7 +44,7 @@ export default function Items() {
             <thead>
               <tr>
                 <th>품목명</th>
-                <th>제품(사용처)</th>
+                <th>제품명</th>
                 <th>단위</th>
                 <th className="num">안전재고</th>
                 <th className="num">경고기준</th>
@@ -193,7 +193,7 @@ function ItemForm({ mode, initial, onClose, onSaved, onError }) {
           <TextInput type="number" value={f.warningPct} onChange={(e) => set('warningPct', e.target.value)} placeholder="예: 80" />
         </Field>
       </div>
-      <Field label="제품(사용처)" hint="기준정보 제품 목록에서 선택(없으면 기타로 직접입력). BOM·자동입력 기준이 됩니다">
+      <Field label="제품명" hint="기준정보 제품 목록에서 선택(없으면 기타로 직접입력). BOM·자동입력 기준이 됩니다">
         <EtcSelect options={productOptions} value={f.product} etc={f.productEtc} onChange={(v, etc) => setF((p) => ({ ...p, product: v, productEtc: etc || '' }))} placeholder="제품 직접 입력" />
       </Field>
       <div className="form-row">
@@ -286,11 +286,11 @@ function ProductBomCard({ toast }) {
 
   return (
     <div className="card card-pad" style={{ marginBottom: 16 }}>
-      <h3 style={{ marginBottom: 4 }}>제품(사용처) · Batch 사용기준값 (BOM)</h3>
+      <h3 style={{ marginBottom: 4 }}>제품명 · Batch 사용기준값 (BOM)</h3>
       <p className="hint" style={{ marginBottom: 16 }}>제품을 만들고 제품별로 원·부재료의 <b>Batch당 기준 투입량</b>을 설정합니다. 사용(출고) 시 제품·Batch를 지정하면 이 수량이 자동 입력됩니다.</p>
 
       <div className="form-row" style={{ marginBottom: 12, maxWidth: 420 }}>
-        <TextInput placeholder="새 제품(사용처) 이름 (예: A제품)" value={newProduct} onChange={(e) => setNewProduct(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addProduct()} />
+        <TextInput placeholder="새 제품명 (예: A제품)" value={newProduct} onChange={(e) => setNewProduct(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addProduct()} />
         <button className="btn sm" onClick={addProduct}>+ 제품 추가</button>
       </div>
 
