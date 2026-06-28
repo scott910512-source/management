@@ -11,14 +11,12 @@ const prioColor = { 상: 'red', 중: 'orange', 하: '' };
 
 function QuickGroup({ icon, color, title, actions, navigate }) {
   return (
-    <div className="quick-box" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 10 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div className="quick-ico" style={{ background: color }}><Icon name={icon} size={22} /></div>
-        <div className="qt" style={{ fontSize: 15 }}>{title}</div>
-      </div>
-      <div className="quick-acts">
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      <div className="quick-ico" style={{ background: color, flexShrink: 0 }}><Icon name={icon} size={20} /></div>
+      <div style={{ fontSize: 13, fontWeight: 600, width: 52, flexShrink: 0 }}>{title}</div>
+      <div style={{ display: 'flex', gap: 6, flex: 1 }}>
         {actions.map(([label, to]) => (
-          <button key={label} className="quick-act" onClick={() => navigate(to)}>{label}</button>
+          <button key={label} className="quick-act" style={{ flex: 1 }} onClick={() => navigate(to)}>{label}</button>
         ))}
       </div>
     </div>
@@ -72,17 +70,22 @@ export default function Dashboard() {
 
   return (
     <>
-      {/* 0) AI 스마트 검색 */}
-      <SmartSearch />
-
-      {/* 1) 퀵메뉴 (묶음) — 조회 전용(팀관리자)에는 숨김 */}
-      {canWrite && (
-        <div className="quickmenu">
-          <QuickGroup navigate={navigate} icon="canister" color="#0071e3" title="원재료" actions={[['입고', '/raw?new=1', ''], ['사용', '/raw?use=1']]} />
-          <QuickGroup navigate={navigate} icon="drum" color="#5e5ce6" title="부재료" actions={[['입고', '/sub?new=1', ''], ['사용', '/sub?use=1']]} />
-          <QuickGroup navigate={navigate} icon="star" color="#34c759" title="Canister" actions={[['수불 등록', '/canisters?move=1', '']]} />
+      {/* 0+1) 퀵메뉴(좌) + AI 스마트 검색(우) — 한 줄 배치 */}
+      <div style={{ display: 'flex', gap: 16, marginBottom: 16, alignItems: 'stretch' }}>
+        {canWrite && (
+          <div className="card card-pad" style={{ flexShrink: 0, minWidth: 320 }}>
+            <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-2)', marginBottom: 10 }}>퀵 입력</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <QuickGroup navigate={navigate} icon="canister" color="#0071e3" title="원재료" actions={[['입고', '/raw?new=1'], ['사용', '/raw?use=1']]} />
+              <QuickGroup navigate={navigate} icon="drum" color="#5e5ce6" title="부재료" actions={[['입고', '/sub?new=1'], ['사용', '/sub?use=1']]} />
+              <QuickGroup navigate={navigate} icon="star" color="#34c759" title="Canister" actions={[['수불 등록', '/canisters?move=1']]} />
+            </div>
+          </div>
+        )}
+        <div className="card card-pad" style={{ flex: 1, minWidth: 0, marginBottom: 0 }}>
+          <SmartSearch inline />
         </div>
-      )}
+      </div>
 
       {/* 2) 경고 영역 */}
       <div className="card" style={{ marginBottom: 16 }}>
@@ -99,8 +102,7 @@ export default function Dashboard() {
               <div className="wc">
                 <div className="wmsg">{w.content}</div>
                 <div className="wack">
-                  확인 {w.ackCount}/{w.totalUsers}명 {w.ackedByMe ? '· 내 확인 완료' : ''}
-                  {w.pending && w.pending.length > 0 && <> · 미확인: {w.pending.join(', ')}</>}
+                  확인 {w.ackCount}/{w.totalUsers}명{w.ackedByMe ? ' · 내 확인 완료' : ''}
                 </div>
               </div>
               {canWrite && !w.ackedByMe && <button className="btn sm" onClick={() => ack(w.key, w.content)}>확인</button>}
