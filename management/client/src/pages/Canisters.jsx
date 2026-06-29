@@ -20,7 +20,7 @@ function groupByContent(rows) {
 }
 
 export default function Canisters() {
-  const { isAdmin, canWrite } = useAuth();
+  const { isAdmin, canWrite, isDemo } = useAuth();
   const toast = useToast();
   const [meta, setMeta] = useState(null);
   const [items, setItems] = useState(null);
@@ -142,9 +142,9 @@ export default function Canisters() {
                       <td><Badge>{c.sizeLabel}</Badge></td>
                       <td>{c.content ? c.content : <span className="muted">(비어있음)</span>}</td>
                       <td className="num">
-                        <span style={{ color: c.capWarn ? 'var(--red)' : undefined, fontWeight: c.capWarn ? 700 : undefined }}>{Number(c.weight || 0).toLocaleString()}</span>
-                        {c.maxKg != null && <span className="muted" style={{ fontSize: 11 }}> / {c.maxKg}kg{c.capPct != null ? ` (${c.capPct}%)` : ''}</span>}
-                        {c.capWarn && <span className="badge red" style={{ marginLeft: 4 }}>임박</span>}
+                        <span style={{ color: c.capWarn ? 'var(--red)' : undefined, fontWeight: c.capWarn ? 700 : undefined }}>{isDemo ? '***' : Number(c.weight || 0).toLocaleString()}</span>
+                        {!isDemo && c.maxKg != null && <span className="muted" style={{ fontSize: 11 }}> / {c.maxKg}kg{c.capPct != null ? ` (${c.capPct}%)` : ''}</span>}
+                        {!isDemo && c.capWarn && <span className="badge red" style={{ marginLeft: 4 }}>임박</span>}
                       </td>
                       <td className="muted">{c.locationLabel}</td>
                       <td>{canWrite ? <StatusSelect c={c} statuses={meta.canisterStatuses} onChanged={load} onError={(m) => toast.err(m)} /> : <Badge color={statusColor(c.status)} dot>{c.statusLabel}</Badge>}</td>
@@ -220,6 +220,7 @@ function StatusSelect({ c, statuses, onChanged, onError }) {
 }
 
 function CanisterForm({ meta, onClose, onSaved, onError }) {
+  const { isDemo } = useAuth();
   const [f, setF] = useState({ ...blankCreate });
   const [busy, setBusy] = useState(false);
   const set = (k, v) => setF((p) => ({ ...p, [k]: v }));
@@ -235,6 +236,7 @@ function CanisterForm({ meta, onClose, onSaved, onError }) {
   }, []);
 
   async function submit() {
+    if (isDemo) return onError('데모 계정은 데이터를 변경할 수 없습니다.');
     if (!f.canisterNo.trim()) return onError('Canister No.를 입력하세요.');
     const content = f.content === '기타' ? (f.contentEtc || '').trim() : f.content;
     setBusy(true);
@@ -290,6 +292,7 @@ function CanisterForm({ meta, onClose, onSaved, onError }) {
 }
 
 function MoveForm({ meta, canisters, onClose, onSaved, onError }) {
+  const { isDemo } = useAuth();
   const [cid, setCid] = useState(canisters[0]?.id || '');
   const sel = canisters.find((c) => c.id === cid);
   const [f, setF] = useState({ type: '반출', weight: '', location: '', locationEtc: '', status: '', statusEtc: '', note: '' });
@@ -303,6 +306,7 @@ function MoveForm({ meta, canisters, onClose, onSaved, onError }) {
   }, [cid]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function submit() {
+    if (isDemo) return onError('데모 계정은 데이터를 변경할 수 없습니다.');
     if (!cid) return onError('Canister를 선택하세요.');
     if (f.type !== '상태변경' && (!f.weight || Number(f.weight) <= 0)) return onError('무게를 입력하세요.');
     setBusy(true);
@@ -380,9 +384,11 @@ function MoveForm({ meta, canisters, onClose, onSaved, onError }) {
 }
 
 function CanisterEditForm({ meta, item, onClose, onSaved, onError }) {
+  const { isDemo } = useAuth();
   const [f, setF] = useState({ canisterNo: item.canisterNo, size: item.size, sizeEtc: item.sizeEtc || '', content: item.content || '', contentEtc: '', note: item.note || '' });
   const [busy, setBusy] = useState(false);
   async function submit() {
+    if (isDemo) return onError('데모 계정은 데이터를 변경할 수 없습니다.');
     if (!f.canisterNo.trim()) return onError('Canister No.를 입력하세요.');
     setBusy(true);
     const content = f.content === '기타' ? (f.contentEtc || '').trim() : f.content;

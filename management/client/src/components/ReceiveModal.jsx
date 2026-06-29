@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { api } from '../api';
 import { Modal, Field, TextInput, Select } from './ui';
 import { UnitInput, ItemSelect, expandLot } from './inputs';
+import { useAuth } from '../auth/AuthContext';
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 const newRow = (defaults = {}) => ({ lotNo: '', qty: '', unit: 'kg', vendor: '', note: '', ...defaults });
@@ -13,6 +14,7 @@ const newRow = (defaults = {}) => ({ lotNo: '', qty: '', unit: 'kg', vendor: '',
  * props: base('raw-materials'|'sub-materials'), onClose, onSaved(msg), onError(msg)
  */
 export function ReceiveModal({ base, onClose, onSaved, onError }) {
+  const { isDemo } = useAuth();
   const isSub = base === 'sub-materials';
 
   const [itemName, setItemName] = useState('');
@@ -90,6 +92,7 @@ export function ReceiveModal({ base, onClose, onSaved, onError }) {
 
   // 제출
   async function submit() {
+    if (isDemo) return onError('데모 계정은 데이터를 변경할 수 없습니다.');
     if (!itemName.trim()) return onError('품목을 선택하거나 입력하세요.');
     if (!receivedDate) return onError('입고일을 입력하세요.');
     const valid = rows.filter((r) => r.lotNo.trim() && Number(r.qty) > 0);

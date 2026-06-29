@@ -9,7 +9,7 @@ const typeColor = { 반입: 'green', 반출: 'orange', 상태변경: 'purple' };
 
 export default function CanisterDetail() {
   const { id } = useParams();
-  const { canWrite } = useAuth();
+  const { canWrite, isDemo } = useAuth();
   const toast = useToast();
   const [item, setItem] = useState(null);
   const [history, setHistory] = useState(null);
@@ -52,7 +52,7 @@ export default function CanisterDetail() {
 
       <div className="grid grid-4" style={{ marginBottom: 20 }}>
         <div className="card stat"><div className="label">제품(내용물)</div><div className="value" style={{ fontSize: 20 }}>{item.content || <span className="muted">비어있음</span>}</div></div>
-        <div className="card stat"><div className="label">현재 무게</div><div className="value" style={{ fontSize: 22 }}>{Number(item.weight || 0).toLocaleString()}</div></div>
+        <div className="card stat"><div className="label">현재 무게</div><div className="value" style={{ fontSize: 22 }}>{isDemo ? '***' : Number(item.weight || 0).toLocaleString()}</div></div>
         <div className="card stat"><div className="label">위치 / 사이즈</div><div className="value" style={{ fontSize: 18 }}>{item.locationLabel}<div className="muted" style={{ fontSize: 13 }}>{item.sizeLabel}</div></div></div>
         <div className="card stat"><div className="label">상태</div><div style={{ marginTop: 10 }}><Badge color={statusColor(item.status)} dot>{item.statusLabel}</Badge></div></div>
       </div>
@@ -73,7 +73,7 @@ export default function CanisterDetail() {
                     <td className="muted">{(h.createdAt || '').slice(0, 16).replace('T', ' ')}</td>
                     <td><Badge color={typeColor[h.type] || ''}>{h.type}</Badge></td>
                     <td>{h.content || <span className="muted">–</span>}</td>
-                    <td className="num">{Number(h.weight || 0).toLocaleString()}</td>
+                    <td className="num">{isDemo ? '***' : Number(h.weight || 0).toLocaleString()}</td>
                     <td className="muted">{h.location}</td>
                     <td><Badge color={statusColor(h.status)} dot>{h.status}</Badge></td>
                     <td className="muted">{h.note || '–'}</td>
@@ -100,6 +100,7 @@ export default function CanisterDetail() {
 }
 
 function DetailMoveForm({ meta, item, onClose, onSaved, onError }) {
+  const { isDemo } = useAuth();
   const [f, setF] = useState({
     type: '반출', weight: '',
     location: item.location, locationEtc: item.locationEtc || '',
@@ -112,6 +113,7 @@ function DetailMoveForm({ meta, item, onClose, onSaved, onError }) {
   const over = f.type === '반출' && Number(f.weight) > cur;
 
   async function submit() {
+    if (isDemo) return onError('데모 계정은 데이터를 변경할 수 없습니다.');
     if (f.type !== '상태변경' && (!f.weight || Number(f.weight) <= 0)) return onError('무게를 입력하세요.');
     if (over) return onError('반출 무게가 현재 내용물 무게를 초과합니다.');
     setBusy(true);

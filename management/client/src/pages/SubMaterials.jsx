@@ -43,7 +43,7 @@ function groupByProductThenName(rows, summaryArr) {
 }
 
 export default function SubMaterials() {
-  const { isAdmin, canWrite } = useAuth();
+  const { isAdmin, canWrite, isDemo } = useAuth();
   const toast = useToast();
   const [tab, setTab] = useState('list');
   const [summary, setSummary] = useState(null);
@@ -109,7 +109,7 @@ export default function SubMaterials() {
                 {summary.map((s) => (
                   <tr key={s.name}>
                     <td><b>{s.name}</b>{!s.isMaster && <span className="muted" style={{ fontWeight: 400 }}> (기타)</span>}</td>
-                    <td className="num"><b>{s.totalQuantity.toLocaleString()}</b> <span className="muted">{s.unit}</span></td>
+                    <td className="num"><b>{isDemo ? '***' : s.totalQuantity.toLocaleString()}</b> <span className="muted">{s.unit}</span></td>
                     <td className="num"><span style={{ display: 'inline-flex', justifyContent: 'flex-end', width: '100%' }}><SignalLight level={s.level} below={s.below} /></span></td>
                     <td className="num muted">{s.safetyStock ? s.safetyStock.toLocaleString() : '–'}{s.warningPct ? <span className="muted" style={{fontSize:11}}> ({s.warningPct}%)</span> : ''}</td>
                     <td className="num muted">{s.lots}</td>
@@ -191,7 +191,7 @@ export default function SubMaterials() {
                     <tr className={`group-row ${lowSet.has(g.name) ? 'row-low' : ''}`}>
                       <td style={{ paddingLeft: 20 }}>📦 <b>{g.name}</b> · {g.lots.length} Lot {lowSet.has(g.name) && <span className="badge red" style={{ marginLeft: 4 }}>안전재고 부족</span>}</td>
                       <td className="num">
-                        {totalPkg > 1
+                        {isDemo ? <b>***</b> : totalPkg > 1
                           ? <><b>{totalPkg.toLocaleString()}{pkgType}</b> <span className="muted">/ {totalW.toLocaleString()}{unit}</span></>
                           : <b>{totalW.toLocaleString()}{unit}</b>}
                       </td>
@@ -205,7 +205,7 @@ export default function SubMaterials() {
                       <tr key={r.id}>
                         <td style={{ paddingLeft: 24 }}><Badge color="blue">{r.lotNo}</Badge></td>
                         <td className="num">
-                          {r.pkgCount && Number(r.pkgCount) > 1
+                          {isDemo ? <b>***</b> : r.pkgCount && Number(r.pkgCount) > 1
                             ? <><b>{Number(r.pkgCount)}</b><span className="muted">{r.pkgType || 'pkg'}</span> <span className="muted">({Number(r.weight).toLocaleString()} / {Number(r.initialWeight).toLocaleString()}{r.unit})</span></>
                             : <><b>{Number(r.weight).toLocaleString()}</b> <span className="muted">/ {Number(r.initialWeight).toLocaleString()}{r.unit}</span></>}
                         </td>
@@ -329,6 +329,7 @@ export default function SubMaterials() {
 }
 
 function SubForm({ mode, initial, onClose, onSaved, onError }) {
+  const { isDemo } = useAuth();
   const [f, setF] = useState({ ...blank, ...initial });
   const [lotPattern, setLotPattern] = useState('');
   const [busy, setBusy] = useState(false);
@@ -337,6 +338,7 @@ function SubForm({ mode, initial, onClose, onSaved, onError }) {
   const pkgQty = hasPkg && f.pkgCount && f.pkgSize ? Number(f.pkgCount) * Number(f.pkgSize) : null;
 
   async function submit() {
+    if (isDemo) return onError('데모 계정은 데이터를 변경할 수 없습니다.');
     if (!f.name.trim()) return onError('품목을 선택하거나 입력하세요.');
     if (!f.lotNo.trim()) return onError('Lot No를 입력하세요.');
     setBusy(true);
@@ -424,6 +426,7 @@ function SubForm({ mode, initial, onClose, onSaved, onError }) {
 }
 
 function SubTxForm({ item, onClose, onSaved, onError }) {
+  const { isDemo } = useAuth();
   const [type, setType] = useState('출고');
   const [quantity, setQuantity] = useState('');
   const [note, setNote] = useState('');
@@ -449,6 +452,7 @@ function SubTxForm({ item, onClose, onSaved, onError }) {
     }
   }
   function submit() {
+    if (isDemo) return onError('데모 계정은 데이터를 변경할 수 없습니다.');
     if (!quantity || qty <= 0) return onError('무게는 0보다 커야 합니다.');
     if (over) return onError('출고(소진) 무게가 현재 잔량을 초과합니다.');
     doSubmit(false);

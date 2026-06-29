@@ -45,7 +45,7 @@ function groupByProductThenItem(rows, key, summary) {
 }
 
 export default function RawMaterials() {
-  const { isAdmin, canWrite } = useAuth();
+  const { isAdmin, canWrite, isDemo, demoNum } = useAuth();
   const toast = useToast();
   const [summary, setSummary] = useState(null);
   const [items, setItems] = useState(null);
@@ -115,7 +115,7 @@ export default function RawMaterials() {
                 {summary.items.map((s) => (
                   <tr key={s.name}>
                     <td><b>{s.name}</b>{!s.isMaster && <span className="muted" style={{ fontWeight: 400 }}> (기타)</span>}</td>
-                    <td className="num"><b>{s.totalQuantity.toLocaleString()}</b> <span className="muted">{s.unit}</span></td>
+                    <td className="num"><b>{isDemo ? '***' : s.totalQuantity.toLocaleString()}</b> <span className="muted">{s.unit}</span></td>
                     <td className="num">
                       <span style={{ display: 'inline-flex', justifyContent: 'flex-end', width: '100%' }}><SignalLight level={s.level} below={s.below} /></span>
                     </td>
@@ -191,7 +191,7 @@ export default function RawMaterials() {
                   <tr className={`group-row ${lowSet.has(g.name) ? 'row-low' : ''}`}>
                     <td style={{ paddingLeft: 20 }}>📦 <b>{g.name}</b> · {g.lots.length} Lot {lowSet.has(g.name) && <span className="badge red" style={{ marginLeft: 4 }}>안전재고 부족</span>}</td>
                     <td className="num">
-                      {totalPkg > 1
+                      {isDemo ? <b>***</b> : totalPkg > 1
                         ? <><b>{totalPkg.toLocaleString()}{pkgType}</b> <span className="muted">/ {totalQty.toLocaleString()}{unit}</span></>
                         : <b>{totalQty.toLocaleString()}</b>}
                     </td>
@@ -206,7 +206,7 @@ export default function RawMaterials() {
                     <tr key={r.id}>
                       <td style={{ paddingLeft: 24 }}><Badge color="blue">{r.lotNo}</Badge></td>
                       <td className="num">
-                        {r.pkgCount && Number(r.pkgCount) > 1
+                        {isDemo ? <b>***</b> : r.pkgCount && Number(r.pkgCount) > 1
                           ? <><b>{Number(r.pkgCount).toLocaleString()}</b><span className="muted">{r.pkgType || 'pkg'}</span> <span className="muted">({Number(r.quantity).toLocaleString()}{r.unit})</span></>
                           : <>{Number(r.quantity).toLocaleString()}</>}
                       </td>
@@ -290,6 +290,7 @@ export default function RawMaterials() {
 }
 
 function RawForm({ mode, initial, onClose, onSaved, onError }) {
+  const { isDemo } = useAuth();
   const [f, setF] = useState({ ...blank, ...initial });
   const [lotPattern, setLotPattern] = useState('');
   const [busy, setBusy] = useState(false);
@@ -298,6 +299,7 @@ function RawForm({ mode, initial, onClose, onSaved, onError }) {
   const pkgQty = hasPkg && f.pkgCount && f.pkgSize ? Number(f.pkgCount) * Number(f.pkgSize) : null;
 
   async function submit() {
+    if (isDemo) return onError('데모 계정은 데이터를 변경할 수 없습니다.');
     if (!f.itemName.trim()) return onError('품목을 선택하거나 입력하세요.');
     if (!f.lotNo.trim()) return onError('Lot No를 입력하세요.');
     setBusy(true);
@@ -386,6 +388,7 @@ function RawForm({ mode, initial, onClose, onSaved, onError }) {
 }
 
 function TxForm({ item, onClose, onSaved, onError }) {
+  const { isDemo } = useAuth();
   const [type, setType] = useState('출고');
   const [quantity, setQuantity] = useState('');
   const [note, setNote] = useState('');
@@ -411,6 +414,7 @@ function TxForm({ item, onClose, onSaved, onError }) {
     }
   }
   function submit() {
+    if (isDemo) return onError('데모 계정은 데이터를 변경할 수 없습니다.');
     if (!quantity || qty <= 0) return onError('수량은 0보다 커야 합니다.');
     if (over) return onError('출고 수량이 현재 재고를 초과합니다.');
     doSubmit(false);

@@ -100,6 +100,7 @@ export default function Admin() {
                         <option value="user">사용자(등록)</option>
                         <option value="admin">공장 관리자</option>
                         <option value="viewer">팀관리자(조회)</option>
+                        <option value="demo">데모</option>
                       </Select>
                     </td>
                     <td>
