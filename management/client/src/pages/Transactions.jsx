@@ -47,7 +47,7 @@ export default function Transactions() {
   const toggle = (id) => setSel((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const toggleAll = () => setSel((s) => (items && s.size === items.length ? new Set() : new Set((items || []).map((t) => t.id))));
   async function removeBulk() {
-    try { const r = await api.post('/transactions/bulk-delete', { ids: [...sel] }); setDelBulk(false); load(); toast.ok(`${r.removed}건 삭제했습니다.`); }
+    try { const r = await api.post('/transactions/bulk-delete', { ids: [...sel], restock: true }); setDelBulk(false); load(); toast.ok(`${r.removed}건 삭제 · 재고를 원복했습니다.`); }
     catch (e) { toast.err(e.message); }
   }
 
@@ -147,7 +147,7 @@ export default function Transactions() {
       {del && (
         <ConfirmDialog
           title="수불 내역 삭제"
-          message="이 수불 내역을 삭제할까요? (재고 수량은 자동 보정되지 않습니다)"
+          message="이 수불 내역을 삭제할까요? 삭제 시 해당 수량만큼 재고가 원복(출고→가산 / 입고→차감)됩니다."
           onClose={() => setDel(null)}
           onConfirm={async () => { try { await api.del('/transactions/' + del.id); setDel(null); load(); toast.ok('삭제했습니다.'); } catch (e) { toast.err(e.message); } }}
         />
@@ -155,7 +155,7 @@ export default function Transactions() {
       {delBulk && (
         <ConfirmDialog
           title="수불 내역 일괄 삭제"
-          message={`선택한 ${sel.size}건의 수불 내역을 삭제할까요? (재고 수량은 자동 보정되지 않습니다)`}
+          message={`선택한 ${sel.size}건의 수불 내역을 삭제할까요? 삭제 시 해당 수량만큼 재고가 원복됩니다.`}
           onClose={() => setDelBulk(false)}
           onConfirm={removeBulk}
         />

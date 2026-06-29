@@ -137,17 +137,29 @@ router.post(
   }),
 );
 
-// 수불 내역 삭제(관리자)
+// 수불 내역 삭제(관리자) — 기본적으로 재고를 원복(reverse). restock=0 쿼리로 끌 수 있음
 router.delete(
   '/:id',
   requireAdmin,
   asyncHandler(async (req, res) => {
+    const restock = str(req.query.restock) !== '0'; // 기본 원복
+    const txns = await readTable('transactions', req.plant);
+    const t = txns.find((x) => x.id === req.params.id);
+    if (!t) throw notFound('수불 내역을 찾을 수 없습니다.');
+    if (restock && (t.materialType === 'raw' || t.materialType === 'sub')) {
+      const table = t.materialType === 'raw' ? 'raw_materials' : 'sub_materials';
+      const qtyKey = t.materialType === 'raw' ? 'quantity' : 'weight';
+      const delta = (t.type === '출고' || t.type === '반출') ? (num(t.quantity) || 0) : -(num(t.quantity) || 0);
+      await mutate(table, req.plant, (rows) => {
+        const r = rows.find((x) => x.id === t.materialId);
+        if (r) r[qtyKey] = String(Math.max(0, (num(r[qtyKey]) || 0) + delta));
+      });
+    }
     await mutate('transactions', req.plant, (rows) => {
       const idx = rows.findIndex((x) => x.id === req.params.id);
-      if (idx < 0) throw notFound('수불 내역을 찾을 수 없습니다.');
-      rows.splice(idx, 1);
+      if (idx >= 0) rows.splice(idx, 1);
     });
-    res.json({ ok: true });
+    res.json({ ok: true, restocked: restock });
   }),
 );
 
