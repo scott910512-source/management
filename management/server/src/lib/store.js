@@ -22,7 +22,9 @@ const TABLES = {
   batches: ['id', 'product', 'year', 'no', 'startDate', 'createdBy', 'createdAt'],
   settings: ['key', 'value'],
   anomalies: ['id', 'type', 'itemName', 'lotInfo', 'account', 'note', 'createdAt'],
-  tasks: ['id', 'title', 'category', 'categoryEtc', 'priority', 'assignee', 'dueDate', 'status', 'note', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt'],
+  tasks: ['id', 'title', 'category', 'categoryEtc', 'priority', 'assignee', 'dueDate', 'status', 'note', 'recurringId', 'period', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt'],
+  // 정기(반복) 업무 템플릿 — 주기(일/주/월)마다 Task 자동 생성
+  recurring_tasks: ['id', 'title', 'category', 'categoryEtc', 'priority', 'assignee', 'note', 'cycle', 'weekday', 'monthday', 'active', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt'],
   warning_acks: ['id', 'warningKey', 'account', 'content', 'createdAt'],
   warning_dismissed: ['id', 'warningKey', 'account', 'content', 'createdAt'],
   settings_log: ['id', 'key', 'oldValue', 'newValue', 'changedBy', 'createdAt'],
