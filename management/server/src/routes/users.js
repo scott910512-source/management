@@ -46,7 +46,7 @@ router.post(
   '/:id/approve',
   asyncHandler(async (req, res) => {
     const role = str(req.body.role) || 'user';
-    if (!['user','admin','viewer'].includes(role)) throw badRequest('역할은 user 또는 admin이어야 합니다.');
+    if (!['user','admin','viewer','demo'].includes(role)) throw badRequest('역할값이 올바르지 않습니다.');
     const updated = await mutate('users', null, (rows) => {
       const u = rows.find((r) => r.id === req.params.id);
       if (!u) throw notFound('사용자를 찾을 수 없습니다.');
