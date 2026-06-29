@@ -424,3 +424,4 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .manual .step img { cursor: zoom-in; transition: box-shadow .15s, transform .15s; }
 .manual .step img:hover { box-shadow: 0 6px 24px rgba(0,0,0,.16); transform: translateY(-1px); }
 .manual .img-hint { font-size: 11px; color: var(--text-3); margin-top: 4px; }
+.batch-matrix .bm-lotinfo { margin-top: 4px; font-size: 11px; color: var(--accent, #0071e3); font-weight: 600; }

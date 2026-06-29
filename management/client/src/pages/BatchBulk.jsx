@@ -179,7 +179,7 @@ function BulkModal({ products, onClose, onDone }) {
                           value={r.qty[k] ?? ''}
                           onChange={(e) => setQty(i, k, e.target.value === '' ? '' : Number(e.target.value))}
                         />
-                        {showLot && (
+                        {showLot ? (
                           <select
                             className={`bm-lot ${manual ? 'on' : ''}`}
                             value={manual || ''}
@@ -191,6 +191,10 @@ function BulkModal({ products, onClose, onDone }) {
                               <option key={l.lotNo} value={l.lotNo}>{l.lotNo} · {l.quantity.toLocaleString()}{m.unit}</option>
                             ))}
                           </select>
+                        ) : (
+                          <div className="bm-lotinfo" title="출고될 Lot (선입선출)">
+                            {m.oldestLot ? <>↳ {m.oldestLot}</> : <span className="bm-short">Lot 없음</span>}
+                          </div>
                         )}
                       </td>
                     );
