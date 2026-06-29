@@ -200,6 +200,7 @@ function SafetyRatioCard({ toast }) {
 function StockCheckCard() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [reconciling, setReconciling] = useState(false);
 
   async function run() {
     setLoading(true);
@@ -210,6 +211,20 @@ function StockCheckCard() {
       setResult({ items: [], error: e.message });
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function reconcile() {
+    if (!window.confirm(`불일치 ${result.items.length}건에 조정 수불을 삽입해 현재고와 일치화합니다. 계속하시겠습니까?`)) return;
+    setReconciling(true);
+    try {
+      const d = await api.post('/settings/reconcile', {});
+      alert(`일치화 완료: ${d.count}건 조정 수불 삽입`);
+      run();
+    } catch (e) {
+      alert('오류: ' + e.message);
+    } finally {
+      setReconciling(false);
     }
   }
 
@@ -238,6 +253,9 @@ function StockCheckCard() {
               <span style={{ fontSize: 18 }}>⚠️</span>
               <span style={{ color: 'var(--orange)', fontWeight: 600 }}>{result.items.length}건 불일치 발견</span>
               <span className="muted" style={{ fontSize: 12 }}>검사시각: {(result.checkedAt || '').slice(0, 16).replace('T', ' ')}</span>
+              <button className="btn sm" style={{ marginLeft: 'auto', whiteSpace: 'nowrap' }} onClick={reconcile} disabled={reconciling}>
+                {reconciling ? '처리 중…' : '재고 일치화'}
+              </button>
             </div>
             <table className="tbl compact">
               <thead>

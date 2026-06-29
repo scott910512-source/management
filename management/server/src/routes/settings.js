@@ -6,6 +6,7 @@ const { asyncHandler, str, num, badRequest } = require('../lib/http');
 const { newId, now } = require('../lib/ids');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { resolvePlant } = require('../middleware/plant');
+const { appendTransaction } = require('../lib/tx');
 
 const router = express.Router();
 
@@ -143,6 +144,59 @@ router.get(
     }
 
     res.json({ items, checkedAt: now() });
+  }),
+);
+
+// 재고 일치화: 불일치 Lot에 조정 수불을 삽입해 현재고와 맞춤
+router.post(
+  '/reconcile',
+  requireAdmin,
+  resolvePlant,
+  asyncHandler(async (req, res) => {
+    const [raws, subs, txns] = await Promise.all([
+      readTable('raw_materials', req.plant),
+      readTable('sub_materials', req.plant),
+      readTable('transactions', req.plant),
+    ]);
+
+    const txMap = {};
+    for (const t of txns) {
+      if (!txMap[t.materialId]) txMap[t.materialId] = 0;
+      const q = Number(t.quantity) || 0;
+      if (['입고', '반입'].includes(t.type)) txMap[t.materialId] += q;
+      else txMap[t.materialId] -= q;
+    }
+
+    const reconciled = [];
+    const user = req.user?.username || 'system';
+
+    for (const lot of raws) {
+      const txCount = txns.filter((t) => t.materialId === lot.id).length;
+      if (txCount === 0) continue;
+      const current = Number(lot.quantity) || 0;
+      const calculated = Math.round((txMap[lot.id] || 0) * 1000) / 1000;
+      const diff = Math.round((current - calculated) * 1000) / 1000;
+      if (Math.abs(diff) <= 0.001) continue;
+      const adjQty = Math.abs(diff);
+      const adjType = diff > 0 ? '입고' : '반출';
+      await appendTransaction({ plant: req.plant, materialType: 'raw', materialId: lot.id, materialName: lot.itemName, lotNo: lot.lotNo, type: adjType, quantity: adjQty, unit: lot.unit || 'kg', balanceAfter: current, note: '재고일치화조정', user });
+      reconciled.push({ type: '원재료', name: lot.itemName, lotNo: lot.lotNo, diff, adjType, adjQty, unit: lot.unit });
+    }
+
+    for (const lot of subs) {
+      const txCount = txns.filter((t) => t.materialId === lot.id).length;
+      if (txCount === 0) continue;
+      const current = Number(lot.weight) || 0;
+      const calculated = Math.round((txMap[lot.id] || 0) * 1000) / 1000;
+      const diff = Math.round((current - calculated) * 1000) / 1000;
+      if (Math.abs(diff) <= 0.001) continue;
+      const adjQty = Math.abs(diff);
+      const adjType = diff > 0 ? '입고' : '반출';
+      await appendTransaction({ plant: req.plant, materialType: 'sub', materialId: lot.id, materialName: lot.name, lotNo: lot.lotNo, type: adjType, quantity: adjQty, unit: lot.unit || 'kg', balanceAfter: current, note: '재고일치화조정', user });
+      reconciled.push({ type: '부재료', name: lot.name, lotNo: lot.lotNo, diff, adjType, adjQty, unit: lot.unit });
+    }
+
+    res.json({ reconciled, count: reconciled.length });
   }),
 );
 
