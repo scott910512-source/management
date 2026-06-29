@@ -170,7 +170,7 @@ export default function Dashboard() {
               <QuickGroup navigate={navigate} icon="canister" color="#0071e3" title="원재료" actions={[['입고', '/raw?new=1'], ['사용', '/raw?use=1']]} />
               <QuickGroup navigate={navigate} icon="drum" color="#5e5ce6" title="부재료" actions={[['입고', '/sub?new=1'], ['사용', '/sub?use=1']]} />
               <QuickGroup navigate={navigate} icon="star" color="#34c759" title="Canister" actions={[['등록', '/canisters?new=1'], ['수불 등록', '/canisters?move=1']]} />
-              <QuickGroup navigate={navigate} icon="task" color="#ff9f0a" title="배치" actions={[['일괄 처리', '/batch-bulk']]} />
+              <QuickGroup navigate={navigate} icon="task" color="#ff9f0a" title="배치" actions={[['일괄 처리', '/batch-bulk?new=1']]} />
             </div>
           </div>
         )}

@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { api, downloadCsv } from '../api';
 import { useAuth } from '../auth/AuthContext';
 import { Modal, Select, Loading, Empty, ConfirmDialog, useToast } from '../components/ui';
@@ -299,6 +300,12 @@ export default function BatchBulk() {
   const [expand, setExpand] = useState(null);
   const [sel, setSel] = useState(() => new Set());
   const [delBulk, setDelBulk] = useState(false);
+  const [sp, setSp] = useSearchParams();
+
+  // 종합현황 퀵메뉴(?new=1)로 진입 시 새 배치 처리 모달 자동 오픈
+  useEffect(() => {
+    if (sp.get('new') === '1' && canWrite) { setOpen(true); setSp({}, { replace: true }); }
+  }, [sp]); // eslint-disable-line
 
   const load = () => {
     Promise.all([api.get('/products'), api.get('/batches/inputs')])
