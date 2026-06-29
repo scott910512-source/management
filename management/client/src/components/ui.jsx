@@ -41,7 +41,7 @@ export function Modal({ title, subtitle, children, onClose, footer, size }) {
   }, [onClose]);
   return (
     <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose && onClose()}>
-      <div className={`modal ${size === 'lg' ? 'lg' : ''}`} role="dialog" aria-modal="true">
+      <div className={`modal ${size === 'lg' ? 'lg' : ''} ${size === 'xl' ? 'xl' : ''}`} role="dialog" aria-modal="true">
         <div className="modal-head">
           <div style={{ minWidth: 0 }}>
             <h3>{title}</h3>

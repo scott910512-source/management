@@ -6,6 +6,18 @@ import { Modal, Select, Loading, Empty, ConfirmDialog, useToast } from '../compo
 const todayStr = () => new Date().toISOString().slice(0, 10);
 const catLabel = (c) => (c === 'raw' ? '원재료' : c === 'sub' ? '부재료' : c);
 
+// 자동 FIFO 분배 계획 — 오래된 Lot부터 채워 [{lotNo, take}] 반환(1개 Lot 부족 시 여러 Lot)
+function fifoPlan(lots, qty) {
+  const out = [];
+  let remain = qty;
+  for (const l of (lots || [])) {
+    if (remain <= 0) break;
+    const take = Math.min(Number(l.quantity) || 0, remain);
+    if (take > 0) { out.push({ lotNo: l.lotNo, take }); remain -= take; }
+  }
+  return out;
+}
+
 // ===== 입력 팝업 (행=배치 / 열=자재) =====
 function BulkModal({ products, onClose, onDone }) {
   const toast = useToast();
@@ -18,8 +30,11 @@ function BulkModal({ products, onClose, onDone }) {
   const [saving, setSaving] = useState(false);
   const [fifoWarn, setFifoWarn] = useState(null); // { violations, payload }
   const [showLot, setShowLot] = useState(false); // Lot 직접 지정 표시 여부(기본 숨김)
+  const [member, setMember] = useState({}); // 컬럼별 선택된 품목(납품업체) — { colKey: memberName }
 
   const key = (m) => `${m.category}|${m.name}`;
+  // 컬럼의 현재 선택 멤버(품목) 객체
+  const activeMember = (m) => (m.members || []).find((x) => x.name === (member[key(m)] || m.defaultMember)) || (m.members || [])[0] || m;
 
   // 제품 선택 시 BOM + 재고 로드
   useEffect(() => {
@@ -29,23 +44,42 @@ function BulkModal({ products, onClose, onDone }) {
       .then((d) => {
         setMats(d.materials || []);
         setNextNo(d.nextNo || 1);
+        // 컬럼별 기본 멤버 초기화
+        const mm = {};
+        (d.materials || []).forEach((m) => { mm[`${m.category}|${m.name}`] = m.defaultMember; });
+        setMember(mm);
         // 첫 배치 1개를 BOM 기준량으로 자동 채워 시작
         const qty = {};
         (d.materials || []).forEach((m) => { qty[`${m.category}|${m.name}`] = m.qtyPerBatch; });
-        setRows([{ no: String(d.nextNo || 1), qty, lot: {} }]);
+        setRows([{ no: String(d.nextNo || 1), year: startDate.slice(2, 4), qty, lot: {} }]); // lot[k] = [lotNo...]
       })
-      .catch((e) => toast.error(e.message))
+      .catch((e) => toast.err(e.message))
       .finally(() => setLoading(false));
   }, [product]); // eslint-disable-line
+
+  // 멤버 변경 시 해당 컬럼 Lot 지정 초기화(다른 품목의 Lot이므로)
+  const setColMember = (m, name) => {
+    const k = key(m);
+    setMember((p) => ({ ...p, [k]: name }));
+    setRows((rs) => rs.map((r) => ({ ...r, lot: { ...r.lot, [k]: [] } })));
+  };
+  // Lot 체크박스 토글(다수 선택 가능 — 1개 Lot로 부족할 때)
+  const toggleLot = (i, k, lotNo) => setRows((rs) => rs.map((r, idx) => {
+    if (idx !== i) return r;
+    const cur = r.lot[k] || [];
+    const next = cur.includes(lotNo) ? cur.filter((x) => x !== lotNo) : [...cur, lotNo];
+    return { ...r, lot: { ...r.lot, [k]: next } };
+  }));
 
   const addRow = () => {
     const used = rows.map((r) => Number(r.no));
     const no = String(Math.max(nextNo - 1, ...used) + 1);
     const qty = {};
     (mats || []).forEach((m) => { qty[`${m.category}|${m.name}`] = m.qtyPerBatch; });
-    setRows((rs) => [...rs, { no, qty, lot: {} }]);
+    setRows((rs) => [...rs, { no, year: (rs[0] && rs[0].year) || startDate.slice(2, 4), qty, lot: {} }]);
   };
   const delRow = (i) => setRows((rs) => rs.filter((_, idx) => idx !== i));
+  const setYear = (i, v) => setRows((rs) => rs.map((r, idx) => idx === i ? { ...r, year: v } : r));
   const setQty = (i, k, v) => setRows((rs) => rs.map((r, idx) => idx === i ? { ...r, qty: { ...r.qty, [k]: v } } : r));
   const setLot = (i, k, v) => setRows((rs) => rs.map((r, idx) => idx === i ? { ...r, lot: { ...r.lot, [k]: v } } : r));
   const setNo = (i, v) => setRows((rs) => rs.map((r, idx) => idx === i ? { ...r, no: v } : r));
@@ -55,34 +89,35 @@ function BulkModal({ products, onClose, onDone }) {
     const t = {};
     (mats || []).forEach((m) => {
       const k = key(m);
+      const am = activeMember(m);
       const sum = rows.reduce((s, r) => s + (Number(r.qty[k]) || 0), 0);
-      t[k] = { sum, after: m.stock - sum, short: sum > m.stock };
+      t[k] = { sum, after: (am.stock || 0) - sum, short: sum > (am.stock || 0) };
     });
     return t;
-  }, [mats, rows]);
+  }, [mats, rows, member]);
 
   const anyShort = Object.values(totals).some((x) => x.short);
 
   const post = (payload) => api.post('/batches/bulk', payload);
 
   const submit = async () => {
-    if (!product) return toast.error('제품(사용처)을 선택하세요.');
+    if (!product) return toast.err('제품(사용처)을 선택하세요.');
     const batches = rows
       .filter((r) => String(r.no).trim())
-      .map((r) => ({ no: r.no, lines: (mats || []).map((m) => ({ category: m.category, name: m.name, quantity: Number(r.qty[key(m)]) || 0, lotNo: r.lot[key(m)] || '' })) }));
-    if (batches.length === 0) return toast.error('배치를 입력하세요.');
-    if (anyShort) return toast.error('재고가 부족한 자재가 있습니다.');
+      .map((r) => ({ no: r.no, year: r.year ? '20' + r.year : undefined, lines: (mats || []).map((m) => ({ category: m.category, name: activeMember(m).name, quantity: Number(r.qty[key(m)]) || 0, lotNos: r.lot[key(m)] || [] })) }));
+    if (batches.length === 0) return toast.err('배치를 입력하세요.');
+    if (anyShort) return toast.err('재고가 부족한 자재가 있습니다.');
     const payload = { product, startDate, txDate: startDate, batches };
     setSaving(true);
     try {
       const res = await post(payload);
-      toast.success(`${res.batches}개 배치 · ${res.transactions}건 출고 처리되었습니다.`);
+      toast.ok(`${res.batches}개 배치 · ${res.transactions}건 출고 처리되었습니다.`);
       onDone();
     } catch (e) {
       if (e.status === 409 && e.data && e.data.fifoWarning) {
         setFifoWarn({ violations: e.data.violations || [], payload }); // 강제 여부 확인
       } else {
-        toast.error(e.message);
+        toast.err(e.message);
       }
     } finally {
       setSaving(false);
@@ -96,10 +131,10 @@ function BulkModal({ products, onClose, onDone }) {
     setSaving(true);
     try {
       const res = await post(payload);
-      toast.success(`${res.batches}개 배치 처리 · 이상발생 ${res.anomalies}건 기록되었습니다.`);
+      toast.ok(`${res.batches}개 배치 처리 · 이상발생 ${res.anomalies}건 기록되었습니다.`);
       onDone();
     } catch (e) {
-      toast.error(e.message);
+      toast.err(e.message);
     } finally {
       setSaving(false);
     }
@@ -110,7 +145,7 @@ function BulkModal({ products, onClose, onDone }) {
     <Modal
       title="배치 일괄 처리"
       subtitle="제품을 고르면 BOM 자재가 자동으로 채워집니다. 출고는 오래된 Lot부터 자동 처리됩니다."
-      size="lg"
+      size="xl"
       onClose={onClose}
       footer={
         <>
@@ -152,12 +187,20 @@ function BulkModal({ products, onClose, onDone }) {
             <thead>
               <tr>
                 <th className="bm-corner">배치 No.</th>
-                {mats.map((m) => (
+                {mats.map((m) => {
+                  const am = activeMember(m);
+                  return (
                   <th key={key(m)}>
-                    <div className="bm-mat">{m.name}</div>
-                    <div className="bm-meta">재고 {m.stock.toLocaleString()}{m.unit} · BOM {m.qtyPerBatch}</div>
+                    <div className="bm-mat">{m.group || m.name}</div>
+                    {m.members && m.members.length > 1 ? (
+                      <select className="bm-member" value={member[key(m)] || m.defaultMember} onChange={(e) => setColMember(m, e.target.value)} title="납품업체(품목) 선택">
+                        {m.members.map((mb) => <option key={mb.name} value={mb.name}>{mb.name}{mb.vendor ? ` · ${mb.vendor}` : ''}{mb.isDefault ? ' (기본)' : ''}</option>)}
+                      </select>
+                    ) : null}
+                    <div className="bm-meta">재고 {(am.stock || 0).toLocaleString()}{m.unit} · BOM {m.qtyPerBatch}</div>
                   </th>
-                ))}
+                  );
+                })}
                 <th className="bm-del"></th>
               </tr>
             </thead>
@@ -165,12 +208,18 @@ function BulkModal({ products, onClose, onDone }) {
               {rows.map((r, i) => (
                 <tr key={i}>
                   <td>
-                    <span className="bm-hash">#</span>
-                    <input className="bm-no" value={r.no} onChange={(e) => setNo(i, e.target.value.replace(/[^0-9]/g, ''))} />
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                      <input className="bm-yr" value={r.year || ''} onChange={(e) => setYear(i, e.target.value.replace(/[^0-9]/g, '').slice(0, 2))} title="연도(2자리)" />
+                      <span className="bm-hash">#</span>
+                      <input className="bm-no" value={r.no} onChange={(e) => setNo(i, e.target.value.replace(/[^0-9]/g, ''))} />
+                    </span>
                   </td>
                   {mats.map((m) => {
                     const k = key(m);
-                    const manual = r.lot[k];
+                    const am = activeMember(m);
+                    const sel = r.lot[k] || []; // 선택된 Lot 목록(빈 배열=자동 FIFO 전체)
+                    const effLots = sel.length ? (am.lots || []).filter((l) => sel.includes(l.lotNo)) : (am.lots || []);
+                    const plan = fifoPlan(effLots, Number(r.qty[k]) || 0);
                     return (
                       <td key={k}>
                         <input
@@ -180,20 +229,19 @@ function BulkModal({ products, onClose, onDone }) {
                           onChange={(e) => setQty(i, k, e.target.value === '' ? '' : Number(e.target.value))}
                         />
                         {showLot ? (
-                          <select
-                            className={`bm-lot ${manual ? 'on' : ''}`}
-                            value={manual || ''}
-                            onChange={(e) => setLot(i, k, e.target.value)}
-                            title="Lot 선택 — 기본은 자동(FIFO)"
-                          >
-                            <option value="">자동 (FIFO)</option>
-                            {(m.lots || []).map((l) => (
-                              <option key={l.lotNo} value={l.lotNo}>{l.lotNo} · {l.quantity.toLocaleString()}{m.unit}</option>
-                            ))}
-                          </select>
+                          <div className="bm-lotpick">
+                            {(am.lots || []).length === 0 ? <span className="bm-short">Lot 없음</span>
+                              : (am.lots || []).map((l) => (
+                                <label key={l.lotNo} title={`입고 ${l.receivedDate}`}>
+                                  <input type="checkbox" checked={sel.includes(l.lotNo)} onChange={() => toggleLot(i, k, l.lotNo)} />
+                                  {l.lotNo} <span className="bm-take">{l.quantity.toLocaleString()}{m.unit}</span>
+                                </label>
+                              ))}
+                          </div>
                         ) : (
                           <div className="bm-lotinfo" title="출고될 Lot (선입선출)">
-                            {m.oldestLot ? <>↳ {m.oldestLot}</> : <span className="bm-short">Lot 없음</span>}
+                            {plan.length === 0 ? <span className="bm-short">{am.oldestLot ? `↳ ${am.oldestLot}` : 'Lot 없음'}</span>
+                              : plan.map((p) => <div key={p.lotNo}>↳ {p.lotNo} <span className="bm-take">{p.take.toLocaleString()}{m.unit}</span></div>)}
                           </div>
                         )}
                       </td>

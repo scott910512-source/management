@@ -3,7 +3,7 @@ import { api } from '../api';
 import { Modal, Field, TextInput, Select, useToast, ConfirmDialog, Empty, Loading, Badge } from '../components/ui';
 import { UnitInput, EtcSelect } from '../components/inputs';
 
-const blank = { category: 'raw', name: '', unit: 'kg', safetyStock: '', warningPct: '', vendor: '', product: '', productEtc: '', defaultQty: '', lotPattern: '', pkgSize: '', pkgUnit: '', pkgType: '', hazardous: false, hazardousMaxQty: '', hazardousWarnPct: '', note: '' };
+const blank = { category: 'raw', name: '', unit: 'kg', safetyStock: '', warningPct: '', vendor: '', product: '', productEtc: '', defaultQty: '', lotPattern: '', pkgSize: '', pkgUnit: '', pkgType: '', hazardous: false, itemGroup: '', groupDefault: false, hazardousMaxQty: '', hazardousWarnPct: '', note: '' };
 
 export default function Items() {
   const toast = useToast();
@@ -127,7 +127,7 @@ function ItemForm({ mode, initial, onClose, onSaved, onError }) {
     const product = f.product === '기타' ? (f.productEtc || '').trim() : f.product;
     setBusy(true);
     try {
-      const payload = { category: f.category, name: f.name.trim(), unit: f.unit, safetyStock: f.safetyStock === '' ? 0 : Number(f.safetyStock), warningPct: f.warningPct, vendor: f.vendor, product, defaultQty: f.defaultQty, lotPattern: f.lotPattern, pkgSize: f.pkgSize, pkgUnit: f.pkgUnit, pkgType: f.pkgType, hazardous: f.hazardous, hazardousMaxQty: f.hazardousMaxQty, hazardousWarnPct: f.hazardousWarnPct, note: f.note };
+      const payload = { category: f.category, name: f.name.trim(), unit: f.unit, safetyStock: f.safetyStock === '' ? 0 : Number(f.safetyStock), warningPct: f.warningPct, vendor: f.vendor, product, defaultQty: f.defaultQty, lotPattern: f.lotPattern, pkgSize: f.pkgSize, pkgUnit: f.pkgUnit, pkgType: f.pkgType, hazardous: f.hazardous, itemGroup: f.itemGroup, groupDefault: f.groupDefault, hazardousMaxQty: f.hazardousMaxQty, hazardousWarnPct: f.hazardousWarnPct, note: f.note };
       if (mode === 'create') await api.post('/items', payload);
       else await api.patch('/items/' + initial.id, payload);
       onSaved();
@@ -206,6 +206,15 @@ function ItemForm({ mode, initial, onClose, onSaved, onError }) {
       </div>
       <Field label="기본 업체명" hint="원/부재료 등록 시 자동 입력(수정 가능)">
         <TextInput value={f.vendor} onChange={(e) => set('vendor', e.target.value)} placeholder="예: (주)한솔케미칼" />
+      </Field>
+      <Field label="품목그룹 (납품업체 다른 동일 품목)" hint="같은 자재를 업체별로 따로 등록한 경우 같은 그룹명을 입력 — 유해물질 대장은 그룹 합산, 배치 처리 시 그룹 내 품목 선택">
+        <div className="form-row" style={{ alignItems: 'center' }}>
+          <TextInput value={f.itemGroup} onChange={(e) => set('itemGroup', e.target.value)} placeholder="예: 톨루엔(공용) — 비우면 그룹 없음" />
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', fontSize: 13, color: 'var(--text-2)', cursor: f.itemGroup ? 'pointer' : 'not-allowed' }}>
+            <input type="checkbox" checked={!!f.groupDefault} disabled={!f.itemGroup} onChange={(e) => set('groupDefault', e.target.checked)} />
+            기본 사용
+          </label>
+        </div>
       </Field>
       <Field label="유해화학물질">
         <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>

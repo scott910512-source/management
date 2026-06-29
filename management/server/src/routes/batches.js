@@ -162,18 +162,37 @@ router.get(
       .map((b) => {
         const cfg = MAT[b.category];
         const master = items.find((i) => i.category === b.category && i.name === b.materialName);
-        const lots = cfg ? fifoLots(rowsByCat[b.category], cfg, b.materialName) : [];
-        const stock = lots.reduce((s, r) => s + (num(r[cfg.qtyKey]) || 0), 0);
+        // 품목그룹(납품업체 다른 동일 품목) — 그룹이 있으면 멤버 품목들을 선택지로 제공
+        const grp = master && master.itemGroup && master.itemGroup.trim();
+        const memberItems = grp
+          ? items.filter((i) => i.category === b.category && (i.itemGroup || '').trim() === grp)
+          : (master ? [master] : []);
+        const buildMember = (mi) => {
+          const lots = cfg ? fifoLots(rowsByCat[b.category], cfg, mi.name) : [];
+          return {
+            name: mi.name,
+            vendor: mi.vendor || '',
+            isDefault: mi.groupDefault === '1',
+            stock: lots.reduce((s, r) => s + (num(r[cfg.qtyKey]) || 0), 0),
+            oldestLot: lots[0] ? lots[0].lotNo : '',
+            lots: lots.map((r) => ({ lotNo: r.lotNo, quantity: num(r[cfg.qtyKey]) || 0, receivedDate: r.receivedDate || '', unit: r.unit })),
+          };
+        };
+        const members = (memberItems.length ? memberItems : [{ name: b.materialName, vendor: '', groupDefault: '' }]).map(buildMember);
+        // 기본 선택: groupDefault 지정 멤버 → 없으면 BOM의 품목 → 없으면 첫 멤버
+        const def = members.find((m) => m.isDefault) || members.find((m) => m.name === b.materialName) || members[0];
         return {
           category: b.category,
-          name: b.materialName,
-          unit: master ? master.unit : (lots[0] && lots[0].unit) || '',
+          name: b.materialName,        // 컬럼 식별자(BOM 기준 품목)
+          group: grp || '',
+          unit: master ? master.unit : (def && def.lots[0] && def.lots[0].unit) || '',
           qtyPerBatch: num(b.qtyPerBatch) || 0,
-          stock,
-          lotCount: lots.length,
-          oldestLot: lots[0] ? lots[0].lotNo : '',
-          // Lot 직접 선택용 — FIFO 순(오래된 입고일 먼저)
-          lots: lots.map((r) => ({ lotNo: r.lotNo, quantity: num(r[cfg.qtyKey]) || 0, receivedDate: r.receivedDate || '', unit: r.unit })),
+          members,                     // 그룹 내 선택 가능한 품목들
+          defaultMember: def ? def.name : b.materialName,
+          // 기본 멤버 기준 재고/Lot (UI 호환)
+          stock: def ? def.stock : 0,
+          oldestLot: def ? def.oldestLot : '',
+          lots: def ? def.lots : [],
         };
       });
     res.json({ product, year, nextNo: await nextProductBatchNo(req.plant, product, year), materials: lines });
@@ -210,33 +229,35 @@ router.post(
         if (!qty || qty <= 0) continue;
         const cfg = MAT[ln.category];
         if (!cfg) continue;
-        const pickLotNo = str(ln.lotNo);
+        // 지정 Lot 목록(다수 선택) — lotNos 배열 우선, 없으면 단일 lotNo, 둘 다 없으면 자동 FIFO
+        const allowed = Array.isArray(ln.lotNos) && ln.lotNos.length ? ln.lotNos.map(String)
+          : (str(ln.lotNo) ? [str(ln.lotNo)] : []);
         let remain = qty;
 
-        // (a) Lot 직접 지정분 먼저 차감 + 위반 검사
-        if (pickLotNo) {
-          const lot = rowsByCat[ln.category].find((r) => r[cfg.nameKey] === ln.name && r.lotNo === pickLotNo);
-          const avail = lot ? num(lot[cfg.qtyKey]) || 0 : 0;
-          if (lot && avail > 0) {
+        if (allowed.length) {
+          // (a) 선택한 Lot들 안에서만 FIFO 분배
+          const lots = fifoLots(rowsByCat[ln.category], cfg, ln.name).filter((l) => allowed.includes(l.lotNo));
+          for (const lot of lots) {
+            if (remain <= 0) break;
+            const avail = num(lot[cfg.qtyKey]) || 0;
+            if (avail <= 0) continue;
             const take = Math.min(avail, remain);
             lot[cfg.qtyKey] = String(avail - take);
             plan.push({ category: ln.category, lotId: lot.id, lotNo: lot.lotNo, name: ln.name, unit: lot.unit, qty: take, batchIdx: bi });
             remain -= take;
           }
-          // 지정 Lot보다 입고일이 빠른(오래된) Lot이 남아있으면 선입선출 위반
-          const chosen = origByCat[ln.category].find((r) => r[cfg.nameKey] === ln.name && r.lotNo === pickLotNo);
-          if (chosen) {
-            const earlier = findEarlierLot(origByCat[ln.category], chosen, cfg.nameKey);
-            if (earlier) violations.push({ batchNo: str(batches[bi].no), category: ln.category, name: ln.name, chosenLot: pickLotNo, chosenDate: chosen.receivedDate || '', earliestLot: earlier.lotNo, earliestDate: earlier.receivedDate || '' });
+          // 선택 Lot보다 입고일이 빠른(오래된) 미선택 Lot이 남아있으면 선입선출 위반
+          const activeLots = fifoLots(origByCat[ln.category], cfg, ln.name);
+          const firstAllowed = activeLots.find((l) => allowed.includes(l.lotNo));
+          const earlierNotPicked = activeLots.find((l) => !allowed.includes(l.lotNo) && firstAllowed && (l.receivedDate || '') < (firstAllowed.receivedDate || ''));
+          if (firstAllowed && earlierNotPicked) {
+            violations.push({ batchNo: str(batches[bi].no), category: ln.category, name: ln.name, chosenLot: firstAllowed.lotNo, chosenDate: firstAllowed.receivedDate || '', earliestLot: earlierNotPicked.lotNo, earliestDate: earlierNotPicked.receivedDate || '' });
           }
-        }
-
-        // (b) 나머지는 FIFO(오래된 Lot부터)로 자동 분배
-        if (remain > 0) {
+        } else {
+          // (b) 자동 FIFO(오래된 Lot부터)
           const lots = fifoLots(rowsByCat[ln.category], cfg, ln.name);
           for (const lot of lots) {
             if (remain <= 0) break;
-            if (pickLotNo && lot.lotNo === pickLotNo) continue; // 이미 처리
             const avail = num(lot[cfg.qtyKey]) || 0;
             if (avail <= 0) continue;
             const take = Math.min(avail, remain);
@@ -264,9 +285,12 @@ router.post(
 
     // 2) 배치 생성(ensureBatch) — 번호별 batchId 확보
     const batchIds = [];
+    const batchYears = [];
     for (let bi = 0; bi < batches.length; bi++) {
       const noRaw = str(batches[bi].no);
-      const b = await ensureBatch(req.plant, { product, no: noRaw, year, startDate, user: me });
+      const by = /^\d{4}$/.test(String(batches[bi].year)) ? String(batches[bi].year) : year;
+      batchYears[bi] = by;
+      const b = await ensureBatch(req.plant, { product, no: noRaw, year: by, startDate, user: me });
       batchIds[bi] = b.id;
     }
 

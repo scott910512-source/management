@@ -25,9 +25,18 @@ async function buildLedger(plant, year) {
     readTable('transactions', plant),
     readTable('hazardous_ledger', plant),
   ]);
-  const hazNames = items.filter((i) => i.hazardous === '1').map((i) => i.name);
-  const unitOf = {};
-  items.forEach((i) => { if (i.hazardous === '1') unitOf[i.name] = i.unit; });
+  // 유해물질 품목 → 그룹명(미설정 시 품목명 자체가 그룹). 업체가 달라 품목이 나뉘어도 그룹으로 합산.
+  const hazItems = items.filter((i) => i.hazardous === '1');
+  const groupOf = {}; // 품목명 → 그룹명
+  const unitOf = {};  // 그룹명 → 단위
+  const memberNames = {}; // 그룹명 → [품목명...]
+  for (const i of hazItems) {
+    const g = (i.itemGroup && i.itemGroup.trim()) || i.name;
+    groupOf[i.name] = g;
+    if (!unitOf[g]) unitOf[g] = i.unit;
+    (memberNames[g] = memberNames[g] || []).push(i.name);
+  }
+  const hazNames = Object.keys(memberNames).sort(); // 그룹명 목록
   if (hazNames.length === 0) return { hazardousItems: [], byItem: {} };
 
   const lotName = new Map();
@@ -39,11 +48,12 @@ async function buildLedger(plant, year) {
   const auto = {};
   for (const t of txns) {
     const name = lotName.get(t.materialId);
-    if (!name || !hazNames.includes(name)) continue;
+    const g = name && groupOf[name];
+    if (!g) continue;
     const day = (t.createdAt || '').slice(0, 10);
     if (!day.startsWith(yearStr)) continue;
-    (auto[name] = auto[name] || {});
-    const cell = (auto[name][day] = auto[name][day] || { in: 0, out: 0 });
+    (auto[g] = auto[g] || {});
+    const cell = (auto[g][day] = auto[g][day] || { in: 0, out: 0 });
     const q = num(t.quantity) || 0;
     if (isIn(t.type)) cell.in += q; else cell.out += q;
   }

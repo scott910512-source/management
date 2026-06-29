@@ -47,6 +47,8 @@ router.post(
         product: str(req.body.product), defaultQty: str(req.body.defaultQty), lotPattern: str(req.body.lotPattern),
         pkgSize: str(req.body.pkgSize), pkgUnit: str(req.body.pkgUnit), pkgType: str(req.body.pkgType),
         hazardous: req.body.hazardous === true || req.body.hazardous === 'true' ? '1' : '',
+        itemGroup: str(req.body.itemGroup),
+        groupDefault: req.body.groupDefault === true || req.body.groupDefault === 'true' ? '1' : '',
         hazardousMaxQty: str(req.body.hazardousMaxQty),
         hazardousWarnPct: str(req.body.hazardousWarnPct),
         note: str(req.body.note),
@@ -89,6 +91,8 @@ router.patch(
       if (req.body.pkgUnit !== undefined) r.pkgUnit = str(req.body.pkgUnit);
       if (req.body.pkgType !== undefined) r.pkgType = str(req.body.pkgType);
       if (req.body.hazardous !== undefined) r.hazardous = req.body.hazardous ? '1' : '';
+      if (req.body.itemGroup !== undefined) r.itemGroup = str(req.body.itemGroup);
+      if (req.body.groupDefault !== undefined) r.groupDefault = req.body.groupDefault ? '1' : '';
       if (req.body.hazardousMaxQty !== undefined) r.hazardousMaxQty = str(req.body.hazardousMaxQty);
       if (req.body.hazardousWarnPct !== undefined) r.hazardousWarnPct = str(req.body.hazardousWarnPct);
       if (req.body.note !== undefined) r.note = str(req.body.note);
