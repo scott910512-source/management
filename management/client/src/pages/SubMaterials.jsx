@@ -128,7 +128,6 @@ export default function SubMaterials() {
         <div className="btn-row">
           <button className="btn secondary sm" onClick={() => setTrend(true)}>📈 사용량 분석</button>
           <button className="btn secondary sm" onClick={exportCsv}>⬇ CSV</button>
-          {canWrite && <button className="btn secondary sm" onClick={() => setBulkOpen(true)}>− 일괄 출고</button>}
           {canWrite && <button className="btn secondary sm" onClick={() => setUseOpen(true)}>− 부재료 사용</button>}
           {canWrite && <button className="btn secondary sm" onClick={() => setBulkReceiveOpen(true)}>+ 다량 입고</button>}
           {canWrite && <button className="btn sm" onClick={() => setEdit({ mode: 'create', data: { ...blank, receivedDate: today() } })}>+ 부재료 입고</button>}
