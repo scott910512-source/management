@@ -181,17 +181,22 @@ export default function RawMaterials() {
                 const totalQty = g.lots.reduce((s, r) => s + (Number(r.quantity) || 0), 0);
                 const unit = g.lots[0]?.unit || '';
                 const totalPkg = g.lots.reduce((s, r) => s + (Number(r.pkgCount) || 0), 0);
-                const pkgType = g.lots.find(r => r.pkgCount)?.pkgType || '';
-                const oldest = g.lots.reduce((pick, r) => (!pick || (r.receivedDate && r.receivedDate < pick.receivedDate) ? r : pick), null);
+                const pkgType = g.lots.find(r => r.pkgCount)?.pkgType || 'pkg';
+                // 가장 오래된 Lot(입고일 오름차순, 날짜 없으면 맨 뒤) — FIFO 우선 출고 대상
+                const oldest = [...g.lots].sort((a, b) => (a.receivedDate || '9999') < (b.receivedDate || '9999') ? -1 : 1)[0];
                 return (
                 <Fragment key={g.name}>
                   <tr className={`group-row ${lowSet.has(g.name) ? 'row-low' : ''}`}>
                     <td style={{ paddingLeft: 20 }}>📦 <b>{g.name}</b> · {g.lots.length} Lot {lowSet.has(g.name) && <span className="badge red" style={{ marginLeft: 4 }}>안전재고 부족</span>}</td>
-                    <td className="num"><b>{totalQty.toLocaleString()}</b>{totalPkg > 0 && <span className="muted"> ({totalPkg}{pkgType})</span>}</td>
+                    <td className="num">
+                      {totalPkg > 0
+                        ? <><b>{totalPkg.toLocaleString()}{pkgType}</b> <span className="muted">/ {totalQty.toLocaleString()}{unit}</span></>
+                        : <b>{totalQty.toLocaleString()}</b>}
+                    </td>
                     <td className="muted">{unit}</td>
                     <td></td>
                     <td className="muted">{oldest?.receivedDate || ''}</td>
-                    <td><span style={{color:'var(--blue)', fontSize: 12}}>{oldest?.lotNo || ''}</span></td>
+                    <td><span style={{color:'var(--blue)', fontSize: 12}}>{oldest?.lotNo || ''}</span> <span className="muted" style={{ fontSize: 11 }}>(최고참)</span></td>
                     <td></td>
                     <td></td>
                   </tr>
