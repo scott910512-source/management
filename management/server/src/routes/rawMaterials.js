@@ -125,8 +125,23 @@ router.post(
     if (!receivedDate) throw badRequest('입고일은 필수 입력입니다.');
 
     const me = req.session.user.id;
+    let isRestock = false;
     const item = await mutate('raw_materials', req.plant, (rows) => {
-      if (rows.some((r) => r.itemName === itemName && r.lotNo === lotNo)) throw badRequest('동일 품목/Lot No가 이미 존재합니다.');
+      const existing = rows.find((r) => r.itemName === itemName && r.lotNo === lotNo);
+      if (existing) {
+        if ((num(existing.quantity) || 0) > 0) throw badRequest('동일 품목/Lot No가 이미 존재합니다. (잔량이 있는 Lot)');
+        // 잔량 0인 소진 Lot → 재입고 처리(upsert): 기존 id 유지로 수불이력 연속성 보장
+        isRestock = true;
+        existing.quantity = String(quantity);
+        existing.unit = unit;
+        if (pkgCount !== null) existing.pkgCount = String(pkgCount);
+        existing.vendor = str(req.body.vendor);
+        existing.receivedDate = receivedDate;
+        existing.note = str(req.body.note);
+        existing.updatedBy = me;
+        existing.updatedAt = now();
+        return existing;
+      }
       const row = {
         id: newId('rm'), itemName, lotNo, quantity: String(quantity), unit,
         pkgCount: pkgCount !== null ? String(pkgCount) : '',
@@ -139,7 +154,7 @@ router.post(
     if (quantity > 0) {
       await appendTransaction({
         plant: req.plant, materialType: 'raw', materialId: item.id, materialName: item.itemName, lotNo,
-        type: '입고', quantity, unit, balanceAfter: quantity, note: '신규 입고', user: me,
+        type: '입고', quantity, unit, balanceAfter: quantity, note: isRestock ? '재입고' : '신규 입고', user: me,
       });
     }
     res.status(201).json({ item });
