@@ -19,7 +19,6 @@ import Items from './pages/Items';
 import Search from './pages/Search';
 import Manual from './pages/Manual';
 import Hazardous from './pages/Hazardous';
-import InputHistory from './pages/InputHistory';
 import Suggestions from './pages/Suggestions';
 import Reports from './pages/Reports';
 import BatchBulk from './pages/BatchBulk';
@@ -36,9 +35,8 @@ const NAV_GROUPS = [
     { to: '/canisters', label: 'Canister', ico: 'star' },
   ] },
   { title: '내역 · 업무', items: [
-    { to: '/batch-bulk', label: '배치 일괄 처리', ico: 'task' },
+    { to: '/batch-bulk', label: '배치 일괄 처리 · 투입이력', ico: 'task' },
     { to: '/transactions', label: '수불 이력', ico: 'swap' },
-    { to: '/input-history', label: '원·부재료 투입이력', ico: 'swap' },
     { to: '/anomalies', label: '이상발생 목록', ico: 'alert' },
     { to: '/tasks', label: 'Task 관리', ico: 'task' },
     { to: '/hazardous', label: '유해화학물질', ico: 'alert' },
@@ -176,8 +174,8 @@ export default function App() {
       <Route path="/anomalies" element={<Protected title="이상발생 목록"><Anomalies /></Protected>} />
       <Route path="/tasks" element={<Protected title="Task 관리"><Tasks /></Protected>} />
       <Route path="/hazardous" element={<Protected title="유해화학물질 관리대장"><Hazardous /></Protected>} />
-      <Route path="/input-history" element={<Protected title="원·부재료 투입이력"><InputHistory /></Protected>} />
-      <Route path="/batch-bulk" element={<Protected title="배치 일괄 처리"><BatchBulk /></Protected>} />
+      <Route path="/input-history" element={<Navigate to="/batch-bulk" replace />} />
+      <Route path="/batch-bulk" element={<Protected title="배치 일괄 처리 · 투입이력"><BatchBulk /></Protected>} />
       <Route path="/reports" element={<Protected title="월간 보고서" adminOnly><Reports /></Protected>} />
       <Route path="/items" element={<Protected title="기준정보 (품목·안전재고)" adminOnly><Items /></Protected>} />
       <Route path="/admin" element={<Protected title="관리자 설정" adminOnly><Admin /></Protected>} />

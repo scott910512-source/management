@@ -230,9 +230,12 @@ export default function Dashboard() {
                   <tr><th>종류</th><th className="num">개수</th><th className="num">Total 무게</th><th>최대 무게 비고</th></tr>
                 </thead>
                 <tbody>
-                  {groupByProduct(dash.canisterSummary.map((c) => ({ ...c, product: c.content }))).map((g, gi) => (
+                  {groupByProduct(dash.canisterSummary.map((c) => ({ ...c, product: c.content }))).map((g, gi) => {
+                    const gCount = g.rows.reduce((s, c) => s + (Number(c.count) || 0), 0);
+                    const gWeight = g.rows.reduce((s, c) => s + (Number(c.totalWeight) || 0), 0);
+                    return (
                     <Fragment key={g.product}>
-                      <tr className={`group-row gt${gi % 5}`}><td colSpan={4}>제품명: {g.product}</td></tr>
+                      <tr className={`group-row gt${gi % 5}`}><td colSpan={4}>제품명: {g.product} <span style={{ fontWeight: 600, color: 'var(--text-2)' }}>· 총 {gCount}개 · {gWeight.toLocaleString()}kg</span></td></tr>
                       {g.rows.map((c, i) => (
                         <tr key={i} style={{ cursor: 'pointer', background: ROW_TINTS[gi % 5] }} onClick={() => navigate('/canisters')}>
                           <td style={{ paddingLeft: 24 }}><Badge>{c.size}</Badge></td>
@@ -242,7 +245,8 @@ export default function Dashboard() {
                         </tr>
                       ))}
                     </Fragment>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             )}

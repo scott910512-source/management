@@ -291,18 +291,27 @@ function BulkModal({ products, onClose, onDone }) {
 
 // ===== 현황 페이지 =====
 export default function BatchBulk() {
-  const { canWrite, plant } = useAuth();
+  const { canWrite, isAdmin, plant } = useAuth();
+  const toast = useToast();
   const [products, setProducts] = useState([]);
   const [inputs, setInputs] = useState(null);
   const [open, setOpen] = useState(false);
   const [expand, setExpand] = useState(null);
+  const [sel, setSel] = useState(() => new Set());
+  const [delBulk, setDelBulk] = useState(false);
 
   const load = () => {
     Promise.all([api.get('/products'), api.get('/batches/inputs')])
-      .then(([p, b]) => { setProducts(p.items || []); setInputs(b.items || []); })
+      .then(([p, b]) => { setProducts(p.items || []); setInputs(b.items || []); setSel(new Set()); })
       .catch(() => { setProducts([]); setInputs([]); });
   };
   useEffect(load, [plant]);
+
+  const toggle = (id) => setSel((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  async function removeBulk() {
+    try { const r = await api.post('/transactions/bulk-delete', { batchIds: [...sel], restock: true }); setDelBulk(false); load(); toast.ok(`${r.removed}건(${sel.size}배치) 삭제 · 재고를 원복했습니다.`); }
+    catch (e) { toast.err(e.message); }
+  }
 
   // 제품별 그룹핑
   const grouped = useMemo(() => {
@@ -320,7 +329,8 @@ export default function BatchBulk() {
   return (
     <div>
       <div className="page-head" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div className="desc" style={{ flex: 1 }}>제품(사용처)의 BOM 자재를 여러 배치에 한 번에 출고 처리합니다. 출고는 가장 오래된 Lot부터 FIFO로 자동 분배됩니다.</div>
+        <div className="desc" style={{ flex: 1 }}>제품(사용처)별 BOM 자재를 배치로 출고 처리하고, <b>투입이력</b>을 함께 확인합니다. 출고는 오래된 Lot부터 FIFO 자동 분배됩니다.</div>
+        {isAdmin && sel.size > 0 && <button className="btn danger sm" onClick={() => setDelBulk(true)}>선택 삭제 ({sel.size}배치)</button>}
         <button className="btn secondary sm" onClick={() => downloadCsv('/batches/inputs/export')}>CSV 내보내기</button>
         {canWrite && <button className="btn" onClick={() => setOpen(true)}>+ 새 배치 처리</button>}
       </div>
@@ -332,15 +342,16 @@ export default function BatchBulk() {
         <div className="card card-pad">
           <table className="tbl">
             <thead>
-              <tr><th>제품(사용처)</th><th>배치 No.</th><th>합성 시작일</th><th style={{ textAlign: 'right' }}>투입 자재</th><th style={{ textAlign: 'right' }}>총 사용량</th><th></th></tr>
+              <tr>{isAdmin && <th style={{ width: 1 }}></th>}<th>제품(사용처)</th><th>배치 No.</th><th>합성 시작일</th><th style={{ textAlign: 'right' }}>투입 자재</th><th style={{ textAlign: 'right' }}>총 사용량</th><th></th></tr>
             </thead>
             <tbody>
               {Object.entries(grouped).map(([prod, list]) => (
                 <Fragment key={prod}>
-                  <tr><td colSpan={6} style={{ fontWeight: 700, background: 'var(--accent-soft, #f3f6fb)' }}>{prod}</td></tr>
+                  <tr><td colSpan={isAdmin ? 7 : 6} style={{ fontWeight: 700, background: 'var(--accent-soft, #f3f6fb)' }}>{prod}</td></tr>
                   {list.map((b) => (
                     <Fragment key={b.batchId}>
-                      <tr style={{ cursor: 'pointer' }} onClick={() => setExpand(expand === b.batchId ? null : b.batchId)}>
+                      <tr style={{ cursor: 'pointer', ...(sel.has(b.batchId) ? { background: 'var(--accent-soft,#eaf3fe)' } : {}) }} onClick={() => setExpand(expand === b.batchId ? null : b.batchId)}>
+                        {isAdmin && <td onClick={(e) => e.stopPropagation()}><input type="checkbox" checked={sel.has(b.batchId)} onChange={() => toggle(b.batchId)} /></td>}
                         <td>{b.product || '(미지정)'}</td>
                         <td><b>#{b.batchNo}</b></td>
                         <td>{b.startDate || '-'}</td>
@@ -350,7 +361,7 @@ export default function BatchBulk() {
                       </tr>
                       {expand === b.batchId && (
                         <tr key={b.batchId + '_d'}>
-                          <td colSpan={6} style={{ background: '#fafbff' }}>
+                          <td colSpan={isAdmin ? 7 : 6} style={{ background: '#fafbff' }}>
                             <table className="tbl compact">
                               <thead><tr><th>구분</th><th>품목</th><th style={{ textAlign: 'right' }}>투입량</th><th>투입 Lot</th></tr></thead>
                               <tbody>
@@ -372,6 +383,14 @@ export default function BatchBulk() {
       )}
 
       {open && <BulkModal products={products} onClose={() => setOpen(false)} onDone={() => { setOpen(false); load(); }} />}
+      {delBulk && (
+        <ConfirmDialog
+          title="배치 삭제 (재고 원복)"
+          message={`선택한 ${sel.size}개 배치의 투입(출고) 내역을 삭제할까요? 수불 이력에서 제거되고, 출고되었던 수량은 해당 Lot 재고로 다시 원복됩니다.`}
+          onClose={() => setDelBulk(false)}
+          onConfirm={removeBulk}
+        />
+      )}
     </div>
   );
 }
