@@ -36,6 +36,9 @@ const TABLES = {
   products: ['id', 'name', 'note', 'createdBy', 'createdAt'],
   // 제품별 BOM — Batch당 원·부재료 사용 기준량
   boms: ['id', 'product', 'category', 'materialName', 'qtyPerBatch', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt'],
+  // Lot 변경이력 — 수정/삭제 시 자동 기록
+  raw_materials_changelog: ['id', 'lotId', 'itemName', 'lotNo', 'action', 'summary', 'changedBy', 'changedAt'],
+  sub_materials_changelog: ['id', 'lotId', 'itemName', 'lotNo', 'action', 'summary', 'changedBy', 'changedAt'],
 };
 
 // 전역(공장 공통) 테이블 — 공장 하위 폴더가 아닌 DATA_DIR 루트에 저장

@@ -7,7 +7,7 @@ import { UnitInput, ItemSelect, expandLot, BalanceBox, BatchFields } from '../co
 import { TrendModal } from '../components/TrendModal';
 import { UseModal } from '../components/UseModal';
 import { BulkUseModal } from '../components/BulkUseModal';
-import { BulkReceiveModal } from '../components/BulkReceiveModal';
+import { ReceiveModal } from '../components/ReceiveModal';
 
 const blank = { name: '', receivedDate: '', lotNo: '', vendor: '', unit: 'kg', weight: '', note: '', pkgCount: '', pkgSize: '', pkgUnit: '', pkgType: '' };
 const today = () => new Date().toISOString().slice(0, 10);
@@ -55,7 +55,7 @@ export default function SubMaterials() {
   const [trend, setTrend] = useState(false);
   const [useOpen, setUseOpen] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
-  const [bulkReceiveOpen, setBulkReceiveOpen] = useState(false);
+  const [receiveOpen, setReceiveOpen] = useState(false);
   const [lotHistory, setLotHistory] = useState(null);
   const [edit, setEdit] = useState(null);
   const [tx, setTx] = useState(null);
@@ -133,8 +133,7 @@ export default function SubMaterials() {
             try { const r = await api.del('/sub-materials/cleanup/empty'); toast.ok(`소진 Lot ${r.removed}개 정리 완료`); load(); } catch (e) { toast.err(e.message); }
           }}>🗑 소진 Lot 정리</button>}
           {canWrite && <button className="btn secondary sm" onClick={() => setUseOpen(true)}>− 부재료 사용</button>}
-          {canWrite && <button className="btn secondary sm" onClick={() => setBulkReceiveOpen(true)}>+ 다량 입고</button>}
-          {canWrite && <button className="btn sm" onClick={() => setEdit({ mode: 'create', data: { ...blank, receivedDate: today() } })}>+ 부재료 입고</button>}
+          {canWrite && <button className="btn sm" onClick={() => setReceiveOpen(true)}>+ 부재료 입고</button>}
         </div>
       </div>
 
@@ -299,11 +298,11 @@ export default function SubMaterials() {
           }}
         />
       )}
-      {bulkReceiveOpen && (
-        <BulkReceiveModal
+      {receiveOpen && (
+        <ReceiveModal
           base="sub-materials"
-          onClose={() => setBulkReceiveOpen(false)}
-          onSaved={(msg) => { setBulkReceiveOpen(false); load(); toast.ok(msg); }}
+          onClose={() => setReceiveOpen(false)}
+          onSaved={(msg) => { setReceiveOpen(false); load(); toast.ok(msg); }}
           onError={(m) => toast.err(m)}
         />
       )}
@@ -510,29 +509,57 @@ function SubTxForm({ item, onClose, onSaved, onError }) {
 }
 
 function LotHistoryModal({ base, item, onClose }) {
+  const [tab, setTab] = useState('tx');
   const [hist, setHist] = useState(null);
+  const [changelog, setChangelog] = useState(null);
+  const label = base === 'raw-materials' ? item.itemName : item.name;
+
   useEffect(() => {
     api.get(`/${base}/${item.id}/transactions`).then((d) => setHist(d.items)).catch(() => setHist([]));
+    api.get(`/${base}/${item.id}/changelog`).then((d) => setChangelog(d.items)).catch(() => setChangelog([]));
   }, [base, item.id]);
-  const label = base === 'raw-materials' ? item.itemName : item.name;
+
   return (
-    <Modal title={`수불 이력 — ${label} (Lot ${item.lotNo})`} onClose={onClose} footer={<button className="btn secondary" onClick={onClose}>닫기</button>}>
-      {!hist ? <Loading /> : hist.length === 0 ? <Empty>이력이 없습니다.</Empty> : (
-        <table className="tbl compact">
-          <thead><tr><th>일시</th><th>구분</th><th className="num">수량</th><th className="num">처리후</th><th>비고</th><th>작성자</th></tr></thead>
-          <tbody>
-            {hist.map((t) => (
-              <tr key={t.id}>
-                <td className="muted">{(t.createdAt || '').slice(0, 16).replace('T', ' ')}</td>
-                <td><Badge color={['입고', '반입'].includes(t.type) ? 'green' : 'orange'}>{t.type}</Badge></td>
-                <td className="num">{Number(t.quantity).toLocaleString()}{t.unit}</td>
-                <td className="num muted">{Number(t.balanceAfter).toLocaleString()}{t.unit}</td>
-                <td className="muted">{t.note || '–'}</td>
-                <td className="muted">{t.createdBy}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+    <Modal title={`이력 — ${label} (Lot ${item.lotNo})`} onClose={onClose} footer={<button className="btn secondary" onClick={onClose}>닫기</button>}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+        <button className={`btn sm ${tab === 'tx' ? '' : 'secondary'}`} onClick={() => setTab('tx')}>수불 이력</button>
+        <button className={`btn sm ${tab === 'cl' ? '' : 'secondary'}`} onClick={() => setTab('cl')}>변경 이력</button>
+      </div>
+      {tab === 'tx' && (
+        !hist ? <Loading /> : hist.length === 0 ? <Empty>이력이 없습니다.</Empty> : (
+          <table className="tbl compact">
+            <thead><tr><th>일시</th><th>구분</th><th className="num">수량</th><th className="num">처리후</th><th>비고</th><th>작성자</th></tr></thead>
+            <tbody>
+              {hist.map((t) => (
+                <tr key={t.id}>
+                  <td className="muted">{(t.createdAt || '').slice(0, 16).replace('T', ' ')}</td>
+                  <td><Badge color={['입고', '반입'].includes(t.type) ? 'green' : 'orange'}>{t.type}</Badge></td>
+                  <td className="num">{Number(t.quantity).toLocaleString()}{t.unit}</td>
+                  <td className="num muted">{Number(t.balanceAfter).toLocaleString()}{t.unit}</td>
+                  <td className="muted">{t.note || '–'}</td>
+                  <td className="muted">{t.createdBy}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )
+      )}
+      {tab === 'cl' && (
+        !changelog ? <Loading /> : changelog.length === 0 ? <Empty>변경 이력이 없습니다.</Empty> : (
+          <table className="tbl compact">
+            <thead><tr><th>일시</th><th>구분</th><th>변경 내용</th><th>처리자</th></tr></thead>
+            <tbody>
+              {changelog.map((c) => (
+                <tr key={c.id}>
+                  <td className="muted">{(c.changedAt || '').slice(0, 16).replace('T', ' ')}</td>
+                  <td><Badge color={c.action === '삭제' ? 'red' : 'blue'}>{c.action}</Badge></td>
+                  <td className="muted">{c.summary}</td>
+                  <td className="muted">{c.changedBy}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )
       )}
     </Modal>
   );

@@ -193,15 +193,27 @@ router.post(
   }),
 );
 
+// Lot 변경이력 조회
+router.get(
+  '/:id/changelog',
+  asyncHandler(async (req, res) => {
+    const logs = await readTable('sub_materials_changelog', req.plant);
+    const items = logs.filter((x) => x.lotId === req.params.id).sort((a, b) => (a.changedAt < b.changedAt ? 1 : -1));
+    res.json({ items });
+  }),
+);
+
 // 수정
 router.patch(
   '/:id',
   requireWrite,
   asyncHandler(async (req, res) => {
     const me = req.session.user.id;
+    let oldSnap = null;
     const item = await mutate('sub_materials', req.plant, (rows) => {
       const r = rows.find((x) => x.id === req.params.id);
       if (!r) throw notFound('부재료를 찾을 수 없습니다.');
+      oldSnap = { name: r.name, lotNo: r.lotNo, unit: r.unit, vendor: r.vendor, receivedDate: r.receivedDate, note: r.note };
       for (const f of ['name', 'receivedDate', 'lotNo', 'vendor', 'unit', 'note']) {
         if (req.body[f] !== undefined) r[f] = str(req.body[f]);
       }
@@ -214,6 +226,22 @@ router.patch(
       r.updatedAt = now();
       return r;
     });
+    const changes = [];
+    const labels = { name: '품목', lotNo: 'Lot No', unit: '단위', vendor: '업체', receivedDate: '입고일', note: '비고' };
+    for (const f of Object.keys(labels)) {
+      if (req.body[f] !== undefined && str(req.body[f]) !== oldSnap[f]) {
+        changes.push(`${labels[f]}: '${oldSnap[f] || '–'}' → '${str(req.body[f])}'`);
+      }
+    }
+    if (req.body.weight !== undefined) {
+      const newW = String(num(req.body.weight));
+      if (newW !== item.weight) changes.push(`무게: ${oldSnap.weight || '–'} → ${newW}`);
+    }
+    if (changes.length > 0) {
+      await mutate('sub_materials_changelog', req.plant, (rows) => {
+        rows.push({ id: newId('cl'), lotId: item.id, itemName: item.name, lotNo: item.lotNo, action: '수정', summary: changes.join(', '), changedBy: me, changedAt: now() });
+      });
+    }
     res.json({ item });
   }),
 );
@@ -300,11 +328,19 @@ router.delete(
   '/:id',
   requireAdmin,
   asyncHandler(async (req, res) => {
+    const me = req.session.user.id;
+    let deleted = null;
     await mutate('sub_materials', req.plant, (rows) => {
       const idx = rows.findIndex((x) => x.id === req.params.id);
       if (idx < 0) throw notFound('부재료를 찾을 수 없습니다.');
+      deleted = rows[idx];
       rows.splice(idx, 1);
     });
+    if (deleted) {
+      await mutate('sub_materials_changelog', req.plant, (rows) => {
+        rows.push({ id: newId('cl'), lotId: deleted.id, itemName: deleted.name, lotNo: deleted.lotNo, action: '삭제', summary: `잔량 ${deleted.weight}${deleted.unit}`, changedBy: me, changedAt: now() });
+      });
+    }
     res.json({ ok: true });
   }),
 );
