@@ -82,7 +82,7 @@ export default function SubMaterials() {
   }, [load]);
 
   useEffect(() => {
-    if (sp.get('new') === '1') setEdit({ mode: 'create', data: { ...blank, receivedDate: today() } });
+    if (sp.get('new') === '1') setReceiveOpen(true);
     if (sp.get('use') === '1') setUseOpen(true);
   }, [sp]);
 
