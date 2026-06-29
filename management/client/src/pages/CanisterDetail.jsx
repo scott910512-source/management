@@ -53,7 +53,7 @@ export default function CanisterDetail() {
       <div className="grid grid-4" style={{ marginBottom: 20 }}>
         <div className="card stat"><div className="label">제품(내용물)</div><div className="value" style={{ fontSize: 20 }}>{demoText(item.content) || <span className="muted">비어있음</span>}</div></div>
         <div className="card stat"><div className="label">현재 무게</div><div className="value" style={{ fontSize: 22 }}>{isDemo ? '***' : Number(item.weight || 0).toLocaleString()}</div></div>
-        <div className="card stat"><div className="label">위치 / 사이즈</div><div className="value" style={{ fontSize: 18 }}>{item.locationLabel}<div className="muted" style={{ fontSize: 13 }}>{item.sizeLabel}</div></div></div>
+        <div className="card stat"><div className="label">위치 / 사이즈</div><div className="value" style={{ fontSize: 18 }}>{isDemo ? '***' : item.locationLabel}<div className="muted" style={{ fontSize: 13 }}>{isDemo ? '***' : item.sizeLabel}</div></div></div>
         <div className="card stat"><div className="label">상태</div><div style={{ marginTop: 10 }}><Badge color={statusColor(item.status)} dot>{item.statusLabel}</Badge></div></div>
       </div>
 

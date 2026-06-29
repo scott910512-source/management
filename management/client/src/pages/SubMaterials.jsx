@@ -196,7 +196,7 @@ export default function SubMaterials() {
                           : <b>{totalW.toLocaleString()}{unit}</b>}
                       </td>
                       <td></td>
-                      <td className="muted">{oldest?.receivedDate || ''}</td>
+                      <td className="muted">{isDemo ? '****-**-**' : (oldest?.receivedDate || '')}</td>
                       <td><span style={{color:'var(--blue)', fontSize: 12}}>{demoText(oldest?.lotNo) || ''}</span> <span className="muted" style={{ fontSize: 11 }}>(다음사용 Lot)</span></td>
                       <td></td>
                       <td></td>

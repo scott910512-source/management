@@ -208,7 +208,7 @@ export default function Dashboard() {
                           <td className="num">{isDemo ? '***' : r.lots}</td>
                           <td className="num"><b>{isDemo ? '***' : r.current.toLocaleString()}</b></td>
                           <td className="muted">{r.unit}</td>
-                          <td className="num muted">{isDemo ? '***' : r.minStock ? r.minStock.toLocaleString() : '–'}</td>
+                          <td className="num muted">{isDemo ? '***' : (r.minStock ? r.minStock.toLocaleString() : '–')}</td>
                           <td className="num">{isDemo ? '***' : r.level == null ? '–' : `${r.level}%`}</td>
                           <td><span className={`state-pill state-${r.state}`}>{r.state}</span></td>
                         </tr>
