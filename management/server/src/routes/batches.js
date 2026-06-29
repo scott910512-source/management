@@ -161,12 +161,10 @@ router.get(
       .sort((a, b) => (a.category === b.category ? a.materialName.localeCompare(b.materialName) : a.category < b.category ? -1 : 1))
       .map((b) => {
         const cfg = MAT[b.category];
-        const master = items.find((i) => i.category === b.category && i.name === b.materialName);
-        // 품목그룹(납품업체 다른 동일 품목) — 그룹이 있으면 멤버 품목들을 선택지로 제공
-        const grp = master && master.itemGroup && master.itemGroup.trim();
-        const memberItems = grp
-          ? items.filter((i) => i.category === b.category && (i.itemGroup || '').trim() === grp)
-          : (master ? [master] : []);
+        // BOM의 materialName은 '품목그룹명' 또는 단일 '품목명' — 같은 그룹/이름의 모든 멤버(업체별 품목)를 선택지로 제공
+        const memberItems = items.filter((i) => i.category === b.category && ((i.itemGroup || '').trim() === b.materialName || i.name === b.materialName));
+        const grp = memberItems.length && (memberItems[0].itemGroup || '').trim() === b.materialName ? b.materialName : '';
+        const master = memberItems[0];
         const buildMember = (mi) => {
           const lots = cfg ? fifoLots(rowsByCat[b.category], cfg, mi.name) : [];
           return {

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { api } from '../api';
 import { Modal, Field, TextInput, Select, useToast, ConfirmDialog, Empty, Loading, Badge } from '../components/ui';
 import { UnitInput, EtcSelect } from '../components/inputs';
@@ -124,6 +124,7 @@ function ItemForm({ mode, initial, onClose, onSaved, onError }) {
 
   async function submit() {
     if (!f.name.trim()) return onError('품목명을 입력하세요.');
+    if (!(f.itemGroup || '').trim()) return onError('품목그룹을 입력하세요. (단일 품목이면 품목명과 동일하게 입력)');
     const product = f.product === '기타' ? (f.productEtc || '').trim() : f.product;
     setBusy(true);
     try {
@@ -207,9 +208,10 @@ function ItemForm({ mode, initial, onClose, onSaved, onError }) {
       <Field label="기본 업체명" hint="원/부재료 등록 시 자동 입력(수정 가능)">
         <TextInput value={f.vendor} onChange={(e) => set('vendor', e.target.value)} placeholder="예: (주)한솔케미칼" />
       </Field>
-      <Field label="품목그룹 (납품업체 다른 동일 품목)" hint="같은 자재를 업체별로 따로 등록한 경우 같은 그룹명을 입력 — 유해물질 대장은 그룹 합산, 배치 처리 시 그룹 내 품목 선택">
+      <Field label="품목그룹 (납품업체 다른 동일 품목)" required hint="Batch BOM 기준값은 품목그룹 단위로 설정됩니다. 같은 자재를 업체별로 따로 등록하면 같은 그룹명 사용(예: DMA). 단일 품목이면 품목명과 동일하게 입력하세요.">
         <div className="form-row" style={{ alignItems: 'center' }}>
-          <TextInput value={f.itemGroup} onChange={(e) => set('itemGroup', e.target.value)} placeholder="예: 톨루엔(공용) — 비우면 그룹 없음" />
+          <TextInput value={f.itemGroup} onChange={(e) => set('itemGroup', e.target.value)} placeholder="예: DMA (업체 공용 그룹명)" />
+          <button type="button" className="btn secondary sm" style={{ whiteSpace: 'nowrap' }} onClick={() => set('itemGroup', f.name.trim())} disabled={!f.name.trim()}>품목명과 동일</button>
           <label style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', fontSize: 13, color: 'var(--text-2)', cursor: f.itemGroup ? 'pointer' : 'not-allowed' }}>
             <input type="checkbox" checked={!!f.groupDefault} disabled={!f.itemGroup} onChange={(e) => set('groupDefault', e.target.checked)} />
             기본 사용
@@ -277,12 +279,24 @@ function ProductBomCard({ toast }) {
     if (!window.confirm(`'${p.name}' 제품과 해당 BOM을 삭제할까요?`)) return;
     try { await api.del('/products/' + p.id); await load(); toast.ok('삭제했습니다.'); } catch (e) { toast.err(e.message); }
   }
+  // BOM 설정 대상 = 품목그룹(있으면) 또는 단일 품목 — 중복 제거
+  const bomTargets = useMemo(() => {
+    const map = new Map();
+    for (const i of items) {
+      const grp = (i.itemGroup || '').trim();
+      const label = grp || i.name;
+      const key = i.category + '|' + label;
+      if (!map.has(key)) map.set(key, { category: i.category, name: label, grouped: !!grp });
+    }
+    return Array.from(map.values()).sort((a, b) => (a.category === b.category ? a.name.localeCompare(b.name) : a.category < b.category ? -1 : 1));
+  }, [items]);
+
   async function addLine() {
-    const it = items.find((x) => x.name === lineItem);
-    if (!it) return toast.err('품목을 선택하세요.');
+    if (!lineItem) return toast.err('품목그룹을 선택하세요.');
+    const [category, name] = lineItem.split('|');
     if (lineQty === '' || Number(lineQty) < 0) return toast.err('기준량을 입력하세요.');
     try {
-      await api.post('/products/bom', { product: sel, category: it.category, materialName: it.name, qtyPerBatch: Number(lineQty) });
+      await api.post('/products/bom', { product: sel, category, materialName: name, qtyPerBatch: Number(lineQty) });
       setLineItem(''); setLineQty(''); await load(); toast.ok('기준량을 저장했습니다.');
     } catch (e) { toast.err(e.message); }
   }
@@ -291,12 +305,14 @@ function ProductBomCard({ toast }) {
   }
 
   const selBoms = boms.filter((b) => b.product === sel);
-  const unitOf = (name) => items.find((i) => i.name === name)?.unit || '';
+  // 그룹명 또는 품목명으로 단위 찾기
+  const unitOf = (label) => (items.find((i) => (i.itemGroup || '').trim() === label) || items.find((i) => i.name === label))?.unit || '';
+  const isGroup = (label) => items.some((i) => (i.itemGroup || '').trim() === label);
 
   return (
     <div className="card card-pad" style={{ marginBottom: 16 }}>
       <h3 style={{ marginBottom: 4 }}>제품명 · Batch 사용기준값 (BOM)</h3>
-      <p className="hint" style={{ marginBottom: 16 }}>제품을 만들고 제품별로 원·부재료의 <b>Batch당 기준 투입량</b>을 설정합니다. 사용(출고) 시 제품·Batch를 지정하면 이 수량이 자동 입력됩니다.</p>
+      <p className="hint" style={{ marginBottom: 16 }}>제품별로 <b>품목그룹</b> 단위의 <b>Batch당 기준 투입량</b>을 설정합니다(업체가 달라도 그룹 기준 1개 값). 배치 처리 시 그룹 내 품목(업체)을 선택할 수 있습니다.</p>
 
       <div className="form-row" style={{ marginBottom: 12, maxWidth: 420 }}>
         <TextInput placeholder="새 제품명 (예: A제품)" value={newProduct} onChange={(e) => setNewProduct(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addProduct()} />
@@ -323,7 +339,7 @@ function ProductBomCard({ toast }) {
                 ) : selBoms.map((b) => (
                   <tr key={b.id}>
                     <td><Badge color={b.category === 'raw' ? 'blue' : 'orange'}>{b.category === 'raw' ? '원재료' : '부재료'}</Badge></td>
-                    <td><b>{b.materialName}</b></td>
+                    <td><b>{b.materialName}</b>{isGroup(b.materialName) && <span className="muted" style={{ fontSize: 11 }}> (품목그룹)</span>}</td>
                     <td className="num">{Number(b.qtyPerBatch).toLocaleString()}</td>
                     <td className="muted">{unitOf(b.materialName)}</td>
                     <td><button className="btn danger sm" onClick={() => delLine(b.id)}>삭제</button></td>
@@ -332,12 +348,12 @@ function ProductBomCard({ toast }) {
                 <tr>
                   <td colSpan={2}>
                     <Select value={lineItem} onChange={(e) => setLineItem(e.target.value)}>
-                      <option value="">+ 품목 선택</option>
-                      {items.map((i) => <option key={i.id} value={i.name}>[{i.category === 'raw' ? '원' : '부'}] {i.name}</option>)}
+                      <option value="">+ 품목그룹 선택</option>
+                      {bomTargets.map((t) => <option key={t.category + '|' + t.name} value={t.category + '|' + t.name}>[{t.category === 'raw' ? '원' : '부'}] {t.name}{t.grouped ? ' (그룹)' : ''}</option>)}
                     </Select>
                   </td>
                   <td><TextInput type="number" value={lineQty} onChange={(e) => setLineQty(e.target.value)} placeholder="기준량" style={{ width: 120 }} /></td>
-                  <td className="muted">{unitOf(lineItem)}</td>
+                  <td className="muted">{unitOf(lineItem.split('|')[1] || '')}</td>
                   <td><button className="btn sm" onClick={addLine} disabled={!lineItem}>추가</button></td>
                 </tr>
               </tbody>

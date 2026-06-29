@@ -35,6 +35,7 @@ router.post(
     const safetyStock = req.body.safetyStock === '' || req.body.safetyStock === undefined ? 0 : num(req.body.safetyStock);
     if (!CATEGORIES.includes(category)) throw badRequest('구분(원재료/부재료)을 선택하세요.');
     if (!name) throw badRequest('품목명을 입력하세요.');
+    if (!str(req.body.itemGroup)) throw badRequest('품목그룹을 입력하세요. (납품업체가 같은 자재는 같은 그룹명을 사용)');
     if (Number.isNaN(safetyStock) || safetyStock < 0) throw badRequest('안전재고 목표값은 0 이상의 숫자여야 합니다.');
 
     const me = req.session.user.id;
