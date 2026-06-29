@@ -196,7 +196,7 @@ export default function RawMaterials() {
                     <td className="muted">{unit}</td>
                     <td></td>
                     <td className="muted">{oldest?.receivedDate || ''}</td>
-                    <td><span style={{color:'var(--blue)', fontSize: 12}}>{oldest?.lotNo || ''}</span> <span className="muted" style={{ fontSize: 11 }}>(최고참)</span></td>
+                    <td><span style={{color:'var(--blue)', fontSize: 12}}>{oldest?.lotNo || ''}</span> <span className="muted" style={{ fontSize: 11 }}>(다음사용 Lot)</span></td>
                     <td></td>
                     <td></td>
                   </tr>

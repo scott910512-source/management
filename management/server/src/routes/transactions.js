@@ -2,7 +2,7 @@
 
 const express = require('express');
 const { readTable, mutate, headersOf } = require('../lib/store');
-const { asyncHandler, str, badRequest, notFound, sendCsv } = require('../lib/http');
+const { asyncHandler, str, num, badRequest, notFound, sendCsv } = require('../lib/http');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { resolvePlant } = require('../middleware/plant');
 
@@ -91,17 +91,49 @@ router.post(
   asyncHandler(async (req, res) => {
     const ids = new Set(Array.isArray(req.body.ids) ? req.body.ids.map(String) : []);
     const batchIds = new Set(Array.isArray(req.body.batchIds) ? req.body.batchIds.map(String) : []);
+    const restock = req.body.restock === true || req.body.restock === '1';
     if (ids.size === 0 && batchIds.size === 0) throw badRequest('삭제할 항목을 선택하세요.');
+
+    const txns = await readTable('transactions', req.plant);
+    const match = (t) => ids.has(t.id) || (t.batchId && batchIds.has(t.batchId));
+    const toDel = txns.filter(match);
+    if (toDel.length === 0) return res.json({ ok: true, removed: 0, restocked: false });
+
+    // 재고 원복: 삭제되는 출고/반출은 재고를 더하고, 입고/반입은 빼서 되돌린다(raw/sub Lot)
+    if (restock) {
+      const adj = { raw: new Map(), sub: new Map() };
+      for (const t of toDel) {
+        if (t.materialType !== 'raw' && t.materialType !== 'sub') continue;
+        const q = num(t.quantity) || 0;
+        const delta = (t.type === '출고' || t.type === '반출') ? q : -q;
+        adj[t.materialType].set(t.materialId, (adj[t.materialType].get(t.materialId) || 0) + delta);
+      }
+      for (const cat of ['raw', 'sub']) {
+        if (adj[cat].size === 0) continue;
+        const table = cat === 'raw' ? 'raw_materials' : 'sub_materials';
+        const qtyKey = cat === 'raw' ? 'quantity' : 'weight';
+        await mutate(table, req.plant, (rows) => {
+          for (const [mid, delta] of adj[cat]) {
+            const r = rows.find((x) => x.id === mid);
+            if (r) r[qtyKey] = String(Math.max(0, (num(r[qtyKey]) || 0) + delta));
+          }
+        });
+      }
+    }
+
     let removed = 0;
     await mutate('transactions', req.plant, (rows) => {
       for (let i = rows.length - 1; i >= 0; i--) {
-        if (ids.has(rows[i].id) || (rows[i].batchId && batchIds.has(rows[i].batchId))) {
-          rows.splice(i, 1);
-          removed++;
-        }
+        if (match(rows[i])) { rows.splice(i, 1); removed++; }
       }
     });
-    res.json({ ok: true, removed });
+    // 배치 단위 삭제 시 비워진 배치 레코드 정리(번호 재사용 가능)
+    if (batchIds.size > 0) {
+      await mutate('batches', req.plant, (rows) => {
+        for (let i = rows.length - 1; i >= 0; i--) if (batchIds.has(rows[i].id)) rows.splice(i, 1);
+      });
+    }
+    res.json({ ok: true, removed, restocked: restock });
   }),
 );
 

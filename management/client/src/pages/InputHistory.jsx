@@ -49,7 +49,7 @@ export default function InputHistory() {
 
   const toggle = (id) => setSel((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   async function removeBulk() {
-    try { const r = await api.post('/transactions/bulk-delete', { batchIds: [...sel] }); setDelBulk(false); load(); toast.ok(`${r.removed}건(투입 ${sel.size}배치) 삭제했습니다.`); }
+    try { const r = await api.post('/transactions/bulk-delete', { batchIds: [...sel], restock: true }); setDelBulk(false); load(); toast.ok(`${r.removed}건(투입 ${sel.size}배치) 삭제 · 재고를 원복했습니다.`); }
     catch (e) { toast.err(e.message); }
   }
 
@@ -135,7 +135,7 @@ export default function InputHistory() {
       {delBulk && (
         <ConfirmDialog
           title="투입이력 일괄 삭제"
-          message={`선택한 ${sel.size}개 배치의 투입(출고) 내역을 삭제할까요? 수불 이력에서도 함께 제거되며, 재고 수량은 자동 보정되지 않습니다.`}
+          message={`선택한 ${sel.size}개 배치의 투입(출고) 내역을 삭제할까요? 수불 이력에서도 함께 제거되고, 출고되었던 수량은 해당 Lot 재고로 다시 원복됩니다.`}
           onClose={() => setDelBulk(false)}
           onConfirm={removeBulk}
         />
