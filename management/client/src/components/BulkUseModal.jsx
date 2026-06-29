@@ -12,6 +12,8 @@ export function BulkUseModal({ base, items, nameField, qtyField, title, onClose,
   const [qtys, setQtys] = useState({});
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState('');
+  const [showLot, setShowLot] = useState(false); // Lot 직접 지정(다수 선택)
+  const [lotSel, setLotSel] = useState({}); // { itemName: [lotNo...] }
   // 공통 합성 Batch (전체 품목 동일 적용, 수정 가능)
   const [product, setProduct] = useState('');
   const [batchNo, setBatchNo] = useState('1');
@@ -63,11 +65,23 @@ export function BulkUseModal({ base, items, nameField, qtyField, title, onClose,
     return () => { alive = false; };
   }, [product]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // FIFO 분배 미리보기 — 입력 수량이 어느 Lot에 얼마씩 들어가는지
+  const toggleLot = (name, lotNo) => setLotSel((p) => {
+    const cur = p[name] || [];
+    return { ...p, [name]: cur.includes(lotNo) ? cur.filter((x) => x !== lotNo) : [...cur, lotNo] };
+  });
+  // 선택된 Lot(있으면)만, 없으면 전체 — FIFO 순서 유지
+  const effLots = (g) => {
+    const sel = lotSel[g.name] || [];
+    return sel.length ? g.lots.filter((l) => sel.includes(l.lotNo)) : g.lots;
+  };
+  // 선택 Lot 합산 재고(없으면 전체 재고)
+  const availOf = (g) => effLots(g).reduce((s, l) => s + (Number(l[qtyField]) || 0), 0);
+
+  // FIFO 분배 미리보기 — 입력 수량이 어느 Lot에 얼마씩 들어가는지(선택 Lot 우선)
   function distribute(g) {
     let remaining = Number(qtys[g.name]) || 0;
     const used = [];
-    for (const lot of g.lots) {
+    for (const lot of effLots(g)) {
       if (remaining <= 0) break;
       const bal = Number(lot[qtyField]) || 0;
       if (bal <= 0) continue;
@@ -82,8 +96,9 @@ export function BulkUseModal({ base, items, nameField, qtyField, title, onClose,
     const toProcess = grouped.filter((g) => qtys[g.name] && Number(qtys[g.name]) > 0);
     if (toProcess.length === 0) return onError('사용할 수량을 1개 이상 입력하세요.');
     for (const g of toProcess) {
-      if (Number(qtys[g.name]) > g.total) {
-        return onError(`'${g.name}' 사용 수량이 총 재고(${g.total.toLocaleString()}${g.unit})를 초과합니다.`);
+      const avail = availOf(g);
+      if (Number(qtys[g.name]) > avail) {
+        return onError(`'${g.name}' 사용 수량이 ${(lotSel[g.name] || []).length ? '선택 Lot' : '총'} 재고(${avail.toLocaleString()}${g.unit})를 초과합니다.`);
       }
     }
     setBusy(true);
@@ -92,10 +107,11 @@ export function BulkUseModal({ base, items, nameField, qtyField, title, onClose,
     let lotCount = 0;
     for (const g of toProcess) {
       const { used } = distribute(g);
+      // 특정 Lot을 직접 선택한 경우 더 오래된 Lot을 건너뛸 수 있어 강제 사용(이상발생 기록)
+      const force = (lotSel[g.name] || []).length > 0;
       try {
         for (const { lot, take } of used) {
-          // FIFO 순서대로 가장 오래된 Lot부터 출고하므로 선입선출 위반이 발생하지 않는다.
-          await api.post(`/${base}/${lot.id}/transaction`, { type: '출고', quantity: take, note: note || '일괄 출고(FIFO 분배)', batchNo, product, batchStartDate });
+          await api.post(`/${base}/${lot.id}/transaction`, { type: '출고', quantity: take, note: note || '일괄 출고(FIFO 분배)', batchNo, product, batchStartDate, force });
           lotCount++;
         }
         okItems.push(g.name);
@@ -147,28 +163,36 @@ export function BulkUseModal({ base, items, nameField, qtyField, title, onClose,
           </Field>
         </div>
       </div>
-      <Field label="공통 비고" hint="모든 출고 내역에 동일하게 적용됩니다">
-        <TextInput value={note} onChange={(e) => setNote(e.target.value)} placeholder="예: 3공정 A배치 투입" />
-      </Field>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
+        <Field label="공통 비고" hint="모든 출고 내역에 동일하게 적용됩니다" style={{ flex: 1, marginRight: 12 }}>
+          <TextInput value={note} onChange={(e) => setNote(e.target.value)} placeholder="예: 3공정 A배치 투입" />
+        </Field>
+        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-2)', cursor: 'pointer', whiteSpace: 'nowrap', marginBottom: 2 }}>
+          <input type="checkbox" checked={showLot} onChange={(e) => setShowLot(e.target.checked)} />
+          Lot 직접 지정(다수 선택)
+        </label>
+      </div>
       <div style={{ marginTop: 12 }}>
         <table className="tbl compact">
           <thead>
             <tr>
               <th>품목명</th>
-              <th className="num">총 재고</th>
+              <th className="num">{showLot ? '선택 재고' : '총 재고'}</th>
               <th>사용 수량</th>
-              <th>분배(FIFO)</th>
+              <th>{showLot ? 'Lot 선택(다수)' : '분배(FIFO)'}</th>
             </tr>
           </thead>
           <tbody>
             {grouped.map((g) => {
               const inputQty = Number(qtys[g.name]) || 0;
-              const over = inputQty > g.total;
+              const avail = availOf(g);
+              const over = inputQty > avail;
               const dist = inputQty > 0 ? distribute(g) : null;
+              const sel = lotSel[g.name] || [];
               return (
                 <tr key={g.name} style={inputQty > 0 ? { background: 'var(--bg2)' } : {}}>
                   <td><b>{g.name}</b> <span className="muted" style={{ fontSize: 11 }}>({g.lots.length} Lot)</span></td>
-                  <td className="num">{g.total.toLocaleString()} <span className="muted">{g.unit}</span></td>
+                  <td className="num">{avail.toLocaleString()} <span className="muted">{g.unit}</span>{showLot && sel.length > 0 && <div className="muted" style={{ fontSize: 10 }}>{sel.length}개 Lot 선택</div>}</td>
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <TextInput
@@ -178,13 +202,22 @@ export function BulkUseModal({ base, items, nameField, qtyField, title, onClose,
                         placeholder="0"
                         style={{ width: 90 }}
                       />
-                      <button type="button" className="btn secondary sm" onClick={() => setQty(g.name, String(g.total))}>전량</button>
+                      <button type="button" className="btn secondary sm" onClick={() => setQty(g.name, String(avail))}>전량</button>
                       <span className="muted" style={{ fontSize: 12 }}>{g.unit}</span>
                     </div>
                   </td>
                   <td style={{ fontSize: 11 }}>
-                    {!dist ? <span className="muted">–</span> : over ? (
-                      <span style={{ color: 'var(--red)' }}>총 재고 초과</span>
+                    {showLot ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        {g.lots.map((l) => (
+                          <label key={l.lotNo} style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer' }} title={`입고 ${l.receivedDate || '-'}`}>
+                            <input type="checkbox" checked={sel.includes(l.lotNo)} onChange={() => toggleLot(g.name, l.lotNo)} />
+                            <span>{l.lotNo} <span className="muted">{(Number(l[qtyField]) || 0).toLocaleString()}{g.unit}</span></span>
+                          </label>
+                        ))}
+                      </div>
+                    ) : !dist ? <span className="muted">–</span> : over ? (
+                      <span style={{ color: 'var(--red)' }}>재고 초과</span>
                     ) : (
                       <span className="muted">{dist.used.map((u) => `${u.lot.lotNo}(${u.take.toLocaleString()})`).join(' → ')}</span>
                     )}
@@ -194,7 +227,11 @@ export function BulkUseModal({ base, items, nameField, qtyField, title, onClose,
             })}
           </tbody>
         </table>
-        <p className="hint" style={{ marginTop: 8 }}>입력한 수량은 가장 오래된 Lot(세부 Lot은 A01)부터 차례로 소진되어 여러 Lot에 자동 분배됩니다.</p>
+        <p className="hint" style={{ marginTop: 8 }}>
+          {showLot
+            ? '선택한 Lot들의 재고가 합산되어, 입력 수량이 오래된 Lot부터 차례로 분배·출고됩니다. (더 오래된 Lot을 건너뛰면 이상발생에 기록)'
+            : '입력한 수량은 가장 오래된 Lot(세부 Lot은 A01)부터 차례로 소진되어 여러 Lot에 자동 분배됩니다.'}
+        </p>
       </div>
     </Modal>
   );
