@@ -125,6 +125,7 @@ export function ReceiveModal({ base, onClose, onSaved, onError }) {
   return (
     <Modal
       title={isSub ? '부재료 입고' : '원재료 입고'}
+      size="lg"
       onClose={onClose}
       footer={<>
         <button className="btn secondary" onClick={onClose} disabled={busy}>취소</button>
@@ -157,13 +158,13 @@ export function ReceiveModal({ base, onClose, onSaved, onError }) {
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
           <colgroup>
-            <col style={{ width: '22%' }} />
-            <col style={{ width: '10%' }} />
+            <col style={{ width: '26%' }} />
             <col style={{ width: '12%' }} />
-            <col style={{ width: '18%' }} />
+            <col style={{ width: '11%' }} />
             <col style={{ width: '18%' }} />
             <col style={{ width: '20%' }} />
-            <col style={{ width: 28 }} />
+            <col style={{ width: '10%' }} />
+            <col style={{ width: 32 }} />
           </colgroup>
           <thead>
             <tr style={{ fontSize: 12, color: 'var(--text-2)', fontWeight: 600 }}>
