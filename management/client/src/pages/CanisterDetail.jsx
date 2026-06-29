@@ -9,7 +9,7 @@ const typeColor = { 반입: 'green', 반출: 'orange', 상태변경: 'purple' };
 
 export default function CanisterDetail() {
   const { id } = useParams();
-  const { canWrite, isDemo } = useAuth();
+  const { canWrite, isDemo, demoText } = useAuth();
   const toast = useToast();
   const [item, setItem] = useState(null);
   const [history, setHistory] = useState(null);
@@ -42,16 +42,16 @@ export default function CanisterDetail() {
       <div className="page-head">
         <div>
           <Link to="/canisters" className="inline-link">← Canister 목록</Link>
-          <h2 style={{ marginTop: 8, fontSize: 24 }}>{item.canisterNo}</h2>
+          <h2 style={{ marginTop: 8, fontSize: 24 }}>{demoText(item.canisterNo)}</h2>
         </div>
         <div className="btn-row">
-          <button className="btn secondary sm" onClick={() => { downloadCsv(`/canisters/${id}/history/export`); toast.ok('이력 CSV를 내려받습니다.'); }}>⬇ 이력 CSV</button>
+          {!isDemo && <button className="btn secondary sm" onClick={() => { downloadCsv(`/canisters/${id}/history/export`); toast.ok('이력 CSV를 내려받습니다.'); }}>⬇ 이력 CSV</button>}
           {canWrite && <button className="btn sm" onClick={() => setMove(true)} disabled={!meta}>↔ 반입/반출 등록</button>}
         </div>
       </div>
 
       <div className="grid grid-4" style={{ marginBottom: 20 }}>
-        <div className="card stat"><div className="label">제품(내용물)</div><div className="value" style={{ fontSize: 20 }}>{item.content || <span className="muted">비어있음</span>}</div></div>
+        <div className="card stat"><div className="label">제품(내용물)</div><div className="value" style={{ fontSize: 20 }}>{demoText(item.content) || <span className="muted">비어있음</span>}</div></div>
         <div className="card stat"><div className="label">현재 무게</div><div className="value" style={{ fontSize: 22 }}>{isDemo ? '***' : Number(item.weight || 0).toLocaleString()}</div></div>
         <div className="card stat"><div className="label">위치 / 사이즈</div><div className="value" style={{ fontSize: 18 }}>{item.locationLabel}<div className="muted" style={{ fontSize: 13 }}>{item.sizeLabel}</div></div></div>
         <div className="card stat"><div className="label">상태</div><div style={{ marginTop: 10 }}><Badge color={statusColor(item.status)} dot>{item.statusLabel}</Badge></div></div>
@@ -70,14 +70,14 @@ export default function CanisterDetail() {
               <tbody>
                 {history.map((h) => (
                   <tr key={h.id}>
-                    <td className="muted">{(h.createdAt || '').slice(0, 16).replace('T', ' ')}</td>
+                    <td className="muted">{isDemo ? '****-**-**' : (h.createdAt || '').slice(0, 16).replace('T', ' ')}</td>
                     <td><Badge color={typeColor[h.type] || ''}>{h.type}</Badge></td>
-                    <td>{h.content || <span className="muted">–</span>}</td>
+                    <td>{demoText(h.content) || <span className="muted">–</span>}</td>
                     <td className="num">{isDemo ? '***' : Number(h.weight || 0).toLocaleString()}</td>
-                    <td className="muted">{h.location}</td>
+                    <td className="muted">{demoText(h.location)}</td>
                     <td><Badge color={statusColor(h.status)} dot>{h.status}</Badge></td>
-                    <td className="muted">{h.note || '–'}</td>
-                    <td className="muted">{h.createdBy}</td>
+                    <td className="muted">{demoText(h.note) || '–'}</td>
+                    <td className="muted">{demoText(h.createdBy)}</td>
                   </tr>
                 ))}
               </tbody>

@@ -9,7 +9,7 @@ const fmt = (v) => Number(v || 0).toLocaleString();
 const monthLabel = (mm) => `${Number(mm.slice(5, 7))}월`;
 
 export default function Hazardous() {
-  const { canWrite } = useAuth();
+  const { canWrite, isDemo } = useAuth();
   const toast = useToast();
   const [year, setYear] = useState(today.getFullYear());
   const [data, setData] = useState(null);
@@ -63,7 +63,7 @@ export default function Hazardous() {
           <select className="plant-select" value={year} onChange={(e) => setYear(Number(e.target.value))}>
             {years.map((y) => <option key={y} value={y}>{y}년</option>)}
           </select>
-          <button className="btn secondary sm" onClick={exportCsv} disabled={!cur}>⬇ CSV (일자별)</button>
+          {!isDemo && <button className="btn secondary sm" onClick={exportCsv} disabled={!cur}>⬇ CSV (일자별)</button>}
         </div>
       </div>
 
@@ -97,7 +97,7 @@ export default function Hazardous() {
                 const md = cur.days.filter((d) => d.date.startsWith(m.month));
                 return (
                   <MonthBlock
-                    key={m.month} m={m} open={open} md={md} unit={unit} canWrite={canWrite}
+                    key={m.month} m={m} open={open} md={md} unit={unit} canWrite={canWrite} isDemo={isDemo}
                     onToggle={() => setOpenMonth(open ? null : m.month)}
                     onSave={saveEntry} onDelete={delEntry}
                     adding={adding === m.month} setAdding={(v) => setAdding(v ? m.month : null)}
@@ -112,17 +112,17 @@ export default function Hazardous() {
   );
 }
 
-function MonthBlock({ m, open, md, unit, canWrite, onToggle, onSave, onDelete, adding, setAdding }) {
+function MonthBlock({ m, open, md, unit, canWrite, isDemo, onToggle, onSave, onDelete, adding, setAdding }) {
   const empty = m.dayCount === 0;
   return (
     <>
       <tr className="haz-month" style={{ cursor: 'pointer', background: open ? 'var(--accent-soft,#eaf3fe)' : undefined }} onClick={onToggle}>
         <td style={{ textAlign: 'center', color: 'var(--accent)' }}>{open ? '▼' : '▶'}</td>
         <td><b>{monthLabel(m.month)}</b></td>
-        <td className="num muted">{fmt(m.carryIn)}</td>
-        <td className="num" style={{ color: 'var(--green)' }}>{m.inQty ? '+' + fmt(m.inQty) : '–'}</td>
-        <td className="num" style={{ color: 'var(--orange)' }}>{m.outQty ? '-' + fmt(m.outQty) : '–'}</td>
-        <td className="num"><b>{fmt(m.balance)}</b></td>
+        <td className="num muted">{isDemo ? '***' : fmt(m.carryIn)}</td>
+        <td className="num" style={{ color: 'var(--green)' }}>{isDemo ? '***' : (m.inQty ? '+' + fmt(m.inQty) : '–')}</td>
+        <td className="num" style={{ color: 'var(--orange)' }}>{isDemo ? '***' : (m.outQty ? '-' + fmt(m.outQty) : '–')}</td>
+        <td className="num"><b>{isDemo ? '***' : fmt(m.balance)}</b></td>
         <td className="muted">{unit}</td>
       </tr>
       {open && (
@@ -145,7 +145,7 @@ function MonthBlock({ m, open, md, unit, canWrite, onToggle, onSave, onDelete, a
                 {md.length === 0 && !adding && (
                   <tr><td colSpan={canWrite ? 7 : 6} className="muted" style={{ textAlign: 'center', padding: 10 }}>이 달의 수불 내역이 없습니다. {canWrite && '아래 [+ 일자 추가]로 임시 입력할 수 있습니다.'}</td></tr>
                 )}
-                {md.map((d) => <DayRow key={d.date} d={d} unit={unit} canWrite={canWrite} onSave={onSave} onDelete={onDelete} />)}
+                {md.map((d) => <DayRow key={d.date} d={d} unit={unit} canWrite={canWrite} isDemo={isDemo} onSave={onSave} onDelete={onDelete} />)}
                 {adding && <AddRow month={m.month} carryFrom={md.length ? md[md.length - 1].balance : m.carryIn} unit={unit} onSave={onSave} onCancel={() => setAdding(false)} />}
               </tbody>
             </table>
@@ -159,7 +159,7 @@ function MonthBlock({ m, open, md, unit, canWrite, onToggle, onSave, onDelete, a
   );
 }
 
-function DayRow({ d, unit, canWrite, onSave, onDelete }) {
+function DayRow({ d, unit, canWrite, isDemo, onSave, onDelete }) {
   const [edit, setEdit] = useState(false);
   const [f, setF] = useState({ inQty: d.inQty, outQty: d.outQty, balance: d.balance, note: d.note });
   const set = (k, v) => setF((p) => ({ ...p, [k]: v }));
@@ -169,10 +169,10 @@ function DayRow({ d, unit, canWrite, onSave, onDelete }) {
     return (
       <tr style={d.edited ? { background: '#fffaf0' } : {}}>
         <td><b>{d.date}</b>{d.edited && <span className="badge orange" style={{ marginLeft: 6, fontSize: 10 }}>수정</span>}</td>
-        <td className="num muted">{fmt(d.carryOver)}</td>
-        <td className="num" style={{ color: d.inQty ? 'var(--green)' : undefined }}>{d.inQty ? fmt(d.inQty) : '–'}</td>
-        <td className="num" style={{ color: d.outQty ? 'var(--orange)' : undefined }}>{d.outQty ? fmt(d.outQty) : '–'}</td>
-        <td className="num"><b>{fmt(d.balance)}</b> <span className="muted">{unit}</span></td>
+        <td className="num muted">{isDemo ? '***' : fmt(d.carryOver)}</td>
+        <td className="num" style={{ color: d.inQty ? 'var(--green)' : undefined }}>{isDemo ? '***' : (d.inQty ? fmt(d.inQty) : '–')}</td>
+        <td className="num" style={{ color: d.outQty ? 'var(--orange)' : undefined }}>{isDemo ? '***' : (d.outQty ? fmt(d.outQty) : '–')}</td>
+        <td className="num"><b>{isDemo ? '***' : fmt(d.balance)}</b> <span className="muted">{unit}</span></td>
         <td className="muted">{d.note || '–'}</td>
         {canWrite && <td><div className="btn-row">
           <button className="btn secondary sm" onClick={() => { setF({ inQty: d.inQty, outQty: d.outQty, balance: d.balance, note: d.note }); setEdit(true); }}>수정</button>

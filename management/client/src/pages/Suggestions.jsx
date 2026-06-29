@@ -9,7 +9,7 @@ const CATEGORIES = ['종합현황', 'AI 검색', '원재료', '부재료', 'Cani
 const blank = { title: '', category: '종합현황', categoryEtc: '', content: '' };
 
 export default function Suggestions() {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, isDemo } = useAuth();
   const toast = useToast();
   const [items, setItems] = useState(null);
   const [edit, setEdit] = useState(null);
@@ -33,6 +33,14 @@ export default function Suggestions() {
   }
 
   const catLabel = (s) => (s.category === '전반/기타' && s.categoryEtc ? s.categoryEtc : s.category === '기타' && s.categoryEtc ? s.categoryEtc : s.category);
+
+  if (isDemo) return (
+    <div className="card card-pad" style={{ textAlign: 'center', padding: 40 }}>
+      <div style={{ fontSize: 40, marginBottom: 12 }}>🔒</div>
+      <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8 }}>데모 계정은 건의사항을 이용할 수 없습니다.</div>
+      <div className="muted">건의사항 등록 및 조회는 일반 계정에서만 가능합니다.</div>
+    </div>
+  );
 
   return (
     <>

@@ -45,7 +45,7 @@ function groupByProductThenItem(rows, key, summary) {
 }
 
 export default function RawMaterials() {
-  const { isAdmin, canWrite, isDemo, demoNum } = useAuth();
+  const { isAdmin, canWrite, isDemo, demoNum, demoText } = useAuth();
   const toast = useToast();
   const [summary, setSummary] = useState(null);
   const [items, setItems] = useState(null);
@@ -114,15 +114,15 @@ export default function RawMaterials() {
               <tbody>
                 {summary.items.map((s) => (
                   <tr key={s.name}>
-                    <td><b>{s.name}</b>{!s.isMaster && <span className="muted" style={{ fontWeight: 400 }}> (기타)</span>}</td>
+                    <td><b>{demoText(s.name)}</b>{!s.isMaster && <span className="muted" style={{ fontWeight: 400 }}> (기타)</span>}</td>
                     <td className="num"><b>{isDemo ? '***' : s.totalQuantity.toLocaleString()}</b> <span className="muted">{s.unit}</span></td>
                     <td className="num">
-                      <span style={{ display: 'inline-flex', justifyContent: 'flex-end', width: '100%' }}><SignalLight level={s.level} below={s.below} /></span>
+                      {isDemo ? <span className="muted">***</span> : <span style={{ display: 'inline-flex', justifyContent: 'flex-end', width: '100%' }}><SignalLight level={s.level} below={s.below} /></span>}
                     </td>
-                    <td className="num muted">{s.safetyStock ? s.safetyStock.toLocaleString() : '–'}{s.warningPct ? <span className="muted" style={{fontSize:11}}> ({s.warningPct}%)</span> : ''}</td>
-                    <td className="num muted">{s.lots}</td>
-                    <td className="muted">{s.lastReceived || '–'}</td>
-                    <td className="muted">{s.lastUsed || '–'}</td>
+                    <td className="num muted">{isDemo ? '***' : (s.safetyStock ? s.safetyStock.toLocaleString() : '–')}{!isDemo && s.warningPct ? <span className="muted" style={{fontSize:11}}> ({s.warningPct}%)</span> : ''}</td>
+                    <td className="num muted">{isDemo ? '***' : s.lots}</td>
+                    <td className="muted">{isDemo ? '****-**-**' : s.lastReceived || '–'}</td>
+                    <td className="muted">{isDemo ? '****-**-**' : s.lastUsed || '–'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -136,7 +136,7 @@ export default function RawMaterials() {
         <div className="desc">품목은 취합 관리되며, 입출고(수불)는 <b>Lot 단위</b>로 개별 처리됩니다.</div>
         <div className="btn-row">
           <button className="btn secondary sm" onClick={() => setTrend(true)}>📈 사용량 분석</button>
-          <button className="btn secondary sm" onClick={exportCsv}>⬇ CSV</button>
+          {!isDemo && <button className="btn secondary sm" onClick={exportCsv}>⬇ CSV</button>}
           {isAdmin && <button className="btn secondary sm" style={{ color: 'var(--red)' }} onClick={async () => {
             if (!window.confirm('잔량 0인 소진 Lot을 모두 삭제합니다. 계속하시겠습니까?')) return;
             try { const r = await api.del('/raw-materials/cleanup/empty'); toast.ok(`소진 Lot ${r.removed}개 정리 완료`); load(); } catch (e) { toast.err(e.message); }
@@ -189,7 +189,7 @@ export default function RawMaterials() {
                 return (
                 <Fragment key={g.name}>
                   <tr className={`group-row ${lowSet.has(g.name) ? 'row-low' : ''}`}>
-                    <td style={{ paddingLeft: 20 }}>📦 <b>{g.name}</b> · {g.lots.length} Lot {lowSet.has(g.name) && <span className="badge red" style={{ marginLeft: 4 }}>안전재고 부족</span>}</td>
+                    <td style={{ paddingLeft: 20 }}>📦 <b>{demoText(g.name)}</b> · {g.lots.length} Lot {lowSet.has(g.name) && <span className="badge red" style={{ marginLeft: 4 }}>안전재고 부족</span>}</td>
                     <td className="num">
                       {isDemo ? <b>***</b> : totalPkg > 1
                         ? <><b>{totalPkg.toLocaleString()}{pkgType}</b> <span className="muted">/ {totalQty.toLocaleString()}{unit}</span></>
@@ -198,23 +198,23 @@ export default function RawMaterials() {
                     <td className="muted">{unit}</td>
                     <td></td>
                     <td className="muted">{oldest?.receivedDate || ''}</td>
-                    <td><span style={{color:'var(--blue)', fontSize: 12}}>{oldest?.lotNo || ''}</span> <span className="muted" style={{ fontSize: 11 }}>(다음사용 Lot)</span></td>
+                    <td><span style={{color:'var(--blue)', fontSize: 12}}>{demoText(oldest?.lotNo) || ''}</span> <span className="muted" style={{ fontSize: 11 }}>(다음사용 Lot)</span></td>
                     <td></td>
                     <td></td>
                   </tr>
                   {g.lots.map((r) => (
                     <tr key={r.id}>
-                      <td style={{ paddingLeft: 24 }}><Badge color="blue">{r.lotNo}</Badge></td>
+                      <td style={{ paddingLeft: 24 }}><Badge color="blue">{demoText(r.lotNo)}</Badge></td>
                       <td className="num">
                         {isDemo ? <b>***</b> : r.pkgCount && Number(r.pkgCount) > 1
                           ? <><b>{Number(r.pkgCount).toLocaleString()}</b><span className="muted">{r.pkgType || 'pkg'}</span> <span className="muted">({Number(r.quantity).toLocaleString()}{r.unit})</span></>
                           : <>{Number(r.quantity).toLocaleString()}</>}
                       </td>
                       <td className="muted">{r.unit}</td>
-                      <td className="muted">{r.vendor || '–'}</td>
-                      <td className="muted">{r.receivedDate || '–'}</td>
-                      <td className="muted">{r.note || '–'}</td>
-                      <td className="muted">{r.updatedBy}</td>
+                      <td className="muted">{demoText(r.vendor) || '–'}</td>
+                      <td className="muted">{isDemo ? '****-**-**' : r.receivedDate || '–'}</td>
+                      <td className="muted">{demoText(r.note) || '–'}</td>
+                      <td className="muted">{demoText(r.updatedBy)}</td>
                       <td>
                         <div className="btn-row">
                           {canWrite && <button className="btn ghost sm" onClick={() => setTx(r)}>수불</button>}
