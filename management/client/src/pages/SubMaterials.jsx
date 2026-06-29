@@ -128,6 +128,10 @@ export default function SubMaterials() {
         <div className="btn-row">
           <button className="btn secondary sm" onClick={() => setTrend(true)}>📈 사용량 분석</button>
           <button className="btn secondary sm" onClick={exportCsv}>⬇ CSV</button>
+          {isAdmin && <button className="btn secondary sm" style={{ color: 'var(--red)' }} onClick={async () => {
+            if (!window.confirm('잔량 0인 소진 Lot을 모두 삭제합니다. 계속하시겠습니까?')) return;
+            try { const r = await api.del('/sub-materials/cleanup/empty'); toast.ok(`소진 Lot ${r.removed}개 정리 완료`); load(); } catch (e) { toast.err(e.message); }
+          }}>🗑 소진 Lot 정리</button>}
           {canWrite && <button className="btn secondary sm" onClick={() => setUseOpen(true)}>− 부재료 사용</button>}
           {canWrite && <button className="btn secondary sm" onClick={() => setBulkReceiveOpen(true)}>+ 다량 입고</button>}
           {canWrite && <button className="btn sm" onClick={() => setEdit({ mode: 'create', data: { ...blank, receivedDate: today() } })}>+ 부재료 입고</button>}

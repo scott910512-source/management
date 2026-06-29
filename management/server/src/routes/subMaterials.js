@@ -309,4 +309,19 @@ router.delete(
   }),
 );
 
+// 소진(잔량 0) Lot 일괄 정리 (관리자)
+router.delete(
+  '/cleanup/empty',
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    let removed = 0;
+    await mutate('sub_materials', req.plant, (rows) => {
+      for (let i = rows.length - 1; i >= 0; i--) {
+        if ((num(rows[i].weight) || 0) <= 0) { rows.splice(i, 1); removed++; }
+      }
+    });
+    res.json({ ok: true, removed });
+  }),
+);
+
 module.exports = { router };
