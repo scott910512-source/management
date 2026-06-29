@@ -87,7 +87,7 @@ router.patch(
       if (!u) throw notFound('사용자를 찾을 수 없습니다.');
       if (req.body.role !== undefined) {
         const role = str(req.body.role);
-        if (!['user','admin','viewer'].includes(role)) throw badRequest('역할 값이 올바르지 않습니다.');
+        if (!['user','admin','viewer','demo'].includes(role)) throw badRequest('역할 값이 올바르지 않습니다.');
         // 마지막 관리자 강등 방지
         if (u.role === 'admin' && role !== 'admin') {
           const admins = rows.filter((r) => r.role === 'admin' && r.status === 'approved');
