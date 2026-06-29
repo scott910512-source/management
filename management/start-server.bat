@@ -1,8 +1,9 @@
 @echo off
-title Management System
+title StockPilot - Server
+chcp 65001 >nul
 
 echo =========================================
-echo  Management System - Starting...
+echo  StockPilot - Starting (production)
 echo =========================================
 echo.
 
@@ -16,38 +17,27 @@ if %errorlevel% neq 0 (
 
 set ROOT=%~dp0
 set SERVER=%ROOT%server
-set CLIENT=%ROOT%client
 
 if not exist "%SERVER%\node_modules" (
     echo [1/3] Installing server packages...
     cd /d "%SERVER%"
     call npm install --no-audit --no-fund
-    echo [1/3] Server packages installed.
 ) else (
     echo [1/3] Server packages OK
 )
 
-if not exist "%CLIENT%\node_modules" (
-    echo [2/3] Installing client packages...
-    cd /d "%CLIENT%"
-    call npm install --foreground-scripts --no-audit --no-fund
-    echo [2/3] Client packages installed.
-) else (
-    echo [2/3] Client packages OK
-)
-
-if not exist "%ROOT%data" (
-    echo [3/3] Generating seed data...
+if not exist "%SERVER%\data" (
+    echo [2/3] Generating seed data...
     cd /d "%SERVER%"
     node src/lib/seed.js
 ) else (
-    echo [3/3] Data folder OK
+    echo [2/3] Data folder OK
 )
 
+echo [3/3] Starting server...
 echo.
 echo =========================================
-echo  Backend  : http://localhost:4000
-echo  Frontend : http://localhost:5173
+echo  Open in browser : http://localhost:4000
 echo =========================================
 echo.
 echo  [Default Accounts]
@@ -59,17 +49,10 @@ echo  user1  / user1234   (user)
 echo =========================================
 echo.
 
-start "Backend (4000)" cmd /k "cd /d "%SERVER%" && node src/index.js"
-
 timeout /t 2 /nobreak > nul
+start http://localhost:4000
 
-start "Frontend (5173)" cmd /k "cd /d "%CLIENT%" && npm run dev"
+cd /d "%SERVER%"
+node src/index.js
 
-timeout /t 3 /nobreak > nul
-
-start http://localhost:5173
-
-echo Browser opening at http://localhost:5173
-echo Close this window to keep servers running.
-echo.
 pause
