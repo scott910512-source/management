@@ -56,7 +56,9 @@ export function ReceiveModal({ base, onClose, onSaved, onError }) {
   function addRow() {
     const defUnit = meta?.unit || 'kg';
     const defVendor = meta?.vendor || '';
-    setRows((p) => [...p, newRow({ unit: defUnit, vendor: defVendor })]);
+    const defQty = meta?.defaultQty || '';
+    const defLot = lotPattern ? expandLot(lotPattern) : '';
+    setRows((p) => [...p, newRow({ unit: defUnit, vendor: defVendor, qty: defQty, lotNo: defLot })]);
   }
   function removeRow(i) { if (rows.length > 1) setRows((p) => p.filter((_, idx) => idx !== i)); }
   function updateRow(i, field, val) { setRows((p) => p.map((r, idx) => idx === i ? { ...r, [field]: val } : r)); }
