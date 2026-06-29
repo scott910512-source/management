@@ -13,6 +13,8 @@ export default function Transactions() {
   const [items, setItems] = useState(null);
   const [edit, setEdit] = useState(null);
   const [del, setDel] = useState(null);
+  const [sel, setSel] = useState(() => new Set());
+  const [delBulk, setDelBulk] = useState(false);
   const [f, setF] = useState({ materialType: '', type: '', q: '', from: '', to: '', sort: 'category' });
   const set = (k, v) => setF((p) => ({ ...p, [k]: v }));
 
@@ -34,6 +36,7 @@ export default function Transactions() {
   const load = useCallback(async () => {
     const d = await api.get('/transactions?' + params());
     setItems(d.items);
+    setSel(new Set());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [f]);
 
@@ -41,11 +44,21 @@ export default function Transactions() {
     load();
   }, [load]);
 
+  const toggle = (id) => setSel((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const toggleAll = () => setSel((s) => (items && s.size === items.length ? new Set() : new Set((items || []).map((t) => t.id))));
+  async function removeBulk() {
+    try { const r = await api.post('/transactions/bulk-delete', { ids: [...sel] }); setDelBulk(false); load(); toast.ok(`${r.removed}건 삭제했습니다.`); }
+    catch (e) { toast.err(e.message); }
+  }
+
   return (
     <>
       <div className="page-head">
         <div className="desc">원재료·부재료·Canister의 입출고(수불) 작성 이력 전체입니다. 해당 없는 항목은 빈칸으로 표시됩니다.</div>
-        <button className="btn secondary sm" onClick={() => downloadCsv('/transactions/export?' + params())}>⬇ CSV Export</button>
+        <div className="btn-row">
+          {isAdmin && sel.size > 0 && <button className="btn danger sm" onClick={() => setDelBulk(true)}>선택 삭제 ({sel.size})</button>}
+          <button className="btn secondary sm" onClick={() => downloadCsv('/transactions/export?' + params())}>⬇ CSV Export</button>
+        </div>
       </div>
 
       <div className="toolbar">
@@ -88,6 +101,7 @@ export default function Transactions() {
           <table className="tbl compact">
             <thead>
               <tr>
+                {isAdmin && <th style={{ width: 1 }}><input type="checkbox" checked={items.length > 0 && sel.size === items.length} onChange={toggleAll} title="전체 선택" /></th>}
                 <th>일시</th>
                 <th>대분류</th>
                 <th>제품/품목</th>
@@ -102,7 +116,8 @@ export default function Transactions() {
             </thead>
             <tbody>
               {items.map((t) => (
-                <tr key={t.id}>
+                <tr key={t.id} style={sel.has(t.id) ? { background: 'var(--accent-soft, #eaf3fe)' } : {}}>
+                  {isAdmin && <td><input type="checkbox" checked={sel.has(t.id)} onChange={() => toggle(t.id)} /></td>}
                   <td className="muted">{(t.createdAt || '').slice(0, 16).replace('T', ' ')}</td>
                   <td><Badge color={catColor[t.materialType] || ''}>{catLabel[t.materialType] || t.materialType}</Badge></td>
                   <td><b>{t.materialName || ''}</b></td>
@@ -135,6 +150,14 @@ export default function Transactions() {
           message="이 수불 내역을 삭제할까요? (재고 수량은 자동 보정되지 않습니다)"
           onClose={() => setDel(null)}
           onConfirm={async () => { try { await api.del('/transactions/' + del.id); setDel(null); load(); toast.ok('삭제했습니다.'); } catch (e) { toast.err(e.message); } }}
+        />
+      )}
+      {delBulk && (
+        <ConfirmDialog
+          title="수불 내역 일괄 삭제"
+          message={`선택한 ${sel.size}건의 수불 내역을 삭제할까요? (재고 수량은 자동 보정되지 않습니다)`}
+          onClose={() => setDelBulk(false)}
+          onConfirm={removeBulk}
         />
       )}
     </>

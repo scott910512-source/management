@@ -116,8 +116,8 @@ button { font-family: inherit; }
 }
 .topbar h1 { font-size: 19px; flex-shrink: 0; }
 /* 상단바 경고 슬롯 — 타이틀 우측 */
-.topbar-slot { flex: 1; min-width: 0; display: flex; justify-content: flex-end; margin: 0 16px; }
-.topwarn { display: flex; align-items: center; gap: 8px; min-width: 0; max-width: 760px; padding: 5px 12px; border-radius: 10px; background: var(--surface); border: 1px solid var(--line); }
+.topbar-slot { flex: 1; min-width: 0; display: flex; justify-content: stretch; margin: 0 16px; }
+.topwarn { flex: 1 1 auto; display: flex; align-items: center; gap: 10px; min-width: 0; max-width: none; padding: 7px 14px; border-radius: 10px; background: var(--surface); border: 1px solid var(--line); }
 .topwarn.danger { border-color: #f4cdca; background: #fff4f3; }
 .topwarn.warn { border-color: #f3dcb0; background: #fff8ec; }
 .topwarn-badge { flex-shrink: 0; font-size: 12.5px; font-weight: 700; color: var(--red); }
@@ -407,3 +407,10 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .batch-matrix .bm-x:hover { color: var(--red, #ff3b30); }
 .batch-matrix .bm-lot { display: block; margin: 5px auto 0; max-width: 96px; font-size: 11px; padding: 3px 4px; border: 1px solid #dcdfe5; border-radius: 6px; color: var(--text-2, #6e6e73); background: #fff; }
 .batch-matrix .bm-lot.on { border-color: var(--accent, #0071e3); color: var(--accent, #0071e3); font-weight: 600; background: var(--accent-soft, #eaf3fe); }
+
+/* ===== 종합현황 여백 축소(현 기준 절반 수준) ===== */
+.dash-tight .grid { gap: 8px; }
+.dash-tight .card-pad { padding: 12px 14px; }
+.dash-tight .card-head { padding: 10px 14px; }
+.dash-tight .quick-act { padding: 5px 8px; }
+.dash-tight .tbl.compact th, .dash-tight .tbl.compact td { padding-top: 5px; padding-bottom: 5px; }

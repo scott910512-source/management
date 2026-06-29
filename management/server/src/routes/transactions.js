@@ -84,6 +84,27 @@ router.patch(
   }),
 );
 
+// 수불 내역 일괄 삭제(관리자) — ids(개별) 또는 batchIds(배치 투입 전체)
+router.post(
+  '/bulk-delete',
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const ids = new Set(Array.isArray(req.body.ids) ? req.body.ids.map(String) : []);
+    const batchIds = new Set(Array.isArray(req.body.batchIds) ? req.body.batchIds.map(String) : []);
+    if (ids.size === 0 && batchIds.size === 0) throw badRequest('삭제할 항목을 선택하세요.');
+    let removed = 0;
+    await mutate('transactions', req.plant, (rows) => {
+      for (let i = rows.length - 1; i >= 0; i--) {
+        if (ids.has(rows[i].id) || (rows[i].batchId && batchIds.has(rows[i].batchId))) {
+          rows.splice(i, 1);
+          removed++;
+        }
+      }
+    });
+    res.json({ ok: true, removed });
+  }),
+);
+
 // 수불 내역 삭제(관리자)
 router.delete(
   '/:id',

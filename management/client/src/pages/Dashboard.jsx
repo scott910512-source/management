@@ -155,12 +155,12 @@ export default function Dashboard() {
   );
 
   return (
-    <>
+    <div className="dash-tight">
       {/* 경고 → 상단바(타이틀 우측)로 포털 */}
       {topSlot && createPortal(topWarn, topSlot)}
 
       {/* 최상단(타이틀 제외): 퀵메뉴 · 진행 Task · AI검색 가로 배치 */}
-      <div className={`grid ${canWrite ? 'grid-3' : 'grid-2'}`} style={{ marginBottom: 16, alignItems: 'stretch' }}>
+      <div className={`grid ${canWrite ? 'grid-3' : 'grid-2'}`} style={{ marginBottom: 8, alignItems: 'stretch' }}>
         {canWrite && (
           <div className="card card-pad" style={{ marginBottom: 0 }}>
             <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-2)', marginBottom: 10 }}>퀵 입력</div>
@@ -179,7 +179,7 @@ export default function Dashboard() {
       </div>
 
       {/* 요약 현황 — 원·부재료(좌) + Canister(우) */}
-      <div className="grid grid-2" style={{ marginBottom: 16 }}>
+      <div className="grid grid-2" style={{ marginBottom: 8 }}>
         <div className="card">
           <div className="card-head">
             <h3>원·부재료 현황 (제품별)</h3>
@@ -246,6 +246,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-    </>
+    </div>
   );
 }

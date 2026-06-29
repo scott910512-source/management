@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, Fragment } from 'react';
 import { api, downloadCsv } from '../api';
-import { Loading, Empty, Badge } from '../components/ui';
+import { useAuth } from '../auth/AuthContext';
+import { Loading, Empty, Badge, ConfirmDialog, useToast } from '../components/ui';
 
 const catLabel = (c) => (c === 'raw' ? '원재료' : c === 'sub' ? '부재료' : c);
 const catColor = (c) => (c === 'raw' ? 'blue' : 'orange');
@@ -32,14 +33,25 @@ function ItemCell({ item }) {
 }
 
 export default function InputHistory() {
+  const { isAdmin } = useAuth();
+  const toast = useToast();
   const [items, setItems] = useState(null);
   const [tab, setTab] = useState('');
+  const [sel, setSel] = useState(() => new Set());
+  const [delBulk, setDelBulk] = useState(false);
 
   const load = useCallback(async () => {
     const d = await api.get('/batches/inputs');
     setItems(d.items);
+    setSel(new Set());
   }, []);
   useEffect(() => { load(); }, [load]);
+
+  const toggle = (id) => setSel((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  async function removeBulk() {
+    try { const r = await api.post('/transactions/bulk-delete', { batchIds: [...sel] }); setDelBulk(false); load(); toast.ok(`${r.removed}건(투입 ${sel.size}배치) 삭제했습니다.`); }
+    catch (e) { toast.err(e.message); }
+  }
 
   // 제품(사용처)별 그룹 → 탭
   const productLabel = (p) => p || '(제품 미지정)';
@@ -62,6 +74,7 @@ export default function InputHistory() {
       <div className="page-head">
         <div className="desc">합성 Batch별 원·부재료 <b>투입 현황</b>을 <b>제품별 탭</b>으로 확인합니다. 출고(사용) 시 입력한 Batch No. 기준으로 집계됩니다.</div>
         <div className="btn-row">
+          {isAdmin && sel.size > 0 && <button className="btn danger sm" onClick={() => setDelBulk(true)}>선택 삭제 ({sel.size}배치)</button>}
           <button className="btn secondary sm" onClick={() => downloadCsv('/batches/inputs/export')}>⬇ CSV 다운로드</button>
         </div>
       </div>
@@ -82,6 +95,7 @@ export default function InputHistory() {
             <table className="tbl compact">
               <thead>
                 <tr>
+                  {isAdmin && <th style={{ width: 1 }}></th>}
                   <th style={{ width: 70 }}>Batch</th>
                   <th style={{ width: 100 }}>합성시작일</th>
                   <th>투입품목 1</th>
@@ -94,13 +108,15 @@ export default function InputHistory() {
                   const over = b.grouped.slice(MAX_COLS); // 4번째 이상 품목
                   return (
                     <Fragment key={b.batchId}>
-                      <tr>
+                      <tr style={sel.has(b.batchId) ? { background: 'var(--accent-soft, #eaf3fe)' } : {}}>
+                        {isAdmin && <td style={{ verticalAlign: 'top' }}><input type="checkbox" checked={sel.has(b.batchId)} onChange={() => toggle(b.batchId)} /></td>}
                         <td style={{ verticalAlign: 'top' }}><b style={{ color: 'var(--accent)', fontSize: 15 }}>#{b.batchNo}</b></td>
                         <td className="muted" style={{ verticalAlign: 'top' }}>{b.startDate || '–'}</td>
                         {[0, 1, 2].map((i) => <ItemCell key={i} item={b.grouped[i]} />)}
                       </tr>
                       {over.length > 0 && (
                         <tr>
+                          {isAdmin && <td></td>}
                           <td></td>
                           <td className="muted" style={{ fontSize: 11 }}>추가 투입</td>
                           <td colSpan={3} style={{ fontSize: 12 }} className="muted">
@@ -115,6 +131,14 @@ export default function InputHistory() {
             </table>
           </div>
         </>
+      )}
+      {delBulk && (
+        <ConfirmDialog
+          title="투입이력 일괄 삭제"
+          message={`선택한 ${sel.size}개 배치의 투입(출고) 내역을 삭제할까요? 수불 이력에서도 함께 제거되며, 재고 수량은 자동 보정되지 않습니다.`}
+          onClose={() => setDelBulk(false)}
+          onConfirm={removeBulk}
+        />
       )}
     </>
   );

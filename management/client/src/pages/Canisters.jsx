@@ -120,14 +120,22 @@ export default function Canisters() {
                 <th className="num">무게</th>
                 <th>위치</th>
                 <th>상태</th>
+                <th>비고</th>
                 <th>최종변경</th>
                 <th style={{ width: 1 }}></th>
               </tr>
             </thead>
             <tbody>
-              {groupByContent(items).map((g) => (
+              {groupByContent(items).map((g) => {
+                // 사이즈별 개수 + 총무게 합산
+                const sizeCount = {};
+                let totalW = 0;
+                g.rows.forEach((c) => { const k = c.sizeLabel || c.size; sizeCount[k] = (sizeCount[k] || 0) + 1; totalW += Number(c.weight || 0); });
+                const sizeStr = Object.entries(sizeCount).map(([s, n]) => `${s} ${n}개`).join(', ');
+                const unit = g.rows[0]?.unit || 'kg';
+                return (
                 <Fragment key={g.content}>
-                  <tr className="group-row"><td colSpan={8}>제품명: {g.content} · {g.rows.length}개</td></tr>
+                  <tr className="group-row"><td colSpan={9}>제품명: {g.content} · 총 {g.rows.length}개 ({sizeStr}) · 총무게 {totalW.toLocaleString()}{unit}</td></tr>
                   {g.rows.map((c) => (
                     <tr key={c.id} className={c.capWarn ? 'cap-warn' : ''}>
                       <td style={{ paddingLeft: 24 }}><Link to={`/canisters/${c.id}`} className="inline-link"><b>{c.canisterNo}</b></Link></td>
@@ -140,6 +148,7 @@ export default function Canisters() {
                       </td>
                       <td className="muted">{c.locationLabel}</td>
                       <td>{canWrite ? <StatusSelect c={c} statuses={meta.canisterStatuses} onChanged={load} onError={(m) => toast.err(m)} /> : <Badge color={statusColor(c.status)} dot>{c.statusLabel}</Badge>}</td>
+                      <td className="muted" style={{ maxWidth: 160, whiteSpace: 'normal' }}>{c.note || '–'}</td>
                       <td className="muted">{(c.updatedAt || '').slice(0, 10)}</td>
                       <td>
                         <div className="btn-row">
@@ -151,7 +160,8 @@ export default function Canisters() {
                     </tr>
                   ))}
                 </Fragment>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         )}
