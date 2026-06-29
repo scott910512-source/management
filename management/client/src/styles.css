@@ -127,7 +127,16 @@ button { font-family: inherit; }
 .topwarn-nav button { border: none; background: transparent; cursor: pointer; font-size: 15px; line-height: 1; color: var(--text-2); padding: 0 3px; font-family: inherit; }
 .topwarn-nav button:hover { color: var(--text); }
 .topwarn-idx { font-size: 11px; color: var(--text-3); min-width: 26px; text-align: center; }
-.topwarn-msg { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; color: var(--text); }
+/* 경고 메시지 — 원통이 굴러 올라가듯 롤링 */
+.topwarn-rollbox { flex: 1; min-width: 0; overflow: hidden; perspective: 320px; height: 20px; display: flex; align-items: center; }
+.topwarn-msg { display: block; width: 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; color: var(--text); transform-origin: 50% 50%; }
+.topwarn-msg.roll { animation: topwarn-roll .6s cubic-bezier(.22,.61,.36,1); }
+@keyframes topwarn-roll {
+  0%   { transform: rotateX(-90deg) translateY(60%); opacity: 0; }
+  55%  { opacity: 1; }
+  100% { transform: rotateX(0deg) translateY(0); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) { .topwarn-msg.roll { animation: none; } }
 @media (max-width: 1000px) { .topwarn-msg { display: none; } .topbar-slot { margin: 0 8px; } }
 .topbar-plant { margin-left: 10px; font-size: 12px; font-weight: 600; color: var(--accent); background: var(--accent-soft); padding: 3px 10px; border-radius: 980px; vertical-align: middle; }
 .topbar .user { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--text-2); }

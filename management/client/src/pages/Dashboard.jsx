@@ -148,7 +148,7 @@ export default function Dashboard() {
               <button onClick={() => setWarnIdx((i) => (i + 1) % warnCount)} title="다음 경고">›</button>
             </span>
           )}
-          <span className="topwarn-msg" title={curWarn.content}>{curWarn.content}</span>
+          <span className="topwarn-rollbox"><span className="topwarn-msg roll" key={warnIdx} title={curWarn.content}>{curWarn.content}</span></span>
           {canWrite && !curWarn.ackedByMe && <button className="btn sm" onClick={() => ack(curWarn.key, curWarn.content)}>확인</button>}
           {canWrite && <button className="btn secondary sm" onClick={() => dismiss(curWarn.key, curWarn.content)}>삭제</button>}
         </>
