@@ -1,4 +1,3 @@
-﻿id,title,category,categoryEtc,priority,assignee,dueDate,status,note,createdBy,createdAt,updatedBy,updatedAt
-P1_tk01,[1공장] Canister 세정 의뢰 확인,현장관리,,중,user2,2026-06-30,진행중,,admin,2026-06-01T00:00:00.000Z,admin,2026-06-01T00:00:00.000Z
-P1_tk02,[1공장] 촉매펠릿 안전재고 보충,원부재료,,상,admin1,2026-06-27,대기,안전재고 미달,admin,2026-06-01T00:00:00.000Z,admin,2026-06-01T00:00:00.000Z
-tk_144739796e9f,[테스트] 1공장 일일 점검,현장관리,,중,,2026-06-30,대기,,user2,2026-06-27T03:55:35.608Z,user2,2026-06-27T03:55:35.608Z
+﻿id,title,category,categoryEtc,priority,assignee,dueDate,status,note,recurringId,period,createdBy,createdAt,updatedBy,updatedAt
+tk_0001,3류창고 Canister 세정 의뢰 확인,현장관리,,중,user1,2026-06-30,진행중,,,,admin,2026-06-01T00:00:00.000Z,admin,2026-06-01T00:00:00.000Z
+tk_0002,촉매펠릿 안전재고 보충 발주,원부재료,,상,admin,2026-06-27,대기,안전재고 미달,,,admin,2026-06-01T00:00:00.000Z,admin,2026-06-01T00:00:00.000Z

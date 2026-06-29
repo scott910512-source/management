@@ -1,0 +1,4 @@
+﻿id,title,category,categoryEtc,priority,assignee,note,cycle,weekday,monthday,active,createdBy,createdAt,updatedBy,updatedAt
+rt_5517e766f278,일일 안전점검,안전,,상,,,일,,,1,admin,2026-06-29T00:04:59.892Z,admin,2026-06-29T00:04:59.892Z
+rt_e3478ed6491a,월간 설비점검,공정,,중,,,월,,1,1,admin,2026-06-29T00:04:59.911Z,admin,2026-06-29T00:04:59.911Z
+rt_c117e5f449b0,주간 재고실사,원부재료,,중,,,주,1,,1,admin,2026-06-29T00:05:16.005Z,admin,2026-06-29T00:05:16.005Z
