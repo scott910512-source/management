@@ -292,32 +292,22 @@ function CanisterForm({ meta, onClose, onSaved, onError }) {
 function MoveForm({ meta, canisters, onClose, onSaved, onError }) {
   const [cid, setCid] = useState(canisters[0]?.id || '');
   const sel = canisters.find((c) => c.id === cid);
-  const [f, setF] = useState({ type: '반출', content: '', contentEtc: '', weight: '', location: '', locationEtc: '', status: '', statusEtc: '', note: '' });
+  const [f, setF] = useState({ type: '반출', weight: '', location: '', locationEtc: '', status: '', statusEtc: '', note: '' });
   const [txDate, setTxDate] = useState(new Date().toISOString().slice(0, 10));
   const [busy, setBusy] = useState(false);
   const set = (k, v) => setF((p) => ({ ...p, [k]: v }));
 
-  // 선택한 Canister의 현재 위치/상태/내용물을 기본값으로
+  // 선택한 Canister의 현재 위치/상태를 기본값으로
   useEffect(() => {
-    if (sel) setF((p) => ({ ...p, content: sel.content || '', location: sel.location, locationEtc: sel.locationEtc || '', status: sel.status, statusEtc: sel.statusEtc || '' }));
+    if (sel) setF((p) => ({ ...p, location: sel.location, locationEtc: sel.locationEtc || '', status: sel.status, statusEtc: sel.statusEtc || '' }));
   }, [cid]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function submit() {
     if (!cid) return onError('Canister를 선택하세요.');
     if (f.type !== '상태변경' && (!f.weight || Number(f.weight) <= 0)) return onError('무게를 입력하세요.');
-    const content = f.content === '기타' ? (f.contentEtc || '').trim() : f.content;
     setBusy(true);
     try {
-      await api.post(`/canisters/${cid}/move`, { ...f, content, weight: f.weight === '' ? 0 : Number(f.weight), txDate });
-      if (f.content === '기타' && content) {
-        try {
-          const s = await api.get('/settings');
-          const existing = (s.settings.canisterContents || '').split(',').map(v => v.trim()).filter(Boolean);
-          if (!existing.includes(content)) {
-            await api.patch('/settings', { canisterContents: [...existing, content].join(',') });
-          }
-        } catch { /* 조용히 무시 */ }
-      }
+      await api.post(`/canisters/${cid}/move`, { ...f, weight: f.weight === '' ? 0 : Number(f.weight), txDate });
       onSaved();
     } catch (e) { onError(e.message); } finally { setBusy(false); }
   }
@@ -335,9 +325,15 @@ function MoveForm({ meta, canisters, onClose, onSaved, onError }) {
       <Field label="Canister 선택" required>
         <Select value={cid} onChange={(e) => setCid(e.target.value)}>
           <option value="" disabled>Canister 선택</option>
-          {canisters.map((c) => <option key={c.id} value={c.id}>{c.canisterNo} ({c.content || '비어있음'} {Number(c.weight || 0)})</option>)}
+          {canisters.map((c) => <option key={c.id} value={c.id}>{c.canisterNo} ({c.content || '비어있음'} · {Number(c.weight || 0).toLocaleString()})</option>)}
         </Select>
       </Field>
+      {sel && (
+        <div style={{ background: 'var(--bg2)', borderRadius: 6, padding: '6px 10px', fontSize: 13, color: 'var(--text-2)', marginBottom: 4 }}>
+          제품(내용물): <b style={{ color: 'var(--text)' }}>{sel.content || '비어있음'}</b>
+          <span style={{ fontSize: 11, marginLeft: 8 }}>(제품명 변경은 Canister 수정에서만 가능)</span>
+        </div>
+      )}
       <Field label="구분" required>
         <Select value={f.type} onChange={(e) => set('type', e.target.value)}>
           {meta.canisterMoveTypes.map((t) => <option key={t} value={t}>{t}</option>)}
@@ -345,9 +341,6 @@ function MoveForm({ meta, canisters, onClose, onSaved, onError }) {
       </Field>
       {f.type !== '상태변경' && (
         <>
-          <Field label="제품명">
-            <EtcSelect options={meta.canisterContents || []} value={f.content} etc={f.contentEtc || ''} onChange={(v, etc) => setF((p) => ({ ...p, content: v, contentEtc: etc || '' }))} placeholder="내용물 직접 입력" />
-          </Field>
           {sel && (
             <BalanceBox
               cur={Number(sel.weight) || 0}
@@ -360,7 +353,7 @@ function MoveForm({ meta, canisters, onClose, onSaved, onError }) {
           )}
           <Field label={f.type === '반입' ? '반입 무게' : '반출 무게'} required>
             <div style={{ display: 'flex', gap: 6 }}>
-              <TextInput type="number" value={f.weight} onChange={(e) => set('weight', e.target.value)} placeholder="0" />
+              <TextInput type="number" value={f.weight} onChange={(e) => set('weight', e.target.value)} placeholder="0" autoFocus />
               {f.type === '반출' && sel && <button type="button" className="btn secondary sm" style={{ whiteSpace: 'nowrap' }} onClick={() => set('weight', String(Number(sel.weight) || 0))}>전량</button>}
             </div>
           </Field>
@@ -387,20 +380,21 @@ function MoveForm({ meta, canisters, onClose, onSaved, onError }) {
 }
 
 function CanisterEditForm({ meta, item, onClose, onSaved, onError }) {
-  const [f, setF] = useState({ canisterNo: item.canisterNo, size: item.size, sizeEtc: item.sizeEtc || '', note: item.note || '' });
+  const [f, setF] = useState({ canisterNo: item.canisterNo, size: item.size, sizeEtc: item.sizeEtc || '', content: item.content || '', contentEtc: '', note: item.note || '' });
   const [busy, setBusy] = useState(false);
   async function submit() {
     if (!f.canisterNo.trim()) return onError('Canister No.를 입력하세요.');
     setBusy(true);
+    const content = f.content === '기타' ? (f.contentEtc || '').trim() : f.content;
     try {
-      await api.patch('/canisters/' + item.id, { canisterNo: f.canisterNo.trim(), size: f.size, sizeEtc: f.sizeEtc, note: f.note });
+      await api.patch('/canisters/' + item.id, { canisterNo: f.canisterNo.trim(), size: f.size, sizeEtc: f.sizeEtc, content, note: f.note });
       onSaved();
     } catch (e) { onError(e.message); } finally { setBusy(false); }
   }
   return (
     <Modal
       title={`Canister 수정 — ${item.canisterNo}`}
-      subtitle="No.·사이즈는 관리자만 변경할 수 있습니다. (위치/상태는 이력 등록에서)"
+      subtitle="제품명·No.·사이즈는 관리자만 변경할 수 있습니다."
       onClose={onClose}
       footer={<>
         <button className="btn secondary" onClick={onClose}>취소</button>
@@ -409,6 +403,9 @@ function CanisterEditForm({ meta, item, onClose, onSaved, onError }) {
     >
       <Field label="Canister No." required>
         <TextInput value={f.canisterNo} onChange={(e) => setF((p) => ({ ...p, canisterNo: e.target.value }))} autoFocus />
+      </Field>
+      <Field label="제품명(내용물)" hint="이력 등록에서는 변경 불가 — 여기서만 수정">
+        <EtcSelect options={meta.canisterContents || []} value={f.content} etc={f.contentEtc} onChange={(v, etc) => setF((p) => ({ ...p, content: v, contentEtc: etc || '' }))} placeholder="내용물 직접 입력" />
       </Field>
       <Field label="용기 사이즈" required>
         <EtcSelect options={meta.canisterSizes} value={f.size} etc={f.sizeEtc} onChange={(v, etc) => setF((p) => ({ ...p, size: v, sizeEtc: etc }))} placeholder="사이즈 입력" />

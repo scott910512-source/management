@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api, downloadCsv } from '../api';
 import { Loading, Empty, Badge, statusColor, useToast, Modal, Field, TextInput, Select } from '../components/ui';
-import { EtcSelect } from '../components/inputs';
+import { EtcSelect, BalanceBox } from '../components/inputs';
 import { useAuth } from '../auth/AuthContext';
 
 const typeColor = { 반입: 'green', 반출: 'orange', 상태변경: 'purple' };
@@ -101,16 +101,19 @@ export default function CanisterDetail() {
 
 function DetailMoveForm({ meta, item, onClose, onSaved, onError }) {
   const [f, setF] = useState({
-    type: '반출', content: item.content || '', weight: '',
+    type: '반출', weight: '',
     location: item.location, locationEtc: item.locationEtc || '',
     status: item.status, statusEtc: item.statusEtc || '', note: '',
   });
   const [txDate, setTxDate] = useState(new Date().toISOString().slice(0, 10));
   const [busy, setBusy] = useState(false);
   const set = (k, v) => setF((p) => ({ ...p, [k]: v }));
+  const cur = Number(item.weight) || 0;
+  const over = f.type === '반출' && Number(f.weight) > cur;
 
   async function submit() {
     if (f.type !== '상태변경' && (!f.weight || Number(f.weight) <= 0)) return onError('무게를 입력하세요.');
+    if (over) return onError('반출 무게가 현재 내용물 무게를 초과합니다.');
     setBusy(true);
     try {
       await api.post(`/canisters/${item.id}/move`, { ...f, weight: f.weight === '' ? 0 : Number(f.weight), txDate });
@@ -121,40 +124,50 @@ function DetailMoveForm({ meta, item, onClose, onSaved, onError }) {
   return (
     <Modal
       title={`반입/반출 등록 — ${item.canisterNo}`}
-      subtitle={`현재: ${item.content || '비어있음'} · ${Number(item.weight || 0).toLocaleString()}`}
+      subtitle={`현재: ${item.content || '비어있음'} · ${cur.toLocaleString()} · ${item.locationLabel} · ${item.statusLabel}`}
       onClose={onClose}
       footer={<>
         <button className="btn secondary" onClick={onClose}>취소</button>
-        <button className="btn" onClick={submit} disabled={busy}>{busy ? '처리 중…' : '이력 기록'}</button>
+        <button className="btn" onClick={submit} disabled={busy || over}>{busy ? '처리 중…' : '이력 기록'}</button>
       </>}
     >
+      {/* 제품명 읽기전용 표시 */}
+      <div style={{ background: 'var(--bg2)', borderRadius: 6, padding: '6px 10px', fontSize: 13, color: 'var(--text-2)', marginBottom: 8 }}>
+        제품(내용물): <b style={{ color: 'var(--text)' }}>{item.content || '비어있음'}</b>
+        <span style={{ fontSize: 11, marginLeft: 8 }}>(제품명 변경은 수정에서만 가능)</span>
+      </div>
       <Field label="구분" required>
         <Select value={f.type} onChange={(e) => set('type', e.target.value)}>
           {meta.canisterMoveTypes.map((t) => <option key={t} value={t}>{t}</option>)}
         </Select>
       </Field>
       {f.type !== '상태변경' && (
-        <div className="form-row">
-          <Field label="제품(내용물)">
-            <TextInput value={f.content} onChange={(e) => set('content', e.target.value)} />
+        <>
+          <BalanceBox cur={cur} qty={Number(f.weight) || 0} type={f.type} unit={item.unit || 'kg'} over={over} hasQty={!!f.weight} />
+          <Field label={f.type === '반입' ? '반입 무게' : '반출 무게'} required error={over ? '현재 무게를 초과했습니다.' : ''}>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <TextInput type="number" value={f.weight} onChange={(e) => set('weight', e.target.value)} placeholder="0" autoFocus />
+              {f.type === '반출' && <button type="button" className="btn secondary sm" style={{ whiteSpace: 'nowrap' }} onClick={() => set('weight', String(cur))}>전량</button>}
+            </div>
           </Field>
-          <Field label={f.type === '반입' ? '반입 무게' : '반출 무게'} required>
-            <TextInput type="number" value={f.weight} onChange={(e) => set('weight', e.target.value)} placeholder="0" />
-          </Field>
-        </div>
+        </>
       )}
-      <Field label="위치">
-        <EtcSelect options={meta.canisterLocations} value={f.location} etc={f.locationEtc} onChange={(v, etc) => setF((p) => ({ ...p, location: v, locationEtc: etc }))} />
-      </Field>
-      <Field label="상태">
-        <EtcSelect options={meta.canisterStatuses} value={f.status} etc={f.statusEtc} onChange={(v, etc) => setF((p) => ({ ...p, status: v, statusEtc: etc }))} />
-      </Field>
-      <Field label="이력 날짜" hint="실제 발생 날짜 (기본: 오늘)">
-        <TextInput type="date" value={txDate} onChange={(e) => setTxDate(e.target.value)} />
-      </Field>
-      <Field label="비고">
-        <TextInput value={f.note} onChange={(e) => set('note', e.target.value)} placeholder="예: 공정 사용 반출" />
-      </Field>
+      <div className="form-row">
+        <Field label="위치">
+          <EtcSelect options={meta.canisterLocations} value={f.location} etc={f.locationEtc} onChange={(v, etc) => setF((p) => ({ ...p, location: v, locationEtc: etc }))} />
+        </Field>
+        <Field label="상태">
+          <EtcSelect options={meta.canisterStatuses} value={f.status} etc={f.statusEtc} onChange={(v, etc) => setF((p) => ({ ...p, status: v, statusEtc: etc }))} />
+        </Field>
+      </div>
+      <div className="form-row">
+        <Field label="이력 날짜" hint="실제 발생 날짜 (기본: 오늘)">
+          <TextInput type="date" value={txDate} onChange={(e) => setTxDate(e.target.value)} />
+        </Field>
+        <Field label="비고">
+          <TextInput value={f.note} onChange={(e) => set('note', e.target.value)} placeholder="예: 공정 사용 반출" />
+        </Field>
+      </div>
     </Modal>
   );
 }
