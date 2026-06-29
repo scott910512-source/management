@@ -414,3 +414,13 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .dash-tight .card-head { padding: 10px 14px; }
 .dash-tight .quick-act { padding: 5px 8px; }
 .dash-tight .tbl.compact th, .dash-tight .tbl.compact td { padding-top: 5px; padding-bottom: 5px; }
+
+/* ===== 유해화학물질 일자별 입력 ===== */
+.haz-in { width: 76px; text-align: right; border: 1px solid #cfd4dc; border-radius: 6px; padding: 4px 7px; font-family: inherit; font-variant-numeric: tabular-nums; }
+.haz-note { width: 100%; min-width: 120px; border: 1px solid #cfd4dc; border-radius: 6px; padding: 4px 8px; font-family: inherit; }
+.haz-table .haz-month td { border-top: 1px solid var(--line); }
+
+/* ===== 메뉴얼 이미지 — 클릭하여 원본 보기 ===== */
+.manual .step img { cursor: zoom-in; transition: box-shadow .15s, transform .15s; }
+.manual .step img:hover { box-shadow: 0 6px 24px rgba(0,0,0,.16); transform: translateY(-1px); }
+.manual .img-hint { font-size: 11px; color: var(--text-3); margin-top: 4px; }

@@ -107,6 +107,25 @@ export function Badge({ children, color = '', dot = false }) {
   return <span className={`badge ${color} ${dot ? 'dot' : ''}`}>{children}</span>;
 }
 
+/* ===== 재고수준 신호등 (적/황/녹) ===== */
+export function SignalLight({ level, below, showPct = true }) {
+  // below(부족)=빨강, 여유 적음(<150%)=노랑, 충분=초록
+  const state = below ? 'red' : (level != null && level < 150 ? 'amber' : 'green');
+  const lit = { red: '#ff3b30', amber: '#ff9500', green: '#34c759' };
+  const label = { red: '부족', amber: '주의', green: '충분' };
+  const order = ['red', 'amber', 'green'];
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }} title={`재고수준 ${level == null ? '-' : level + '%'} · ${label[state]}`}>
+      <span style={{ display: 'inline-flex', gap: 3, padding: '2px 4px', background: '#f0f0f3', borderRadius: 8 }}>
+        {order.map((c) => (
+          <i key={c} style={{ width: 9, height: 9, borderRadius: '50%', background: c === state ? lit[c] : '#d2d2d7', boxShadow: c === state ? `0 0 4px ${lit[c]}` : 'none' }} />
+        ))}
+      </span>
+      {showPct && <b style={{ color: lit[state] }}>{level == null ? '–' : `${level}%`}</b>}
+    </span>
+  );
+}
+
 /* Canister 상태 → 색상 매핑 */
 export function statusColor(status) {
   switch (status) {

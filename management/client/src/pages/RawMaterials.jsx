@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, Fragment } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api, downloadCsv } from '../api';
 import { useAuth } from '../auth/AuthContext';
-import { Modal, Field, TextInput, Select, useToast, ConfirmDialog, Empty, Loading, Badge } from '../components/ui';
+import { Modal, Field, TextInput, Select, useToast, ConfirmDialog, Empty, Loading, Badge, SignalLight } from '../components/ui';
 import { UnitInput, ItemSelect, expandLot, BalanceBox, BatchFields } from '../components/inputs';
 import { TrendModal } from '../components/TrendModal';
 import { UseModal } from '../components/UseModal';
@@ -117,7 +117,7 @@ export default function RawMaterials() {
                     <td><b>{s.name}</b>{!s.isMaster && <span className="muted" style={{ fontWeight: 400 }}> (기타)</span>}</td>
                     <td className="num"><b>{s.totalQuantity.toLocaleString()}</b> <span className="muted">{s.unit}</span></td>
                     <td className="num">
-                      {s.level == null ? <span className="muted">–</span> : <b style={{ color: s.below ? 'var(--red)' : 'var(--green)' }}>{s.level}%</b>}
+                      <span style={{ display: 'inline-flex', justifyContent: 'flex-end', width: '100%' }}><SignalLight level={s.level} below={s.below} /></span>
                     </td>
                     <td className="num muted">{s.safetyStock ? s.safetyStock.toLocaleString() : '–'}{s.warningPct ? <span className="muted" style={{fontSize:11}}> ({s.warningPct}%)</span> : ''}</td>
                     <td className="num muted">{s.lots}</td>

@@ -6,7 +6,14 @@ function Step({ title, children, img }) {
       <h2>{title}</h2>
       <div className="step">
         <div className="txt">{children}</div>
-        {img && <img src={`${G}/${img}`} alt={title} loading="lazy" />}
+        {img && (
+          <div>
+            <a href={`${G}/${img}`} target="_blank" rel="noreferrer" title="클릭하면 원본 크기로 봅니다">
+              <img src={`${G}/${img}`} alt={title} loading="lazy" />
+            </a>
+            <div className="img-hint">🔍 이미지를 클릭하면 크게 볼 수 있습니다</div>
+          </div>
+        )}
       </div>
     </>
   );

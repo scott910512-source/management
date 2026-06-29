@@ -167,25 +167,29 @@ export default function Admin() {
 
 function SafetyRatioCard({ toast }) {
   const [ratio, setRatio] = useState('');
+  const [roll, setRoll] = useState('');
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
-    api.get('/settings').then((d) => { setRatio(d.settings.safetyRatioPercent); setLoaded(true); });
+    api.get('/settings').then((d) => { setRatio(d.settings.safetyRatioPercent); setRoll(d.settings.warningRollSeconds || '4'); setLoaded(true); });
   }, []);
   async function save() {
     setBusy(true);
-    try { await api.patch('/settings', { safetyRatioPercent: Number(ratio) }); toast.ok('경고 비율을 저장했습니다.'); }
+    try { await api.patch('/settings', { safetyRatioPercent: Number(ratio), warningRollSeconds: Number(roll) }); toast.ok('설정을 저장했습니다.'); }
     catch (e) { toast.err(e.message); } finally { setBusy(false); }
   }
   return (
     <div className="card card-pad" style={{ marginBottom: 16, maxWidth: 560 }}>
-      <h3 style={{ marginBottom: 6 }}>안전재고 경고 비율</h3>
+      <h3 style={{ marginBottom: 6 }}>안전재고 경고 · 상단 경고 표시</h3>
       <p className="hint" style={{ marginBottom: 14 }}>
         품목별 <b>안전재고 목표값</b>은 [기준정보]에서 설정합니다. 현재 재고가 <b>(목표값 × 비율%)</b> 미만이면 경고합니다.
       </p>
       <Field label="경고 비율 (%)" hint="예: 100 → 목표값 미만 시 경고 / 120 → 목표값의 1.2배 미만 시 경고">
+        <TextInput type="number" value={ratio} onChange={(e) => setRatio(e.target.value)} disabled={!loaded} style={{ maxWidth: 200 }} />
+      </Field>
+      <Field label="상단 경고 자동 넘김 간격 (초)" hint="여러 경고가 있을 때 다음 경고로 넘어가는 시간 (1~60초). 클수록 천천히 넘어갑니다.">
         <div className="form-row" style={{ maxWidth: 260 }}>
-          <TextInput type="number" value={ratio} onChange={(e) => setRatio(e.target.value)} disabled={!loaded} />
+          <TextInput type="number" min="1" max="60" value={roll} onChange={(e) => setRoll(e.target.value)} disabled={!loaded} />
           <button className="btn" onClick={save} disabled={busy || !loaded}>{busy ? '저장 중…' : '저장'}</button>
         </div>
       </Field>
@@ -274,6 +278,7 @@ function StockCheckCard() {
 
 const KEY_LABELS = {
   safetyRatioPercent: '안전재고 경고 비율',
+  warningRollSeconds: '상단 경고 자동 넘김 간격(초)',
   canisterDefaultSize: 'Canister 기본 사이즈',
   canisterDefaultLocation: 'Canister 기본 위치',
   canisterDefaultStatus: 'Canister 기본 상태',

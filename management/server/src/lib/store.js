@@ -25,6 +25,8 @@ const TABLES = {
   tasks: ['id', 'title', 'category', 'categoryEtc', 'priority', 'assignee', 'dueDate', 'status', 'note', 'recurringId', 'period', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt'],
   // 정기(반복) 업무 템플릿 — 주기(일/주/월)마다 Task 자동 생성
   recurring_tasks: ['id', 'title', 'category', 'categoryEtc', 'priority', 'assignee', 'note', 'cycle', 'weekday', 'monthday', 'active', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt'],
+  // 유해화학물질 일자별 관리대장 수동 입력/정정 (수불 자동집계를 덮어쓰는 임시입력)
+  hazardous_ledger: ['id', 'itemName', 'date', 'carryOver', 'inQty', 'outQty', 'balance', 'note', 'updatedBy', 'updatedAt'],
   warning_acks: ['id', 'warningKey', 'account', 'content', 'createdAt'],
   warning_dismissed: ['id', 'warningKey', 'account', 'content', 'createdAt'],
   settings_log: ['id', 'key', 'oldValue', 'newValue', 'changedBy', 'createdAt'],

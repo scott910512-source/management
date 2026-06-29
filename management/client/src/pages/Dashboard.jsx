@@ -49,14 +49,16 @@ export default function Dashboard() {
   const [warnIdx, setWarnIdx] = useState(0); // 경고 롤 현재 인덱스
   const [warnOpen, setWarnOpen] = useState(false); // 경고 전체 펼침
   const [topSlot, setTopSlot] = useState(null); // 상단바 경고 슬롯(포털 대상)
+  const [rollSec, setRollSec] = useState(4); // 경고 롤 간격(초) — 관리자설정
   useEffect(() => { setTopSlot(document.getElementById('topbar-slot')); }, []);
+  useEffect(() => { api.get('/settings').then((d) => setRollSec(Number(d.settings.warningRollSeconds) || 4)).catch(() => {}); }, []);
 
-  // 경고 자동 롤(여러 개면 4초마다 다음 경고로) — 펼침 상태에서는 정지
+  // 경고 자동 롤(여러 개면 설정 간격마다 다음 경고로) — 펼침 상태에서는 정지
   useEffect(() => {
     if (warnOpen || !warnings || warnings.length <= 1) return;
-    const id = setInterval(() => setWarnIdx((i) => (i + 1) % warnings.length), 4000);
+    const id = setInterval(() => setWarnIdx((i) => (i + 1) % warnings.length), Math.max(1, rollSec) * 1000);
     return () => clearInterval(id);
-  }, [warnOpen, warnings]);
+  }, [warnOpen, warnings, rollSec]);
 
   const loadWarnings = useCallback(() => api.get('/warnings').then((d) => setWarnings(d.items)), []);
   const loadTasks = useCallback(() => api.get('/tasks?all=1').then((d) => setTasks(d.items)), []);
@@ -159,8 +161,8 @@ export default function Dashboard() {
       {/* 경고 → 상단바(타이틀 우측)로 포털 */}
       {topSlot && createPortal(topWarn, topSlot)}
 
-      {/* 최상단(타이틀 제외): 퀵메뉴 · 진행 Task · AI검색 가로 배치 */}
-      <div className={`grid ${canWrite ? 'grid-3' : 'grid-2'}`} style={{ marginBottom: 8, alignItems: 'stretch' }}>
+      {/* 최상단: 퀵메뉴(좌, 좁게) + 진행 Task(우, 넓게) */}
+      <div className="grid" style={{ marginBottom: 8, alignItems: 'stretch', gridTemplateColumns: canWrite ? 'minmax(280px, 1fr) 2fr' : '1fr' }}>
         {canWrite && (
           <div className="card card-pad" style={{ marginBottom: 0 }}>
             <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-2)', marginBottom: 10 }}>퀵 입력</div>
@@ -173,9 +175,11 @@ export default function Dashboard() {
           </div>
         )}
         {taskPanel}
-        <div className="card card-pad" style={{ marginBottom: 0 }}>
-          <SmartSearch inline />
-        </div>
+      </div>
+
+      {/* AI 자연어 검색 — 하단 전체폭 */}
+      <div className="card card-pad" style={{ marginBottom: 8 }}>
+        <SmartSearch inline />
       </div>
 
       {/* 요약 현황 — 원·부재료(좌) + Canister(우) */}

@@ -11,6 +11,7 @@ const router = express.Router();
 
 const DEFAULTS = {
   safetyRatioPercent: '100',
+  warningRollSeconds: '4', // 상단 경고 자동 롤 간격(초)
   canisterDefaultSize: '50L',
   canisterDefaultLocation: '2공장현장',
   canisterDefaultStatus: '수령',
@@ -62,6 +63,12 @@ router.patch(
         if (Number.isNaN(p) || p < 0 || p > 1000) throw badRequest('안전재고 비율(%)은 0~1000 사이여야 합니다.');
         if (String(p) !== String(before.safetyRatioPercent)) changed.push({ key: 'safetyRatioPercent', old: before.safetyRatioPercent, nv: String(p) });
         setKey(rows, 'safetyRatioPercent', p);
+      }
+      if (req.body.warningRollSeconds !== undefined) {
+        const s = num(req.body.warningRollSeconds);
+        if (Number.isNaN(s) || s < 1 || s > 60) throw badRequest('경고 롤 간격(초)은 1~60 사이여야 합니다.');
+        if (String(s) !== String(before.warningRollSeconds)) changed.push({ key: 'warningRollSeconds', old: before.warningRollSeconds, nv: String(s) });
+        setKey(rows, 'warningRollSeconds', s);
       }
       for (const k of STRING_KEYS) {
         if (req.body[k] !== undefined) {
