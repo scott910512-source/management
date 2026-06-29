@@ -17,6 +17,7 @@ function BulkModal({ products, onClose, onDone }) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [fifoWarn, setFifoWarn] = useState(null); // { violations, payload }
+  const [showLot, setShowLot] = useState(false); // Lot 직접 지정 표시 여부(기본 숨김)
 
   const key = (m) => `${m.category}|${m.name}`;
 
@@ -108,7 +109,7 @@ function BulkModal({ products, onClose, onDone }) {
    <>
     <Modal
       title="배치 일괄 처리"
-      subtitle="제품(사용처)의 BOM 자재를 여러 배치에 한 번에 출고 — 기본 FIFO 자동, Lot 직접 선택 가능"
+      subtitle="제품을 고르면 BOM 자재가 자동으로 채워집니다. 출고는 오래된 Lot부터 자동 처리됩니다."
       size="lg"
       onClose={onClose}
       footer={
@@ -134,7 +135,12 @@ function BulkModal({ products, onClose, onDone }) {
           <label>합성 시작일</label>
           <input className="input" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
         </div>
-        {mats && <div style={{ marginLeft: 'auto', fontSize: 13, color: 'var(--text-2)' }}>BOM 자재 <b>{mats.length}종</b> 자동 로드 · 다음 배치번호 <b>#{nextNo}</b></div>}
+        {mats && mats.length > 0 && (
+          <label style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-2)', cursor: 'pointer' }}>
+            <input type="checkbox" checked={showLot} onChange={(e) => setShowLot(e.target.checked)} />
+            Lot 직접 지정
+          </label>
+        )}
       </div>
 
       {loading && <Loading />}
@@ -149,21 +155,10 @@ function BulkModal({ products, onClose, onDone }) {
                 {mats.map((m) => (
                   <th key={key(m)}>
                     <div className="bm-mat">{m.name}</div>
-                    <div className="bm-meta">{catLabel(m.category)} · {m.unit}</div>
-                    <div className="bm-meta">BOM {m.qtyPerBatch}{m.unit} / 배치</div>
+                    <div className="bm-meta">재고 {m.stock.toLocaleString()}{m.unit} · BOM {m.qtyPerBatch}</div>
                   </th>
                 ))}
                 <th className="bm-del"></th>
-              </tr>
-              <tr className="bm-stockrow">
-                <th>현재 재고</th>
-                {mats.map((m) => (
-                  <th key={key(m)}>
-                    <b>{m.stock.toLocaleString()}</b> {m.unit}
-                    <div className="bm-meta">{m.oldestLot ? `${m.oldestLot} 우선` : 'Lot 없음'}</div>
-                  </th>
-                ))}
-                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -184,17 +179,19 @@ function BulkModal({ products, onClose, onDone }) {
                           value={r.qty[k] ?? ''}
                           onChange={(e) => setQty(i, k, e.target.value === '' ? '' : Number(e.target.value))}
                         />
-                        <select
-                          className={`bm-lot ${manual ? 'on' : ''}`}
-                          value={manual || ''}
-                          onChange={(e) => setLot(i, k, e.target.value)}
-                          title="Lot 선택 — 기본은 자동(FIFO)"
-                        >
-                          <option value="">자동 (FIFO)</option>
-                          {(m.lots || []).map((l) => (
-                            <option key={l.lotNo} value={l.lotNo}>{l.lotNo} · {l.quantity.toLocaleString()}{m.unit}</option>
-                          ))}
-                        </select>
+                        {showLot && (
+                          <select
+                            className={`bm-lot ${manual ? 'on' : ''}`}
+                            value={manual || ''}
+                            onChange={(e) => setLot(i, k, e.target.value)}
+                            title="Lot 선택 — 기본은 자동(FIFO)"
+                          >
+                            <option value="">자동 (FIFO)</option>
+                            {(m.lots || []).map((l) => (
+                              <option key={l.lotNo} value={l.lotNo}>{l.lotNo} · {l.quantity.toLocaleString()}{m.unit}</option>
+                            ))}
+                          </select>
+                        )}
                       </td>
                     );
                   })}
@@ -203,16 +200,11 @@ function BulkModal({ products, onClose, onDone }) {
                   </td>
                 </tr>
               ))}
-              <tr className="bm-sum">
-                <td>총 사용량</td>
-                {mats.map((m) => { const t = totals[key(m)]; return <td key={key(m)}>{t.sum.toLocaleString()} {m.unit}</td>; })}
-                <td></td>
-              </tr>
               <tr className="bm-after">
                 <td>차감 후 잔량</td>
                 {mats.map((m) => {
                   const t = totals[key(m)];
-                  return <td key={key(m)} className={t.short ? 'bm-short' : ''}>{t.after.toLocaleString()} {m.unit}{t.short ? ' ⚠' : ''}</td>;
+                  return <td key={key(m)} className={t.short ? 'bm-short' : ''}><b>{t.after.toLocaleString()}</b> {m.unit}{t.short ? ' ⚠' : ''}</td>;
                 })}
                 <td></td>
               </tr>
