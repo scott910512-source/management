@@ -191,7 +191,7 @@ export default function RawMaterials() {
                   <tr className={`group-row ${lowSet.has(g.name) ? 'row-low' : ''}`}>
                     <td style={{ paddingLeft: 20 }}>📦 <b>{g.name}</b> · {g.lots.length} Lot {lowSet.has(g.name) && <span className="badge red" style={{ marginLeft: 4 }}>안전재고 부족</span>}</td>
                     <td className="num">
-                      {totalPkg > 0
+                      {totalPkg > 1
                         ? <><b>{totalPkg.toLocaleString()}{pkgType}</b> <span className="muted">/ {totalQty.toLocaleString()}{unit}</span></>
                         : <b>{totalQty.toLocaleString()}</b>}
                     </td>
@@ -206,7 +206,7 @@ export default function RawMaterials() {
                     <tr key={r.id}>
                       <td style={{ paddingLeft: 24 }}><Badge color="blue">{r.lotNo}</Badge></td>
                       <td className="num">
-                        {r.pkgCount && Number(r.pkgCount) > 0
+                        {r.pkgCount && Number(r.pkgCount) > 1
                           ? <><b>{Number(r.pkgCount).toLocaleString()}</b><span className="muted">{r.pkgType || 'pkg'}</span> <span className="muted">({Number(r.quantity).toLocaleString()}{r.unit})</span></>
                           : <>{Number(r.quantity).toLocaleString()}</>}
                       </td>
