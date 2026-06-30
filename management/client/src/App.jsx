@@ -6,6 +6,7 @@ import { Icon } from './components/icons';
 import { api } from './api';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
+import Hub from './pages/Hub';
 import Dashboard from './pages/Dashboard';
 import RawMaterials from './pages/RawMaterials';
 import SubMaterials from './pages/SubMaterials';
@@ -22,6 +23,9 @@ import Hazardous from './pages/Hazardous';
 import Suggestions from './pages/Suggestions';
 import Reports from './pages/Reports';
 import BatchBulk from './pages/BatchBulk';
+import ProdSearch from './pages/production/ProdSearch';
+import ProdDashboard from './pages/production/ProdDashboard';
+import ProdManufacturing from './pages/production/ProdManufacturing';
 
 // 큰 묶음 단위로 그룹화 — 그룹마다 테두리로 구분
 const NAV_GROUPS = [
@@ -155,13 +159,121 @@ function Protected({ children, title, adminOnly }) {
   return <Shell title={title}>{children}</Shell>;
 }
 
+const PROD_NAV = [
+  { to: '/production/search', label: 'AI 검색', ico: 'search' },
+  { to: '/production', label: '종합현황', ico: 'grid', end: true },
+  { title: '생산관리', items: [
+    { to: '/production/manufacturing', label: '생산현황', ico: 'task' },
+  ] },
+];
+
+function ProdSidebar() {
+  const { user, plant, roleLabel } = useAuth();
+  const [mini, setMini] = useState(() => localStorage.getItem('prodSidebarMini') === '1');
+  useEffect(() => { localStorage.setItem('prodSidebarMini', mini ? '1' : '0'); }, [mini]);
+
+  return (
+    <aside className={`sidebar ${mini ? 'mini' : ''}`}>
+      <div className="brand-row">
+        <Link to="/hub" className="brand" title="허브로 이동">
+          <div className="brand-logo">
+            <svg viewBox="0 0 34 34" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: '100%', height: '100%' }}>
+              <polygon points="3,14 17,5 31,14" fill="rgba(255,255,255,0.25)" stroke="#fff" strokeWidth="1.8" strokeLinejoin="round" />
+              <rect x="3" y="14" width="28" height="16" rx="1" stroke="#fff" strokeWidth="1.8" />
+              <rect x="13" y="20" width="8" height="10" rx="1" fill="#fff" />
+              <rect x="4" y="18" width="7" height="6" rx="0.5" fill="rgba(255,255,255,0.7)" />
+              <rect x="23" y="18" width="7" height="6" rx="0.5" fill="rgba(255,255,255,0.7)" />
+            </svg>
+          </div>
+          <div className="brand-text">
+            <div className="brand-title">생산관리</div>
+            <div className="brand-sub">← 허브로 돌아가기</div>
+          </div>
+        </Link>
+        <button className="sidebar-toggle" onClick={() => setMini((v) => !v)} title={mini ? '메뉴 펼치기' : '메뉴 최소화'} aria-label="메뉴 최소화">
+          {mini ? '»' : '«'}
+        </button>
+      </div>
+
+      {plant && (
+        <div className="plant-pick">
+          <span className="plant-label">공장</span>
+          <span className="plant-single">{plant}</span>
+        </div>
+      )}
+
+      <nav className="nav">
+        {PROD_NAV.map((n, i) =>
+          n.items ? (
+            <div className="nav-group" key={i}>
+              <div className="nav-section">{n.title}</div>
+              {n.items.map((item) => (
+                <NavLink key={item.to} to={item.to} end={item.end} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} title={item.label}>
+                  <span className="ico"><Icon name={item.ico} /></span>
+                  <span className="nav-label">{item.label}</span>
+                </NavLink>
+              ))}
+            </div>
+          ) : (
+            <div className="nav-group" key={i}>
+              <NavLink to={n.to} end={n.end} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} title={n.label}>
+                <span className="ico"><Icon name={n.ico} /></span>
+                <span className="nav-label">{n.label}</span>
+              </NavLink>
+            </div>
+          )
+        )}
+      </nav>
+
+      <div className="sidebar-user">{user?.name} 님<span> · {roleLabel}</span></div>
+    </aside>
+  );
+}
+
+function ProdShell({ children, title }) {
+  const { user, logout, isViewer } = useAuth();
+  const navigate = useNavigate();
+  return (
+    <div className="app-shell">
+      <ProdSidebar />
+      <div className="main">
+        <div className="topbar">
+          <h1>{title}</h1>
+          <div className="topbar-slot" id="topbar-slot" />
+          <div className="user">
+            {isViewer && <span className="badge orange">조회 전용</span>}
+            <span>{user?.name} ({user?.id})</span>
+            <button className="btn secondary sm" onClick={async () => { await logout(); navigate('/login'); }}>로그아웃</button>
+          </div>
+        </div>
+        <div className="content">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function ProtectedProd({ children, title }) {
+  const { user, loading } = useAuth();
+  if (loading) return <Loading />;
+  if (!user) return <Navigate to="/login" replace />;
+  return <ProdShell title={title}>{children}</ProdShell>;
+}
+
+function ProtectedHub({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) return <Loading />;
+  if (!user) return <Navigate to="/login" replace />;
+  return children;
+}
+
 export default function App() {
   const { user, loading } = useAuth();
   if (loading) return <Loading />;
   return (
     <Routes>
-      <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
-      <Route path="/signup" element={user ? <Navigate to="/" replace /> : <Signup />} />
+      <Route path="/login" element={user ? <Navigate to="/hub" replace /> : <Login />} />
+      <Route path="/signup" element={user ? <Navigate to="/hub" replace /> : <Signup />} />
+      <Route path="/hub" element={<ProtectedHub><Hub /></ProtectedHub>} />
       <Route path="/" element={<Protected title="종합현황"><Dashboard /></Protected>} />
       <Route path="/search" element={<Protected title="AI 검색"><Search /></Protected>} />
       <Route path="/manual" element={<Protected title="사용자 메뉴얼"><Manual /></Protected>} />
@@ -180,7 +292,10 @@ export default function App() {
       <Route path="/items" element={<Protected title="기준정보 (품목·안전재고)" adminOnly><Items /></Protected>} />
       <Route path="/admin" element={<Protected title="관리자 설정" adminOnly><Admin /></Protected>} />
       <Route path="/settings" element={<Navigate to="/admin" replace />} />
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="/production" element={<ProtectedProd title="종합현황"><ProdDashboard /></ProtectedProd>} />
+      <Route path="/production/search" element={<ProtectedProd title="AI 검색"><ProdSearch /></ProtectedProd>} />
+      <Route path="/production/manufacturing" element={<ProtectedProd title="생산현황"><ProdManufacturing /></ProtectedProd>} />
+      <Route path="*" element={<Navigate to="/hub" replace />} />
     </Routes>
   );
 }
