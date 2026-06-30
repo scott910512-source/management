@@ -477,11 +477,12 @@ export default function ProdDashboard() {
       {/* ── 최상단: 롤링 경고 배너 ── */}
       <RollingAlerts alerts={alerts} />
 
-      {/* ── 상단 상태바: 파일 · 수정시간 · 수동 갱신 ── */}
-      <div style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 10, fontSize: 11, color: '#86868b' }}>
+      {/* ── 상단 상태바: 기준일 · 파일 · 수동 갱신 ── */}
+      <div style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 10, fontSize: 12 }}>
         <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#34c759', display: 'inline-block' }} />
-        {source === 'demo' ? '데모 데이터' : source ? `파일: ${source}` : '–'}
-        {mtime && <span>· 수정: {mtime.slice(0, 16).replace('T', ' ')}</span>}
+        <span style={{ fontWeight: 700, color: '#1d1d1f' }}>📅 기준일 {data.reportDate || (mtime ? mtime.slice(0, 10) : '–')}</span>
+        <span style={{ color: '#86868b' }}>· CSV 갱신 {mtime ? mtime.slice(0, 16).replace('T', ' ') : '–'}</span>
+        <span style={{ color: '#86868b' }}>· {source === 'demo' ? '데모 데이터' : source || '–'}</span>
         <button className="btn secondary sm" onClick={() => load()} style={{ marginLeft: 'auto' }}>🔄 수동 갱신</button>
       </div>
 
@@ -604,6 +605,22 @@ export default function ProdDashboard() {
                                 <div style={{ height: 4, borderRadius: 3, background: d.color, width: `${Math.min(100, r || 0)}%` }} />
                               </div>
                             </td>
+                          ) : c.key === 'yieldM' ? (
+                            (() => {
+                              const yOk = d.yield != null && d.yield >= (d.yieldTarget || 0);
+                              return (
+                                <td key={c.key} style={{ padding: '9px 10px', borderBottom: '1px solid #f5f5f7', minWidth: 150 }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <span style={{ width: 46, textAlign: 'right', fontWeight: 700, fontSize: 13, color: yOk ? '#1d1d1f' : '#ff3b30' }}>{pct(d.yield)}</span>
+                                    <div style={{ flex: 1, position: 'relative', background: '#e9e9ee', borderRadius: 5, height: 8, minWidth: 56 }}>
+                                      <div style={{ height: 8, borderRadius: 5, background: d.color, width: `${Math.min(100, d.yield || 0)}%` }} />
+                                      {d.yieldTarget != null && <div style={{ position: 'absolute', top: -2, height: 12, width: 2, background: '#ff3b30', borderRadius: 1, left: `${Math.min(100, d.yieldTarget)}%` }} />}
+                                    </div>
+                                  </div>
+                                  {d.yieldTarget != null && <div style={{ fontSize: 9, color: yOk ? '#86868b' : '#ff3b30', marginTop: 2, textAlign: 'right' }}>목표 {pct(d.yieldTarget)}{yOk ? ' ✓' : ' 미달'}</div>}
+                                </td>
+                              );
+                            })()
                           ) : (
                             <td key={c.key} style={{ padding: '9px 10px', borderBottom: '1px solid #f5f5f7', textAlign: 'center', fontSize: 14, fontWeight: c.key === 'mAct' ? 600 : 400, color: c.key === 'cumRate' ? '#0071e3' : c.key === 'batch' ? '#6e6e73' : '#1d1d1f' }}>
                               {colValue(c.key, d)}
