@@ -19,7 +19,7 @@ export default function Login() {
     try {
       await login(id.trim(), password);
       toast.ok('로그인되었습니다.');
-      navigate('/');
+      navigate('/hub');
     } catch (err) {
       setError(err.message);
     } finally {
