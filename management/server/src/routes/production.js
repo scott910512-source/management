@@ -481,8 +481,30 @@ router.post(
     const cellMap = (req.body.cellMap !== undefined) ? req.body.cellMap : '';
     const data = parseDailyCsv(fs.readFileSync(csvPath, 'utf8'), cellMap);
     const found = data.products.filter((p) => data.byProduct[p] && data.byProduct[p].monthActual != null);
+
+    // 배치시트(월별 추이) 진단
+    let batchMsg;
+    const batchCsv = path.join(folderPath, 'batch-yield.csv');
+    if (!fs.existsSync(batchCsv)) {
+      batchMsg = 'batch-yield.csv 없음 (추출 스크립트 확인)';
+    } else {
+      let bm = {};
+      try { bm = cellMap ? JSON.parse(cellMap) : {}; } catch { bm = {}; }
+      const bp = (bm.batch && bm.batch.products) ? Object.keys(bm.batch.products) : [];
+      if (!bp.length) {
+        batchMsg = '배치시트 매핑 미설정 (품목별 열을 입력하세요)';
+      } else {
+        const mm = String(data.reportDate || '').match(/(\d{1,2})\s*월/);
+        mergeBatchYield(data, fs.readFileSync(batchCsv, 'utf8'), cellMap, mm ? parseInt(mm[1], 10) : null);
+        const withData = data.products.filter((p) => (data.byProduct[p].monthlyData || []).some((m) => m && m.actual));
+        const noMatch = bp.filter((p) => !data.products.includes(p));
+        batchMsg = `배치 매핑 품목 [${bp.join(', ')}] → 추이 인식 [${withData.length ? withData.join(', ') : '없음'}]`;
+        if (noMatch.length) batchMsg += ` · ⚠️ 종합현황 품목과 불일치: ${noMatch.join(', ')} (제품 목록과 철자 동일해야 함)`;
+      }
+    }
+
     res.json({
-      message: `daily-latest.csv 감지 완료 (보고일: ${data.reportDate || '?'}, 인식 품목: ${found.length ? found.join(', ') : '없음 — 셀 매핑 확인 필요'}, 수정일: ${new Date(st.mtimeMs).toLocaleString('ko-KR')})`,
+      message: `daily-latest.csv 감지 완료 (보고일: ${data.reportDate || '?'}, 인식 품목: ${found.length ? found.join(', ') : '없음 — 셀 매핑 확인 필요'}, 수정일: ${new Date(st.mtimeMs).toLocaleString('ko-KR')}) | ${batchMsg}`,
       file: csvPath,
     });
   }),
