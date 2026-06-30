@@ -44,6 +44,7 @@ export default function Admin() {
       <ProductionFileCard toast={toast} />
       <SafetyRatioCard toast={toast} />
       <StockCheckCard />
+      <LoginLogCard />
       <SettingsLogCard />
 
       {!isSuper && (
@@ -391,6 +392,105 @@ const KEY_LABELS = {
   productionFilePath: '생산관리 파일 경로',
   productionFileKeywords: '생산관리 파일 검색 키워드',
 };
+
+const RESULT_META = {
+  success: { label: '로그인 성공', color: '#1a7f3c', bg: '#e8f8ed' },
+  fail:    { label: '인증 실패',   color: '#c0001a', bg: '#ffe8e8' },
+  blocked: { label: '접근 차단',   color: '#9a5700', bg: '#fff4e0' },
+};
+
+function LoginLogCard() {
+  const [logs, setLogs] = useState(null);
+  const [open, setOpen] = useState(false);
+  const [filter, setFilter] = useState('all');
+
+  function load() {
+    api.get('/auth/login-logs?limit=500').then((d) => setLogs(d.items)).catch(() => setLogs([]));
+  }
+
+  useEffect(() => {
+    if (open && !logs) load();
+  }, [open]);
+
+  const filtered = logs
+    ? (filter === 'all' ? logs : logs.filter((r) => r.result === filter))
+    : [];
+
+  return (
+    <div className="card card-pad" style={{ marginBottom: 16, maxWidth: 840 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div>
+          <h3 style={{ margin: 0 }}>로그인 이력</h3>
+          <p className="hint" style={{ margin: '3px 0 0' }}>로그인 성공·실패·차단 이력을 최근 500건까지 확인합니다.</p>
+        </div>
+        <div className="btn-row">
+          {open && <button className="btn ghost sm" onClick={load}>새로고침</button>}
+          <button className="btn ghost sm" onClick={() => setOpen((v) => !v)}>{open ? '숨기기' : '펼치기'}</button>
+        </div>
+      </div>
+
+      {open && (
+        <div style={{ marginTop: 14 }}>
+          <div className="btn-row" style={{ marginBottom: 10 }}>
+            {['all', 'success', 'fail', 'blocked'].map((v) => (
+              <button
+                key={v}
+                className={`btn ghost sm${filter === v ? ' active' : ''}`}
+                onClick={() => setFilter(v)}
+                style={filter === v ? { background: 'var(--accent)', color: '#fff', borderColor: 'var(--accent)' } : {}}
+              >
+                {v === 'all' ? '전체' : RESULT_META[v].label}
+              </button>
+            ))}
+            {logs && (
+              <span className="muted" style={{ fontSize: 12, marginLeft: 4 }}>
+                {filtered.length}건 / 총 {logs.length}건
+              </span>
+            )}
+          </div>
+
+          {!logs ? <Loading /> : filtered.length === 0 ? <Empty>이력이 없습니다.</Empty> : (
+            <table className="tbl compact">
+              <thead>
+                <tr>
+                  <th style={{ width: 150 }}>일시</th>
+                  <th>아이디</th>
+                  <th>이름</th>
+                  <th>IP</th>
+                  <th style={{ width: 100 }}>결과</th>
+                  <th>비고</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((r) => {
+                  const m = RESULT_META[r.result] || { label: r.result, color: '#666', bg: '#f0f0f0' };
+                  return (
+                    <tr key={r.id}>
+                      <td className="muted" style={{ whiteSpace: 'nowrap' }}>
+                        {(r.createdAt || '').slice(0, 19).replace('T', ' ')}
+                      </td>
+                      <td><b>{r.userId}</b></td>
+                      <td>{r.userName || <span className="muted">–</span>}</td>
+                      <td className="muted" style={{ fontFamily: 'monospace', fontSize: 12 }}>{r.ip || '–'}</td>
+                      <td>
+                        <span style={{
+                          display: 'inline-block', padding: '2px 8px', borderRadius: 999,
+                          fontSize: 11, fontWeight: 700,
+                          color: m.color, background: m.bg,
+                        }}>{m.label}</span>
+                      </td>
+                      <td className="muted">{r.note || ''}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function SettingsLogCard() {
   const [logs, setLogs] = useState(null);

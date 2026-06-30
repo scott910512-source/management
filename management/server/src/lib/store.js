@@ -39,10 +39,12 @@ const TABLES = {
   // Lot 변경이력 — 수정/삭제 시 자동 기록
   raw_materials_changelog: ['id', 'lotId', 'itemName', 'lotNo', 'action', 'summary', 'changedBy', 'changedAt'],
   sub_materials_changelog: ['id', 'lotId', 'itemName', 'lotNo', 'action', 'summary', 'changedBy', 'changedAt'],
+  // 로그인 이력 — 전역(공장 공통), 관리자 조회 가능
+  login_logs: ['id', 'userId', 'userName', 'ip', 'result', 'note', 'createdAt'],
 };
 
 // 전역(공장 공통) 테이블 — 공장 하위 폴더가 아닌 DATA_DIR 루트에 저장
-const GLOBAL = new Set(['users']);
+const GLOBAL = new Set(['users', 'login_logs']);
 
 function headersOf(name) {
   const h = TABLES[name];
