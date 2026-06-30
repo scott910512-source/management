@@ -139,6 +139,103 @@ function DailyChart({ byProduct, products }) {
   );
 }
 
+// ── SVG 월별 선 차트 (생산량 또는 수율) ───────────────────────────
+// mode='prod': 품목별 + 총생산량 선, Y max = 총합×1.1
+// mode='yield': 품목별 수율 선(%), Y max = max(100, 최대수율×1.1)
+// 0/빈값은 점/선을 그리지 않고 공백으로 끊는다. 미래월은 회색 처리.
+function MonthlyLineChart({ byProduct, products, currentMonth, mode }) {
+  const W = 560, H = 250, PL = 46, PR = 64, PT = 16, PB = 26;
+  const iW = W - PL - PR, iH = H - PT - PB;
+  const M = 12;
+  const cur = currentMonth || 12;
+
+  const val = (p, m) => {
+    const md = byProduct[p]?.monthlyData?.[m - 1];
+    if (!md) return null;
+    const v = mode === 'yield' ? md.yield : md.actual;
+    return (v == null || v === 0) ? null : v;
+  };
+  const totals = Array.from({ length: M }, (_, i) => {
+    let s = 0, has = false;
+    for (const p of products) { const v = val(p, i + 1); if (v != null) { s += v; has = true; } }
+    return has ? s : null;
+  });
+  let maxV;
+  if (mode === 'yield') {
+    const mx = Math.max(0, ...products.flatMap((p) => Array.from({ length: M }, (_, i) => val(p, i + 1) || 0)));
+    maxV = Math.max(100, Math.ceil(mx * 1.1));
+  } else {
+    maxV = Math.max(1, ...totals.map((t) => t || 0)) * 1.1;
+  }
+  const toX = (m) => PL + ((m - 1) / (M - 1)) * iW;
+  const toY = (v) => PT + (1 - v / maxV) * iH;
+
+  const segsOf = (getter) => {
+    const segs = []; let curSeg = [];
+    for (let m = 1; m <= M; m++) {
+      const v = getter(m);
+      if (v != null) curSeg.push([toX(m), toY(v), m, v]);
+      else { if (curSeg.length) segs.push(curSeg); curSeg = []; }
+    }
+    if (curSeg.length) segs.push(curSeg);
+    return segs;
+  };
+
+  const series = products.map((p) => ({ key: p, color: byProduct[p]?.color || '#888', segs: segsOf((m) => val(p, m)) }));
+  if (mode === 'prod') series.push({ key: '총 생산량', color: '#3c3c43', total: true, segs: segsOf((m) => totals[m - 1]) });
+
+  const yTicks = [0, 0.25, 0.5, 0.75, 1].map((f) => Math.round(maxV * f));
+  const futureX = cur < M ? toX(cur) + (iW / (M - 1)) / 2 : null;
+  const fmtLabel = (v) => (mode === 'yield' ? `${Number(v).toFixed(1)}%` : Number(v).toLocaleString(undefined, { maximumFractionDigits: 0 }));
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto' }}>
+      {/* 미래월 회색 영역 */}
+      {futureX != null && (
+        <>
+          <rect x={futureX} y={PT} width={W - PR - futureX} height={iH} fill="#f5f5f7" />
+          <text x={(futureX + (W - PR)) / 2} y={PT + iH / 2} fontSize="9" fill="#b0b0b8" textAnchor="middle">데이터 없음</text>
+        </>
+      )}
+      {/* 격자 + Y라벨 */}
+      {yTicks.map((t, i) => {
+        const y = toY(t);
+        return (
+          <g key={i}>
+            <line x1={PL} y1={y} x2={W - PR} y2={y} stroke={i === 0 ? '#e5e5ea' : '#f0f0f5'} strokeWidth="1" />
+            <text x={PL - 5} y={y + 3} fontSize="8" fill="#86868b" textAnchor="end">{t.toLocaleString()}</text>
+          </g>
+        );
+      })}
+      {/* X라벨 */}
+      {Array.from({ length: M }, (_, i) => (
+        <text key={i} x={toX(i + 1)} y={H - 8} fontSize="8" fill="#86868b" textAnchor="middle">{i + 1}월</text>
+      ))}
+      {/* 선 + 점 + 끝값 라벨 */}
+      {series.map((s) => (
+        <g key={s.key}>
+          {s.segs.map((seg, si) => (
+            <g key={si}>
+              {seg.length >= 2 && <polyline points={seg.map((pt) => `${pt[0]},${pt[1]}`).join(' ')} fill="none" stroke={s.color} strokeWidth={s.total ? 2.6 : 1.8} strokeLinejoin="round" strokeLinecap="round" />}
+              {seg.map((pt, pi) => <circle key={pi} cx={pt[0]} cy={pt[1]} r={s.total ? 3 : 2.4} fill={s.color} />)}
+            </g>
+          ))}
+          {(() => {
+            const last = s.segs.length ? s.segs[s.segs.length - 1][s.segs[s.segs.length - 1].length - 1] : null;
+            if (!last) return null;
+            return (
+              <g>
+                <rect x={last[0] + 5} y={last[1] - 8} width={52} height={16} rx={3} fill={s.color} />
+                <text x={last[0] + 31} y={last[1] + 3.5} fontSize="9" fontWeight="700" fill="#fff" textAnchor="middle">{fmtLabel(last[3])}</text>
+              </g>
+            );
+          })()}
+        </g>
+      ))}
+    </svg>
+  );
+}
+
 // ── SVG 월별 바 차트 (미니) ───────────────────────────────────────
 function MonthlyMiniChart({ byProduct, products }) {
   const W = 540, H = 72, PL = 36, PT = 6, PB = 14;
@@ -674,37 +771,37 @@ export default function ProdDashboard() {
         </div>
       </div>
 
-      {/* ── 중단: 생산 추이 차트 (전체폭) ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12, marginBottom: 12 }}>
-
-        {/* 일별+월별 차트 */}
-        <div className="card">
-          <div className="card-head">
-            <h3>📈 생산 추이</h3>
-            <div style={{ display: 'flex', gap: 8, fontSize: 10, alignItems: 'center' }}>
-              {products.map((p) => (
-                <span key={p}><span style={{ display: 'inline-block', width: 12, height: 2, background: byProduct[p]?.color, verticalAlign: 'middle', marginRight: 3, borderRadius: 2 }} />{p}</span>
-              ))}
-            </div>
+      {/* ── 중단: 월별 생산량 추이 + 월별 수율 추이 ── */}
+      {(() => {
+        const cm = (String(data.reportDate || '').match(/(\d{1,2})\s*월/) || [])[1];
+        const curMonth = cm ? parseInt(cm, 10) : 12;
+        const legend = (withTotal) => (
+          <div style={{ display: 'flex', gap: 10, fontSize: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            {products.map((p) => (
+              <span key={p}><span style={{ display: 'inline-block', width: 12, height: 2, background: byProduct[p]?.color, verticalAlign: 'middle', marginRight: 3, borderRadius: 2 }} />{p}</span>
+            ))}
+            {withTotal && <span><span style={{ display: 'inline-block', width: 12, height: 3, background: '#3c3c43', verticalAlign: 'middle', marginRight: 3, borderRadius: 2 }} />총 생산량</span>}
           </div>
-          <div style={{ padding: '8px 14px 4px' }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: '#3c3c43', marginBottom: 4 }}>6월 일별 (kg)</div>
-            <DailyChart byProduct={byProduct} products={products} />
-          </div>
-          <div style={{ borderTop: '1px dashed #e5e5ea', margin: '0 14px' }} />
-          <div style={{ padding: '8px 14px 10px', cursor: 'pointer' }} onClick={() => setShowMonthly(true)}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: '#3c3c43' }}>연간 월별 (kg)</div>
-              <div style={{ fontSize: 10, color: '#0071e3', display: 'flex', alignItems: 'center', gap: 3 }}>
-                <svg width="11" height="11" viewBox="0 0 16 16" fill="none"><path d="M3 3h4V1H1v6h2V3zm10 0v4h2V1h-6v2h4zM3 13H1v6h6v-2H3v-4zm10 4h-4v2h6v-6h-2v4z" fill="#0071e3"/></svg>
-                확대 보기
+        );
+        return (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+            <div className="card">
+              <div className="card-head"><h3>📈 월별 생산량 추이</h3>{legend(true)}</div>
+              <div style={{ padding: '6px 12px 10px' }}>
+                <MonthlyLineChart byProduct={byProduct} products={products} currentMonth={curMonth} mode="prod" />
+                <div style={{ fontSize: 9, color: '#86868b', marginTop: 2 }}>빈값(0)은 연결하지 않고 공백 처리 · 미래월은 데이터 없음</div>
               </div>
             </div>
-            <MonthlyMiniChart byProduct={byProduct} products={products} />
-            <div style={{ fontSize: 9, color: '#86868b', marginTop: 2 }}>■ 실적 &nbsp;■ 예측(점선, 미래월)</div>
+            <div className="card">
+              <div className="card-head"><h3>📊 월별 수율 추이 (%)</h3>{legend(false)}</div>
+              <div style={{ padding: '6px 12px 10px' }}>
+                <MonthlyLineChart byProduct={byProduct} products={products} currentMonth={curMonth} mode="yield" />
+                <div style={{ fontSize: 9, color: '#86868b', marginTop: 2 }}>빈값은 공백 처리 · 미래월은 데이터 없음</div>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
+        );
+      })()}
 
       {/* ── 모달 ── */}
       {showAll && <AllProductsModal data={data} onClose={() => setShowAll(false)} />}
