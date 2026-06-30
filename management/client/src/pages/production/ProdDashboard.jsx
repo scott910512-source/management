@@ -82,16 +82,16 @@ function RollingAlerts({ alerts }) {
   if (!items.length) return null;
   const a = items[i % items.length];
   const err = a.level === 'error';
+  const text = a.msg
+    ? a.msg
+    : `${a.product} — ${a.batchNo} 수율 ${a.yield != null ? `${Number(a.yield).toFixed(1)}%` : '–'} (기준 ${a.target != null ? `${Number(a.target).toFixed(1)}%` : '–'})${a.step ? ` · ${a.step}` : ''}${a.date ? ` · ${a.date}` : ''}`;
   return (
     <div style={{
       background: err ? '#ffe8e8' : '#fff8e1', border: `1px solid ${err ? '#ffb3b3' : '#ffe082'}`,
       borderRadius: 8, padding: '9px 14px', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 10,
     }}>
       <span style={{ fontSize: 15 }}>{err ? '🔴' : '🟡'}</span>
-      <span style={{ fontSize: 12.5, fontWeight: 600, color: err ? '#c0001a' : '#795548', flex: 1 }}>
-        {a.product} — {a.batchNo} 수율 {a.yield != null ? `${Number(a.yield).toFixed(1)}%` : '–'} (기준 {a.target != null ? `${Number(a.target).toFixed(1)}%` : '–'})
-        {a.step ? ` · ${a.step}` : ''}{a.date ? ` · ${a.date}` : ''}
-      </span>
+      <span style={{ fontSize: 12.5, fontWeight: 600, color: err ? '#c0001a' : '#795548', flex: 1 }}>{text}</span>
       <span style={{ fontSize: 11, color: err ? '#c0001a' : '#795548', opacity: 0.7 }}>{(i % items.length) + 1}/{items.length}</span>
     </div>
   );
@@ -281,7 +281,7 @@ function MonthlyLineChart({ byProduct, products, currentMonth, mode }) {
       {Array.from({ length: M }, (_, i) => (
         <text key={i} x={toX(i + 1)} y={H - 8} fontSize="8" fill="#86868b" textAnchor="middle">{i + 1}월</text>
       ))}
-      {/* 선 + 점 + 끝값 라벨 */}
+      {/* 선 + 점 */}
       {series.map((s) => (
         <g key={s.key}>
           {s.segs.map((seg, si) => (
@@ -290,18 +290,35 @@ function MonthlyLineChart({ byProduct, products, currentMonth, mode }) {
               {seg.map((pt, pi) => <circle key={pi} cx={pt[0]} cy={pt[1]} r={s.total ? 3 : 2.4} fill={s.color} />)}
             </g>
           ))}
-          {(() => {
-            const last = s.segs.length ? s.segs[s.segs.length - 1][s.segs[s.segs.length - 1].length - 1] : null;
-            if (!last) return null;
-            return (
-              <g>
-                <rect x={last[0] + 5} y={last[1] - 8} width={52} height={16} rx={3} fill={s.color} />
-                <text x={last[0] + 31} y={last[1] + 3.5} fontSize="9" fontWeight="700" fill="#fff" textAnchor="middle">{fmtLabel(last[3])}</text>
-              </g>
-            );
-          })()}
         </g>
       ))}
+      {/* 끝값 라벨 — 세로 겹침 회피 */}
+      {(() => {
+        const labels = series.map((s) => {
+          const lastSeg = s.segs[s.segs.length - 1];
+          if (!lastSeg) return null;
+          const last = lastSeg[lastSeg.length - 1];
+          return { x: last[0], origY: last[1], y: last[1], color: s.color, text: fmtLabel(last[3]) };
+        }).filter(Boolean).sort((a, b) => a.origY - b.origY);
+        const GAP = 15;
+        for (let i = 1; i < labels.length; i++) {
+          if (labels[i].y - labels[i - 1].y < GAP) labels[i].y = labels[i - 1].y + GAP;
+        }
+        // 차트 영역 내로 클램프 (아래 초과 시 위로 되밀기)
+        const bottom = PT + iH;
+        for (let i = labels.length - 1; i >= 0; i--) {
+          if (labels[i].y > bottom - 2) labels[i].y = bottom - 2;
+          if (i < labels.length - 1 && labels[i + 1].y - labels[i].y < GAP) labels[i].y = labels[i + 1].y - GAP;
+          if (labels[i].y < PT + 6) labels[i].y = PT + 6;
+        }
+        return labels.map((L, i) => (
+          <g key={i}>
+            {Math.abs(L.y - L.origY) > 1 && <line x1={L.x} y1={L.origY} x2={L.x + 5} y2={L.y} stroke={L.color} strokeWidth="0.8" opacity="0.5" />}
+            <rect x={L.x + 5} y={L.y - 8} width={52} height={16} rx={3} fill={L.color} />
+            <text x={L.x + 31} y={L.y + 3.5} fontSize="9" fontWeight="700" fill="#fff" textAnchor="middle">{L.text}</text>
+          </g>
+        ));
+      })()}
     </svg>
   );
 }
@@ -642,8 +659,23 @@ export default function ProdDashboard() {
 
   return (
     <>
-      {/* ── 최상단: 롤링 경고 배너 ── */}
-      <RollingAlerts alerts={alerts} />
+      {/* ── 최상단: 롤링 경고 배너 (수율 미달·재고 부족 실시간 집계) ── */}
+      {(() => {
+        const live = [];
+        for (const p of products) {
+          const d = byProduct[p];
+          if (!d) continue;
+          if (d.yield != null && d.yieldTarget != null && d.yield < d.yieldTarget) {
+            const gap = d.yieldTarget - d.yield;
+            live.push({ level: gap >= 5 ? 'error' : 'warn', msg: `${p} 수율 ${d.yield.toFixed(1)}% — 목표 ${d.yieldTarget.toFixed(1)}% 대비 -${gap.toFixed(1)}%p` });
+          }
+          const inv = d.inventory;
+          if (inv && inv.belowSafety && inv.remainingMonths != null) {
+            live.push({ level: 'warn', msg: `${p} 재고 잔여 ${inv.remainingMonths.toFixed(1)}개월 — 안전재고(${inv.safetyMonths}개월) 미만` });
+          }
+        }
+        return <RollingAlerts alerts={live.length ? live : alerts} />;
+      })()}
 
       {/* ── 상단 상태바: 기준일 · 파일 · 수동 갱신 ── */}
       <div style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 10, fontSize: 12 }}>
