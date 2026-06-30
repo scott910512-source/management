@@ -653,6 +653,16 @@ export default function ProdDashboard() {
   const totalYearActual = products.reduce((s, p) => s + (byProduct[p]?.yearActual || 0), 0);
   const totalYearPlan = products.reduce((s, p) => s + (byProduct[p]?.yearPlan || 0), 0);
 
+  // 전월 대비 증감(%) — batch-yield 월별 생산량 기준
+  const curMonthNum = parseInt((String(data.reportDate || '').match(/(\d{1,2})\s*월/) || [])[1], 10) || null;
+  const momDelta = (p) => {
+    if (!curMonthNum || curMonthNum < 2) return null;
+    const md = byProduct[p]?.monthlyData || [];
+    const c = md[curMonthNum - 1]?.actual, pv = md[curMonthNum - 2]?.actual;
+    if (c == null || pv == null || pv <= 0 || c < 10 || pv < 10) return null;
+    return (c - pv) / pv * 100;
+  };
+
   const mismatches = isAdmin
     ? alerts.filter((a) => a._mismatch)
     : [];
@@ -816,6 +826,20 @@ export default function ProdDashboard() {
                             <td key={c.key} style={{ padding: '9px 10px', borderBottom: '1px solid #f5f5f7', textAlign: 'center' }}>
                               <YieldCell actual={c.key === 'yieldM' ? d.yield : d.yearYield} target={c.key === 'yieldM' ? d.yieldTarget : d.yearYieldTarget} />
                             </td>
+                          ) : c.key === 'mAct' ? (
+                            (() => {
+                              const mom = momDelta(p);
+                              return (
+                                <td key={c.key} style={{ padding: '9px 10px', borderBottom: '1px solid #f5f5f7', textAlign: 'center' }}>
+                                  <div style={{ fontSize: 14, fontWeight: 600 }}>{fmt(d.monthActual)}</div>
+                                  {mom != null && (
+                                    <div style={{ fontSize: 9.5, fontWeight: 700, color: mom >= 0 ? '#34c759' : '#ff3b30' }}>
+                                      전월 {mom >= 0 ? '▲' : '▼'}{Math.abs(mom).toFixed(1)}%
+                                    </div>
+                                  )}
+                                </td>
+                              );
+                            })()
                           ) : (
                             <td key={c.key} style={{ padding: '9px 10px', borderBottom: '1px solid #f5f5f7', textAlign: 'center', fontSize: 14, fontWeight: c.key === 'mAct' ? 600 : 400, color: c.key === 'batch' ? '#6e6e73' : '#1d1d1f' }}>
                               {colValue(c.key, d)}
