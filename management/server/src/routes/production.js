@@ -496,10 +496,14 @@ router.post(
       } else {
         const mm = String(data.reportDate || '').match(/(\d{1,2})\s*월/);
         mergeBatchYield(data, fs.readFileSync(batchCsv, 'utf8'), cellMap, mm ? parseInt(mm[1], 10) : null);
-        const withData = data.products.filter((p) => (data.byProduct[p].monthlyData || []).some((m) => m && m.actual));
         const noMatch = bp.filter((p) => !data.products.includes(p));
-        batchMsg = `배치 매핑 품목 [${bp.join(', ')}] → 추이 인식 [${withData.length ? withData.join(', ') : '없음'}]`;
-        if (noMatch.length) batchMsg += ` · ⚠️ 종합현황 품목과 불일치: ${noMatch.join(', ')} (제품 목록과 철자 동일해야 함)`;
+        const detail = bp.filter((p) => data.products.includes(p)).map((p) => {
+          const md = data.byProduct[p].monthlyData || [];
+          const m1 = md.find((m) => m && (m.actual || m.yield != null));
+          return m1 ? `${p}(✓${m1.month}월 생산 ${m1.actual ?? '-'}/수율 ${m1.yield ?? '-'})` : `${p}(✗데이터없음)`;
+        }).join(', ');
+        batchMsg = `배치추이 — ${detail || '매핑품목 없음'}`;
+        if (noMatch.length) batchMsg += ` · ⚠️ 종합현황 품목과 불일치(무시됨): ${noMatch.join(', ')}`;
       }
     }
 
