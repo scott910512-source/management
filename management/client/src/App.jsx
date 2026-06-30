@@ -27,6 +27,7 @@ import ProdSearch from './pages/production/ProdSearch';
 import ProdDashboard from './pages/production/ProdDashboard';
 import ProdManufacturing from './pages/production/ProdManufacturing';
 import ProdSettings from './pages/production/ProdSettings';
+import ProdCellMap from './pages/production/ProdCellMap';
 
 // 큰 묶음 단위로 그룹화 — 그룹마다 테두리로 구분
 const NAV_GROUPS = [
@@ -170,7 +171,8 @@ const PROD_NAV = [
     { to: '/production/manufacturing', label: '생산현황', ico: 'task' },
   ] },
   { title: '설정', adminOnly: true, items: [
-    { to: '/production/settings', label: '파일 경로 설정', ico: 'shield' },
+    { to: '/production/settings', label: '관리자 설정', ico: 'shield' },
+    { to: '/production/cellmap', label: '셀 매핑', ico: 'grid' },
   ] },
 ];
 
@@ -364,7 +366,8 @@ export default function App() {
       <Route path="/production" element={<ProtectedProd title="종합현황"><ProdDashboard /></ProtectedProd>} />
       <Route path="/production/search" element={<ProtectedProd title="AI 검색"><ProdSearch /></ProtectedProd>} />
       <Route path="/production/manufacturing" element={<ProtectedProd title="생산현황"><ProdManufacturing /></ProtectedProd>} />
-      <Route path="/production/settings" element={<ProtectedProd title="파일 경로 설정"><ProdSettings /></ProtectedProd>} />
+      <Route path="/production/settings" element={<ProtectedProd title="관리자 설정"><ProdSettings /></ProtectedProd>} />
+      <Route path="/production/cellmap" element={<ProtectedProd title="셀 매핑"><ProdCellMap /></ProtectedProd>} />
       <Route path="*" element={<Navigate to="/hub" replace />} />
     </Routes>
   );

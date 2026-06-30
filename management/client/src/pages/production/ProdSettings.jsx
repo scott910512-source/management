@@ -94,31 +94,25 @@ function InventoryBaseline({ plant, toast }) {
     });
   }, [plant]);
 
-  function setPlan(p, val) {
-    setCfg((c) => {
-      const next = { ...c, [p]: { ...(c[p] || {}) } };
-      next[p].annualPlan = val;
-      // 월소비 수동값이 비어있으면 자동(연간/12) 표시를 위해 건드리지 않음
-      return next;
-    });
+  function setField(p, key, val) {
+    setCfg((c) => ({ ...c, [p]: { ...(c[p] || {}), [key]: val } }));
   }
-  function setMonthly(p, val) {
-    setCfg((c) => ({ ...c, [p]: { ...(c[p] || {}), monthlyUse: val } }));
-  }
+  // 월 소비량(can) = 연간계획(kg) ÷ 12 ÷ 포장단위(kg)
   function autoMonthly(p) {
     const ap = Number(cfg[p]?.annualPlan);
-    return Number.isFinite(ap) ? Math.round((ap / 12) * 10) / 10 : null;
+    const pk = Number(cfg[p]?.packageUnit);
+    return (Number.isFinite(ap) && Number.isFinite(pk) && pk > 0) ? Math.round((ap / 12 / pk) * 10) / 10 : null;
   }
 
   async function save() {
     setBusy(true);
     try {
-      // 빈 값 정리
       const clean = {};
       for (const p of INV_PRODUCTS) {
-        const ap = cfg[p]?.annualPlan, mu = cfg[p]?.monthlyUse;
+        const ap = cfg[p]?.annualPlan, pk = cfg[p]?.packageUnit, mu = cfg[p]?.monthlyUse;
         const o = {};
         if (ap !== undefined && ap !== '') o.annualPlan = Number(ap);
+        if (pk !== undefined && pk !== '') o.packageUnit = Number(pk);
         if (mu !== undefined && mu !== '') o.monthlyUse = Number(mu);
         if (Object.keys(o).length) clean[p] = o;
       }
@@ -131,33 +125,37 @@ function InventoryBaseline({ plant, toast }) {
     <div style={{ border: '1px solid #e5e5ea', borderRadius: 10, padding: '14px 16px', marginBottom: 14 }}>
       <h4 style={{ margin: '0 0 4px', fontSize: 14 }}>🏭 {plant} — 재고 기준정보 (잔여 개월수)</h4>
       <p className="hint" style={{ marginBottom: 10 }}>
-        품목별 <b>연간계획</b>(잔여수량과 같은 단위)을 입력하면 <b>÷12</b>로 월 소비량이 계산됩니다.
-        월 소비량은 직접 수정할 수 있습니다. 잔여수량 ÷ 월소비 = <b>잔여 개월수</b>.
+        <b>월 소비량(can) = 연간계획(kg) ÷ 12 ÷ 포장단위(kg)</b>. 월 소비량은 직접 수정할 수 있습니다.<br />
+        잔여수량(can) ÷ 월소비(can) = <b>잔여 개월수</b>.
       </p>
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
         <thead>
           <tr style={{ color: '#86868b', fontSize: 12 }}>
             <th style={{ textAlign: 'left', padding: '6px 8px' }}>품목</th>
-            <th style={{ textAlign: 'right', padding: '6px 8px' }}>연간계획</th>
-            <th style={{ textAlign: 'right', padding: '6px 8px' }}>월 소비량 (자동=÷12, 수정가능)</th>
+            <th style={{ textAlign: 'right', padding: '6px 8px' }}>연간계획 (kg)</th>
+            <th style={{ textAlign: 'right', padding: '6px 8px' }}>포장단위 (kg/can)</th>
+            <th style={{ textAlign: 'right', padding: '6px 8px' }}>월 소비량 (can, 자동/수정)</th>
           </tr>
         </thead>
         <tbody>
           {INV_PRODUCTS.map((p) => {
             const auto = autoMonthly(p);
+            const cell = { width: 92, textAlign: 'right', padding: '4px 8px', border: '1px solid #d1d1d6', borderRadius: 6 };
             return (
               <tr key={p} style={{ borderTop: '1px solid #f0f0f5' }}>
                 <td style={{ padding: '7px 8px', fontWeight: 700 }}>{p}</td>
                 <td style={{ padding: '7px 8px', textAlign: 'right' }}>
                   <input type="number" value={cfg[p]?.annualPlan ?? ''} disabled={!loaded}
-                    onChange={(e) => setPlan(p, e.target.value)}
-                    style={{ width: 110, textAlign: 'right', padding: '4px 8px', border: '1px solid #d1d1d6', borderRadius: 6 }} />
+                    onChange={(e) => setField(p, 'annualPlan', e.target.value)} style={cell} />
+                </td>
+                <td style={{ padding: '7px 8px', textAlign: 'right' }}>
+                  <input type="number" value={cfg[p]?.packageUnit ?? ''} disabled={!loaded}
+                    onChange={(e) => setField(p, 'packageUnit', e.target.value)} style={cell} />
                 </td>
                 <td style={{ padding: '7px 8px', textAlign: 'right' }}>
                   <input type="number" value={cfg[p]?.monthlyUse ?? ''} disabled={!loaded}
-                    onChange={(e) => setMonthly(p, e.target.value)}
-                    placeholder={auto != null ? String(auto) : '자동'}
-                    style={{ width: 110, textAlign: 'right', padding: '4px 8px', border: '1px solid #d1d1d6', borderRadius: 6 }} />
+                    onChange={(e) => setField(p, 'monthlyUse', e.target.value)}
+                    placeholder={auto != null ? String(auto) : '자동'} style={cell} />
                 </td>
               </tr>
             );

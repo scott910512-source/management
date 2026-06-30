@@ -178,17 +178,30 @@ function parseProductionFile(filePath) {
 // 회사 IRM 보안으로 xlsx를 직접 못 읽으므로, 사용자 PC의 추출 스크립트가
 // 만든 daily-latest.csv(최신 날짜 시트)를 셀 좌표로 읽는다.
 //
-// 열 매핑(0기반 인덱스) — 현장 양식 기준:
-//   B(1)=제품 | E(4)=일생산량 | H(7)/K(10)/N(13)=6월 계획/실적/달성율
-//   Q(16)/T(19)/W(22)=연간 계획/실적/달성율
-//   재고량(AA(26) 라벨): AB(27)이월재고(can) AD(29)충진kg AF(31)충진can
-//   AH(33)출하kg AJ(35)출하can AL(37)현재고kg AN(39)현재고can
-const DCOL = { B: 1, E: 4, H: 7, K: 10, N: 13, Q: 16, T: 19, W: 22, AA: 26, AB: 27, AD: 29, AF: 31, AH: 33, AJ: 35, AL: 37, AN: 39 };
-const CARD_PRODUCTS = ['CpHf', '3DMAS', 'SP17', 'Ynfinity']; // ACP-3 제외(고정수율)
 const CARD_COLORS = { CpHf: '#4a90d9', '3DMAS': '#e67e22', SP17: '#27ae60', Ynfinity: '#c0a800' };
+const FALLBACK_COLORS = ['#4a90d9', '#e67e22', '#27ae60', '#c0a800', '#8e44ad', '#16a085'];
+
+// 공장별 셀 매핑 기본값(2공장 양식 기준). 관리자 설정에서 공장별로 덮어쓴다.
+const DEFAULT_CELLMAP = {
+  products: 'CpHf,3DMAS,SP17,Ynfinity',
+  productCol: 'B', todayCol: 'E',
+  monthPlanCol: 'H', monthActCol: 'K', monthRateCol: 'N',
+  yearPlanCol: 'Q', yearActCol: 'T', yearRateCol: 'W',
+  yieldRowOffset: 1,
+  invFilledCol: 'AF', invShippedCol: 'AJ', invTotalCol: 'AN', invCarryCol: 'AB',
+};
+
+// 엑셀 열문자("A","AB") → 0기반 인덱스. 빈 값/잘못된 값은 -1.
+function colToIdx(letter) {
+  const s = String(letter || '').trim().toUpperCase();
+  if (!/^[A-Z]+$/.test(s)) return -1;
+  let n = 0;
+  for (let i = 0; i < s.length; i++) n = n * 26 + (s.charCodeAt(i) - 64);
+  return n - 1;
+}
 
 function dNorm(s) { return String(s == null ? '' : s).replace(/[　 ]/g, ' ').trim(); }
-function dCell(grid, r, c) { return (r >= 0 && grid[r] && grid[r][c] != null) ? grid[r][c] : ''; }
+function dCell(grid, r, c) { return (r >= 0 && c >= 0 && grid[r] && grid[r][c] != null) ? grid[r][c] : ''; }
 function dNum(v) {
   if (v == null) return null;
   const s = String(v).replace(/,/g, '').trim();
@@ -203,8 +216,21 @@ function dFindRow(grid, col, label) {
   return -1;
 }
 
-function parseDailyCsv(text) {
+function parseDailyCsv(text, cellMapStr) {
   const grid = parseCsvGrid(text);
+
+  // 공장별 셀 매핑 적용 (없으면 기본값)
+  let m = { ...DEFAULT_CELLMAP };
+  try { if (cellMapStr) Object.assign(m, JSON.parse(cellMapStr)); } catch { /* 기본값 유지 */ }
+  const idx = {
+    product: colToIdx(m.productCol), today: colToIdx(m.todayCol),
+    mPlan: colToIdx(m.monthPlanCol), mAct: colToIdx(m.monthActCol), mRate: colToIdx(m.monthRateCol),
+    yPlan: colToIdx(m.yearPlanCol), yAct: colToIdx(m.yearActCol), yRate: colToIdx(m.yearRateCol),
+    invFilled: colToIdx(m.invFilledCol), invShipped: colToIdx(m.invShippedCol),
+    invTotal: colToIdx(m.invTotalCol), invCarry: colToIdx(m.invCarryCol),
+  };
+  const yieldOffset = Number.isFinite(Number(m.yieldRowOffset)) ? Number(m.yieldRowOffset) : 1;
+  const products = String(m.products || DEFAULT_CELLMAP.products).split(',').map((s) => s.trim()).filter(Boolean);
 
   // 보고일자: 표 어딘가의 "N월 N일" 패턴 셀에서 추출
   let reportDate = '';
@@ -212,49 +238,47 @@ function parseDailyCsv(text) {
   outer:
   for (const row of grid) {
     for (const c of row) {
-      const m = dNorm(c).match(dateRe);
-      if (m) { reportDate = m[0].replace(/\s/g, ''); break outer; }
+      const mm = dNorm(c).match(dateRe);
+      if (mm) { reportDate = mm[0].replace(/\s/g, ''); break outer; }
     }
   }
 
   const byProduct = {};
-  for (const p of CARD_PRODUCTS) {
-    const pr = dFindRow(grid, DCOL.B, p);   // 생산량 행 (재고도 같은 행 우측)
-    const yr = pr >= 0 ? pr + 1 : -1;       // 바로 아래 Yield(%) 행
+  products.forEach((p, pi) => {
+    const pr = dFindRow(grid, idx.product, p);  // 생산량 행 (재고도 같은 행 우측)
+    const yr = pr >= 0 ? pr + yieldOffset : -1;  // Yield(%) 행
     const g = (r, c) => dCell(grid, r, c);
 
     byProduct[p] = {
-      color: CARD_COLORS[p] || '#888',
-      todayQty: dNum(g(pr, DCOL.E)),
+      color: CARD_COLORS[p] || FALLBACK_COLORS[pi % FALLBACK_COLORS.length],
+      todayQty: dNum(g(pr, idx.today)),
       prevDayQty: null,
-      monthPlan: dNum(g(pr, DCOL.H)),
-      monthActual: dNum(g(pr, DCOL.K)),
-      monthRate: dPct(g(pr, DCOL.N)),
-      yearPlan: dNum(g(pr, DCOL.Q)),
-      yearActual: dNum(g(pr, DCOL.T)),
-      yearRate: dPct(g(pr, DCOL.W)),
-      // 수율: 월 실적(K) 기준 + 년 실적(T) 병행 (목표=계획 H/Q)
-      yield: dPct(g(yr, DCOL.K)),
-      yieldTarget: dPct(g(yr, DCOL.H)),
+      monthPlan: dNum(g(pr, idx.mPlan)),
+      monthActual: dNum(g(pr, idx.mAct)),
+      monthRate: dPct(g(pr, idx.mRate)),
+      yearPlan: dNum(g(pr, idx.yPlan)),
+      yearActual: dNum(g(pr, idx.yAct)),
+      yearRate: dPct(g(pr, idx.yRate)),
+      yield: dPct(g(yr, idx.mAct)),
+      yieldTarget: dPct(g(yr, idx.mPlan)),
       yieldPrev: null,
-      yearYield: dPct(g(yr, DCOL.T)),
-      yearYieldTarget: dPct(g(yr, DCOL.Q)),
+      yearYield: dPct(g(yr, idx.yAct)),
+      yearYieldTarget: dPct(g(yr, idx.yPlan)),
       monthBatch: null,
       yearBatch: null,
-      // 재고(캔): 충전완료 AF · 출하 AJ · 잔여수량 AN (제품 행 우측)
       inventory: {
-        carryOver: dNum(g(pr, DCOL.AB)),
-        filled: dNum(g(pr, DCOL.AF)),
-        shipped: dNum(g(pr, DCOL.AJ)),
-        total: dNum(g(pr, DCOL.AN)),
-        remainingMonths: null,   // /data 에서 기준정보(연간계획)로 계산
+        carryOver: dNum(g(pr, idx.invCarry)),
+        filled: dNum(g(pr, idx.invFilled)),
+        shipped: dNum(g(pr, idx.invShipped)),
+        total: dNum(g(pr, idx.invTotal)),
+        remainingMonths: null,
       },
       dailyData: [],
       monthlyData: [],
     };
-  }
+  });
 
-  return { reportDate, products: CARD_PRODUCTS, byProduct, batches: [], stepLabels: STEP_LABELS, alerts: [] };
+  return { reportDate, products, byProduct, batches: [], stepLabels: STEP_LABELS, alerts: [] };
 }
 
 // ── settings 읽기 ────────────────────────────────────────────────
@@ -266,11 +290,14 @@ async function readProductionSettings(plant) {
     filePath: map.productionFilePath || '',
     keywords: map.productionFileKeywords || 'Daily,report',
     invConfig: map.prodInvConfig || '',
+    cellMap: map.prodCellMap || '',
   };
 }
 
 // 기준정보(품목별 연간계획)로 잔여 개월수 계산 후 재고에 병합한다.
 // invConfig = JSON: { "<제품>": { annualPlan: 숫자, monthlyUse?: 숫자(수동) } }
+// invConfig = JSON: { "<제품>": { annualPlan:kg, packageUnit:kg/can, monthlyUse?:can(수동) } }
+// 월소비량(can) = 연간계획(kg) ÷ 12 ÷ 포장단위(kg).  잔여개월 = 잔여수량(can) ÷ 월소비(can)
 function applyInventoryConfig(data, invConfigStr) {
   let cfg = {};
   try { cfg = invConfigStr ? JSON.parse(invConfigStr) : {}; } catch { cfg = {}; }
@@ -278,11 +305,14 @@ function applyInventoryConfig(data, invConfigStr) {
     const inv = data.byProduct[p] && data.byProduct[p].inventory;
     if (!inv) continue;
     const c = cfg[p] || {};
-    const annualPlan = Number(c.annualPlan);
+    const annualPlan = Number(c.annualPlan);   // kg
+    const pkg = Number(c.packageUnit);         // kg per can
+    const auto = (Number.isFinite(annualPlan) && Number.isFinite(pkg) && pkg > 0)
+      ? annualPlan / 12 / pkg : null;
     const monthlyUse = (c.monthlyUse !== undefined && c.monthlyUse !== null && c.monthlyUse !== '')
-      ? Number(c.monthlyUse)
-      : (Number.isFinite(annualPlan) ? annualPlan / 12 : null);
+      ? Number(c.monthlyUse) : auto;
     inv.annualPlan = Number.isFinite(annualPlan) ? annualPlan : null;
+    inv.packageUnit = Number.isFinite(pkg) ? pkg : null;
     inv.monthlyUse = Number.isFinite(monthlyUse) ? Math.round(monthlyUse * 10) / 10 : null;
     inv.remainingMonths = (Number.isFinite(monthlyUse) && monthlyUse > 0 && inv.total != null)
       ? Math.round((inv.total / monthlyUse) * 10) / 10
@@ -311,7 +341,7 @@ router.get(
       plant = user.plantScope || user.plant || '2공장';
     }
 
-    const { filePath, invConfig } = await readProductionSettings(plant);
+    const { filePath, invConfig, cellMap } = await readProductionSettings(plant);
 
     if (!filePath) {
       return res.status(404).json({ error: `[${plant}] 생산관리 폴더 경로가 설정되지 않았습니다. 관리자 설정에서 경로를 입력해 주세요.` });
@@ -325,7 +355,7 @@ router.get(
 
     let data;
     try {
-      data = parseDailyCsv(fs.readFileSync(csvPath, 'utf8'));
+      data = parseDailyCsv(fs.readFileSync(csvPath, 'utf8'), cellMap);
     } catch (e) {
       e.message = `종합현황 CSV 파싱 실패: ${e.message}`;
       throw e;
@@ -351,10 +381,11 @@ router.post(
       throw badRequest(`이 폴더에 daily-latest.csv 가 없습니다. 추출 스크립트가 CSV를 생성하는 폴더를 지정하세요: ${folderPath}`);
     }
     const st = fs.statSync(csvPath);
-    const data = parseDailyCsv(fs.readFileSync(csvPath, 'utf8'));
-    const found = CARD_PRODUCTS.filter((p) => data.byProduct[p] && data.byProduct[p].monthActual != null);
+    const cellMap = (req.body.cellMap !== undefined) ? req.body.cellMap : '';
+    const data = parseDailyCsv(fs.readFileSync(csvPath, 'utf8'), cellMap);
+    const found = data.products.filter((p) => data.byProduct[p] && data.byProduct[p].monthActual != null);
     res.json({
-      message: `daily-latest.csv 감지 완료 (보고일: ${data.reportDate || '?'}, 인식 품목: ${found.length ? found.join(', ') : '없음 — 열 매핑 확인 필요'}, 수정일: ${new Date(st.mtimeMs).toLocaleString('ko-KR')})`,
+      message: `daily-latest.csv 감지 완료 (보고일: ${data.reportDate || '?'}, 인식 품목: ${found.length ? found.join(', ') : '없음 — 셀 매핑 확인 필요'}, 수정일: ${new Date(st.mtimeMs).toLocaleString('ko-KR')})`,
       file: csvPath,
     });
   }),
