@@ -144,6 +144,7 @@ function Shell({ children, title }) {
           <div className="user">
             {isViewer && <span className="badge orange">조회 전용</span>}
             <span>{user?.name} ({user?.id})</span>
+            <button className="btn secondary sm" onClick={() => navigate('/hub')}>🏠 홈</button>
             <button className="btn secondary sm" onClick={async () => { await logout(); navigate('/login'); }}>로그아웃</button>
           </div>
         </div>
@@ -315,6 +316,7 @@ function ProdShell({ children, title }) {
           <div className="user">
             {isViewer && <span className="badge orange">조회 전용</span>}
             <span>{user?.name} ({user?.id})</span>
+            <button className="btn secondary sm" onClick={() => navigate('/hub')}>🏠 홈</button>
             <button className="btn secondary sm" onClick={async () => { await logout(); navigate('/login'); }}>로그아웃</button>
           </div>
         </div>

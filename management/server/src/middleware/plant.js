@@ -27,7 +27,8 @@ function resolvePlant(req, res, next) {
   if (user.role === 'demo') { req.plant = 'demo'; return next(); }
   const allowed = allowedPlants(user);
   // HTTP 헤더는 ASCII만 허용하므로 한글 공장명은 URL 인코딩되어 들어온다.
-  let plant = String(req.get('x-plant') || req.query.plant || '').trim();
+  // 명시적 쿼리(?plant=)가 헤더보다 우선 — 특정 공장 설정 저장/조회 시 사용.
+  let plant = String(req.query.plant || req.get('x-plant') || '').trim();
   try {
     plant = decodeURIComponent(plant);
   } catch {
