@@ -296,6 +296,69 @@ function parseDailyCsv(text, cellMapStr) {
   return { reportDate, products, byProduct, batches: [], stepLabels: STEP_LABELS, alerts: [] };
 }
 
+// ── batch-yield.csv 파싱 (월별 생산/수율 추이) ────────────────────
+// cellMap.batch = { monthCol:'B', subtotal:'Sub total',
+//   products: { 'CpZr': { no:'N', prod:'P', yield:'Q' }, ... } }
+//   월 블록: "N월" 행 ~ "Sub total" 행. 배치수 = no열 '#' 포함 행수.
+//   월 생산량/수율 = Sub total 행의 prod/yield 열.
+function mergeBatchYield(data, text, cellMapStr, currentMonth) {
+  let cm = {};
+  try { cm = cellMapStr ? JSON.parse(cellMapStr) : {}; } catch { cm = {}; }
+  const bm = cm.batch;
+  if (!bm || !bm.products || typeof bm.products !== 'object') return;
+
+  const grid = parseCsvGrid(text);
+  const monthIdx = colToIdx(bm.monthCol || 'B');
+  const subLabel = String(bm.subtotal || 'Sub total').replace(/\s+/g, '').toLowerCase();
+  const prods = bm.products;
+  const names = Object.keys(prods);
+
+  const out = {};               // { product: { monthNum: {actual,yield,batchCount} } }
+  names.forEach((p) => { out[p] = {}; });
+  let curMonth = null;
+  let counts = {};
+  const reset = () => { counts = {}; names.forEach((p) => { counts[p] = 0; }); };
+  reset();
+
+  for (let r = 0; r < grid.length; r++) {
+    const raw = dNorm(dCell(grid, r, monthIdx));
+    const norm = raw.replace(/\s+/g, '').toLowerCase();
+    const mm = raw.match(/(\d{1,2})\s*월/);
+    if (norm.includes(subLabel)) {
+      if (curMonth) {
+        for (const p of names) {
+          const cfg = prods[p];
+          out[p][curMonth] = {
+            actual: dNum(dCell(grid, r, colToIdx(cfg.prod))),
+            yield: dPct(dCell(grid, r, colToIdx(cfg.yield))),
+            batchCount: counts[p] || 0,
+          };
+        }
+      }
+      curMonth = null; reset(); continue;
+    }
+    if (mm) { curMonth = parseInt(mm[1], 10); reset(); }  // 월 라벨 행에도 첫 배치가 있을 수 있어 continue 안 함
+    if (curMonth) {
+      for (const p of names) {
+        const v = String(dCell(grid, r, colToIdx(prods[p].no)) || '');
+        if (v.includes('#')) counts[p] += 1;
+      }
+    }
+  }
+
+  // data.byProduct 에 병합 (등록된 카드 품목만)
+  for (const p of data.products) {
+    if (!out[p]) continue;
+    const months = out[p];
+    data.byProduct[p].monthlyData = Array.from({ length: 12 }, (_, i) => {
+      const m = months[i + 1];
+      return m ? { month: i + 1, actual: m.actual ?? 0, plan: null, rate: null, yield: m.yield } : { month: i + 1, actual: 0, plan: 0 };
+    });
+    data.byProduct[p].monthBatch = (currentMonth && months[currentMonth]) ? months[currentMonth].batchCount : null;
+    data.byProduct[p].yearBatch = Object.values(months).reduce((s, m) => s + (m.batchCount || 0), 0);
+  }
+}
+
 // ── settings 읽기 ────────────────────────────────────────────────
 async function readProductionSettings(plant) {
   const rows = await readTable('settings', plant);
@@ -381,6 +444,17 @@ router.get(
       throw e;
     }
     applyInventoryConfig(data, invConfig);
+
+    // 월별 생산/수율 추이 (batch-yield.csv)
+    const batchCsv = path.join(filePath, 'batch-yield.csv');
+    if (fs.existsSync(batchCsv)) {
+      try {
+        const mm = String(data.reportDate || '').match(/(\d{1,2})\s*월/);
+        const curMonth = mm ? parseInt(mm[1], 10) : null;
+        mergeBatchYield(data, fs.readFileSync(batchCsv, 'utf8'), cellMap, curMonth);
+      } catch { /* 배치 추이 실패는 무시 */ }
+    }
+
     let cols = null;
     try { cols = tableCols ? JSON.parse(tableCols) : null; } catch { cols = null; }
     data.tableCols = Array.isArray(cols) && cols.length ? cols : null;

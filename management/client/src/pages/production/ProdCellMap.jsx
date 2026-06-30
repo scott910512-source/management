@@ -39,7 +39,7 @@ function PlantCellMap({ plant, toast }) {
     api.get(`/settings?plant=${encodeURIComponent(plant)}`).then((d) => {
       let parsed = {};
       try { parsed = d.settings.prodCellMap ? JSON.parse(d.settings.prodCellMap) : {}; } catch { parsed = {}; }
-      setCfg({ ...DEFAULTS, ...parsed, invCells: parsed.invCells || {} });
+      setCfg({ ...DEFAULTS, ...parsed, invCells: parsed.invCells || {}, batch: parsed.batch || { monthCol: 'B', subtotal: 'Sub total', products: {} } });
       setFilePath(d.settings.productionFilePath || '');
       setLoaded(true);
     });
@@ -58,6 +58,22 @@ function PlantCellMap({ plant, toast }) {
   }
 
   const prodList = String(cfg.products || '').split(',').map((s) => s.trim()).filter(Boolean);
+
+  // 배치시트(월별 추이) 매핑
+  function setBatchMeta(key, val) {
+    setCfg((c) => ({ ...c, batch: { ...(c.batch || {}), [key]: val } }));
+  }
+  function setBatchCol(prod, field, val) {
+    setCfg((c) => {
+      const batch = { ...(c.batch || {}) };
+      const products = { ...(batch.products || {}) };
+      const o = { ...(products[prod] || {}) };
+      if (val) o[field] = val; else delete o[field];
+      if (Object.keys(o).length) products[prod] = o; else delete products[prod];
+      batch.products = products;
+      return { ...c, batch };
+    });
+  }
 
   async function save() {
     setBusy(true);
@@ -130,6 +146,50 @@ function PlantCellMap({ plant, toast }) {
                   <td style={{ padding: '4px 8px' }}><input value={ov.filled || ''} disabled={!loaded} placeholder="자동" onChange={(e) => setInvCell(p, 'filled', e.target.value)} style={cinp} /></td>
                   <td style={{ padding: '4px 8px' }}><input value={ov.shipped || ''} disabled={!loaded} placeholder="자동" onChange={(e) => setInvCell(p, 'shipped', e.target.value)} style={cinp} /></td>
                   <td style={{ padding: '4px 8px' }}><input value={ov.total || ''} disabled={!loaded} placeholder="자동" onChange={(e) => setInvCell(p, 'total', e.target.value)} style={cinp} /></td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* 배치시트(월별 생산/수율 추이) 매핑 */}
+      <div style={{ marginTop: 16, borderTop: '1px dashed #e5e5ea', paddingTop: 12 }}>
+        <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 2 }}>배치시트 (batch-yield.csv) — 월별 추이 매핑</div>
+        <p className="hint" style={{ marginBottom: 8 }}>
+          월 라벨 열과, 품목별 <b>Batch no / 생산량 / Yield(%) 열</b>을 지정합니다.
+          월 블록의 <b>Sub total</b> 행에서 월 생산량·수율을, Batch no 열의 <code>#</code> 포함 행으로 배치 수를 계산합니다.
+        </p>
+        <div style={{ display: 'flex', gap: 16, marginBottom: 10, flexWrap: 'wrap' }}>
+          <div>
+            <label style={{ fontSize: 11.5, color: '#6e6e73', display: 'block', marginBottom: 3 }}>월 라벨 열</label>
+            <input value={cfg.batch?.monthCol ?? 'B'} disabled={!loaded} onChange={(e) => setBatchMeta('monthCol', e.target.value)} style={inp} />
+          </div>
+          <div>
+            <label style={{ fontSize: 11.5, color: '#6e6e73', display: 'block', marginBottom: 3 }}>소계 라벨</label>
+            <input value={cfg.batch?.subtotal ?? 'Sub total'} disabled={!loaded} onChange={(e) => setBatchMeta('subtotal', e.target.value)}
+              style={{ width: 100, textAlign: 'center', padding: '5px 6px', border: '1px solid #d1d1d6', borderRadius: 6, fontSize: 12 }} />
+          </div>
+        </div>
+        <table style={{ borderCollapse: 'collapse', fontSize: 12.5 }}>
+          <thead>
+            <tr style={{ color: '#86868b', fontSize: 11.5 }}>
+              <th style={{ textAlign: 'left', padding: '4px 8px' }}>품목</th>
+              <th style={{ textAlign: 'center', padding: '4px 8px' }}>Batch no 열</th>
+              <th style={{ textAlign: 'center', padding: '4px 8px' }}>생산량 열</th>
+              <th style={{ textAlign: 'center', padding: '4px 8px' }}>Yield(%) 열</th>
+            </tr>
+          </thead>
+          <tbody>
+            {prodList.map((p) => {
+              const bp = (cfg.batch?.products && cfg.batch.products[p]) || {};
+              const cinp = { width: 60, textAlign: 'center', padding: '4px 6px', border: '1px solid #d1d1d6', borderRadius: 6, fontFamily: 'monospace', fontSize: 12, textTransform: 'uppercase' };
+              return (
+                <tr key={p}>
+                  <td style={{ padding: '4px 8px', fontWeight: 700 }}>{p}</td>
+                  <td style={{ padding: '4px 8px' }}><input value={bp.no || ''} disabled={!loaded} placeholder="-" onChange={(e) => setBatchCol(p, 'no', e.target.value)} style={cinp} /></td>
+                  <td style={{ padding: '4px 8px' }}><input value={bp.prod || ''} disabled={!loaded} placeholder="-" onChange={(e) => setBatchCol(p, 'prod', e.target.value)} style={cinp} /></td>
+                  <td style={{ padding: '4px 8px' }}><input value={bp.yield || ''} disabled={!loaded} placeholder="-" onChange={(e) => setBatchCol(p, 'yield', e.target.value)} style={cinp} /></td>
                 </tr>
               );
             })}
