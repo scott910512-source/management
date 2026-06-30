@@ -18,7 +18,7 @@ export const PROD_TABLE_COLS = [
   { key: 'mPlan', label: '6월계획' },
   { key: 'mAct', label: '6월실적' },
   { key: 'mRate', label: '6월 달성율' },
-  { key: 'cumRate', label: '누적생산달성율' },
+  { key: 'cumRate', label: '연 생산 달성율' },
   { key: 'batch', label: 'Batch(월/년)' },
   { key: 'yieldM', label: '수율(월)' },
   { key: 'yieldY', label: '수율(년)' },
@@ -139,6 +139,56 @@ function DailyChart({ byProduct, products }) {
   );
 }
 
+// ── 월별 내역 표 모달 (품목 × 월) ─────────────────────────────────
+function MonthlyMatrixModal({ byProduct, products, mode, onClose }) {
+  useEffect(() => {
+    const h = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, [onClose]);
+  const cell = (p, m) => {
+    const md = byProduct[p]?.monthlyData?.[m - 1];
+    const v = md ? (mode === 'yield' ? md.yield : md.actual) : null;
+    if (v == null || v < 10) return '–';
+    return mode === 'yield' ? `${Number(v).toFixed(1)}%` : Number(v).toLocaleString(undefined, { maximumFractionDigits: 1 });
+  };
+  return (
+    <div onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      style={{ position: 'fixed', inset: 0, zIndex: 999, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ background: '#fff', borderRadius: 14, width: 'min(94vw,820px)', maxHeight: '88vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: '1px solid #e5e5ea' }}>
+          <div style={{ fontSize: 15, fontWeight: 700 }}>{mode === 'yield' ? '월별 수율 내역 (%)' : '월별 생산량 내역 (kg)'}</div>
+          <button onClick={onClose} style={{ background: '#f0f0f5', border: 'none', borderRadius: 8, padding: '6px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>✕ 닫기</button>
+        </div>
+        <div style={{ overflow: 'auto', padding: '8px 16px 16px' }}>
+          <table style={{ borderCollapse: 'collapse', fontSize: 12.5, width: '100%' }}>
+            <thead>
+              <tr>
+                <th style={{ position: 'sticky', left: 0, background: '#fafafd', padding: '8px 10px', textAlign: 'left', borderBottom: '1px solid #e5e5ea' }}>품목</th>
+                {Array.from({ length: 12 }, (_, i) => (
+                  <th key={i} style={{ padding: '8px 8px', textAlign: 'right', borderBottom: '1px solid #e5e5ea', color: '#6e6e73', fontWeight: 600 }}>{i + 1}월</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {products.map((p) => (
+                <tr key={p}>
+                  <td style={{ position: 'sticky', left: 0, background: '#fff', padding: '7px 10px', fontWeight: 700, borderBottom: '1px solid #f5f5f7', whiteSpace: 'nowrap' }}>
+                    <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: byProduct[p]?.color || '#ccc', marginRight: 6 }} />{p}
+                  </td>
+                  {Array.from({ length: 12 }, (_, i) => (
+                    <td key={i} style={{ padding: '7px 8px', textAlign: 'right', borderBottom: '1px solid #f5f5f7', color: '#1d1d1f' }}>{cell(p, i + 1)}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── SVG 월별 선 차트 (생산량 또는 수율) ───────────────────────────
 // mode='prod': 품목별 + 총생산량 선, Y max = 총합×1.1
 // mode='yield': 품목별 수율 선(%), Y max = max(100, 최대수율×1.1)
@@ -149,11 +199,12 @@ function MonthlyLineChart({ byProduct, products, currentMonth, mode }) {
   const M = 12;
   const cur = currentMonth || 12;
 
+  // 10% 미만(및 음수/오류값)은 0과 동일하게 공백 처리
   const val = (p, m) => {
     const md = byProduct[p]?.monthlyData?.[m - 1];
     if (!md) return null;
     const v = mode === 'yield' ? md.yield : md.actual;
-    return (v == null || v === 0) ? null : v;
+    return (v == null || v < 10) ? null : v;
   };
   const totals = Array.from({ length: M }, (_, i) => {
     let s = 0, has = false;
@@ -513,6 +564,7 @@ export default function ProdDashboard() {
   const [selProd, setSelProd] = useState('');
   const [showAll, setShowAll] = useState(false);
   const [showMonthly, setShowMonthly] = useState(false);
+  const [matrixMode, setMatrixMode] = useState(null);  // 'prod' | 'yield' | null
   const timerRef = useRef(null);
 
   const load = useCallback(async (silent = false, targetPlant) => {
@@ -689,8 +741,9 @@ export default function ProdDashboard() {
                       const badge = r == null ? null : r >= 100 ? { t: '달성', c: '#34c759' } : r >= 85 ? { t: '진행', c: '#ff9500' } : { t: '미달', c: '#ff3b30' };
                       return (
                         <tr key={p}>
-                          <td style={{ padding: '9px 12px', borderBottom: '1px solid #f5f5f7', borderLeft: `4px solid ${d.color || '#ccc'}`, whiteSpace: 'nowrap' }}>
-                            <b style={{ color: d.color, fontSize: 14 }}>{p}</b>
+                          <td style={{ padding: '9px 12px', borderBottom: '1px solid #f5f5f7', whiteSpace: 'nowrap' }}>
+                            <span style={{ display: 'inline-block', width: 9, height: 9, borderRadius: '50%', background: d.color || '#ccc', marginRight: 7, verticalAlign: 'middle' }} />
+                            <b style={{ color: '#1d1d1f', fontSize: 14 }}>{p}</b>
                           </td>
                           {enabled.map((c) => c.key === 'mRate' ? (
                             <td key={c.key} style={{ padding: '9px 10px', borderBottom: '1px solid #f5f5f7', textAlign: 'center', minWidth: 120 }}>
@@ -719,7 +772,7 @@ export default function ProdDashboard() {
                               );
                             })()
                           ) : (
-                            <td key={c.key} style={{ padding: '9px 10px', borderBottom: '1px solid #f5f5f7', textAlign: 'center', fontSize: 14, fontWeight: c.key === 'mAct' ? 600 : 400, color: c.key === 'cumRate' ? '#0071e3' : c.key === 'batch' ? '#6e6e73' : '#1d1d1f' }}>
+                            <td key={c.key} style={{ padding: '9px 10px', borderBottom: '1px solid #f5f5f7', textAlign: 'center', fontSize: 14, fontWeight: c.key === 'mAct' ? 600 : 400, color: c.key === 'batch' ? '#6e6e73' : '#1d1d1f' }}>
                               {colValue(c.key, d)}
                             </td>
                           ))}
@@ -729,7 +782,7 @@ export default function ProdDashboard() {
                     <tr style={{ background: '#f8f8fb' }}>
                       <td style={{ padding: '7px 12px', fontWeight: 700, color: '#6e6e73', fontSize: 12 }}>합계</td>
                       {enabled.map((c) => (
-                        <td key={c.key} style={{ padding: '7px 10px', textAlign: 'center', fontWeight: 700, fontSize: 12, color: c.key === 'cumRate' ? '#0071e3' : '#1d1d1f' }}>{footer(c.key)}</td>
+                        <td key={c.key} style={{ padding: '7px 10px', textAlign: 'center', fontWeight: 700, fontSize: 12, color: '#1d1d1f' }}>{footer(c.key)}</td>
                       ))}
                     </tr>
                   </tbody>
@@ -755,12 +808,12 @@ export default function ProdDashboard() {
               const rmColor = rm == null ? '#c7c7cc' : rm < 2 ? '#ff3b30' : rm < 4 ? '#ff9500' : '#34c759';
               return (
                 <div key={p} style={{ display: 'flex', alignItems: 'center', padding: '7px 14px', borderBottom: '1px solid #f5f5f7' }}>
-                  <div style={{ width: 88, display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: 12, color: c, whiteSpace: 'nowrap' }}>
+                  <div style={{ width: 88, display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: 12, color: '#1d1d1f', whiteSpace: 'nowrap' }}>
                     <span style={{ width: 8, height: 8, background: c, borderRadius: '50%', display: 'inline-block', flexShrink: 0 }} />{p}
                   </div>
-                  <div style={{ flex: 1, textAlign: 'center', fontSize: 12, color: '#34c759' }}>{fmtInt(inv.filled)}</div>
-                  <div style={{ flex: 1, textAlign: 'center', fontSize: 12, color: '#ff9500' }}>{fmtInt(inv.shipped)}</div>
-                  <div style={{ flex: 1, textAlign: 'center', fontSize: 12, fontWeight: 700, color: '#0071e3' }}>{fmtInt(inv.total)}</div>
+                  <div style={{ flex: 1, textAlign: 'center', fontSize: 12, color: '#1d1d1f' }}>{fmtInt(inv.filled)}</div>
+                  <div style={{ flex: 1, textAlign: 'center', fontSize: 12, color: '#1d1d1f' }}>{fmtInt(inv.shipped)}</div>
+                  <div style={{ flex: 1, textAlign: 'center', fontSize: 12, fontWeight: 700, color: '#1d1d1f' }}>{fmtInt(inv.total)}</div>
                   <div style={{ flex: 1, textAlign: 'center', fontSize: 12, fontWeight: 700, color: rmColor }}>
                     {rm == null ? '–' : `${rm.toFixed(1)}개월`}
                   </div>
@@ -785,18 +838,18 @@ export default function ProdDashboard() {
         );
         return (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-            <div className="card">
-              <div className="card-head"><h3>📈 월별 생산량 추이</h3>{legend(true)}</div>
+            <div className="card" style={{ cursor: 'pointer' }} onClick={() => setMatrixMode('prod')} title="클릭하면 품목/월 내역 표 보기">
+              <div className="card-head"><h3>📈 월별 생산량 (kg)</h3>{legend(true)}</div>
               <div style={{ padding: '6px 12px 10px' }}>
                 <MonthlyLineChart byProduct={byProduct} products={products} currentMonth={curMonth} mode="prod" />
-                <div style={{ fontSize: 9, color: '#86868b', marginTop: 2 }}>빈값(0)은 연결하지 않고 공백 처리 · 미래월은 데이터 없음</div>
+                <div style={{ fontSize: 9, color: '#86868b', marginTop: 2 }}>클릭 → 품목/월 내역 · 미래월은 데이터 없음</div>
               </div>
             </div>
-            <div className="card">
-              <div className="card-head"><h3>📊 월별 수율 추이 (%)</h3>{legend(false)}</div>
+            <div className="card" style={{ cursor: 'pointer' }} onClick={() => setMatrixMode('yield')} title="클릭하면 품목/월 내역 표 보기">
+              <div className="card-head"><h3>📊 월별 수율 (%)</h3>{legend(false)}</div>
               <div style={{ padding: '6px 12px 10px' }}>
                 <MonthlyLineChart byProduct={byProduct} products={products} currentMonth={curMonth} mode="yield" />
-                <div style={{ fontSize: 9, color: '#86868b', marginTop: 2 }}>빈값은 공백 처리 · 미래월은 데이터 없음</div>
+                <div style={{ fontSize: 9, color: '#86868b', marginTop: 2 }}>클릭 → 품목/월 내역 · 미래월은 데이터 없음</div>
               </div>
             </div>
           </div>
@@ -806,6 +859,7 @@ export default function ProdDashboard() {
       {/* ── 모달 ── */}
       {showAll && <AllProductsModal data={data} onClose={() => setShowAll(false)} />}
       {showMonthly && <MonthlyExpandModal data={data} onClose={() => setShowMonthly(false)} />}
+      {matrixMode && <MonthlyMatrixModal byProduct={byProduct} products={products} mode={matrixMode} onClose={() => setMatrixMode(null)} />}
     </>
   );
 }
