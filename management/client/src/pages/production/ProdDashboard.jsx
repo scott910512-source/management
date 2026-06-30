@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { api } from '../../api';
 import { Loading, Empty, useToast } from '../../components/ui';
 import { useAuth } from '../../auth/AuthContext';
+import { buildReportHtml, downloadHtml } from './report';
 
 const STEP_ICONS = { done: '✓', active: '●', wait: '–' };
 const ALERT_ICO = { error: '🔴', warn: '🟡', ok: '🟢' };
@@ -693,7 +694,26 @@ export default function ProdDashboard() {
         <span style={{ fontWeight: 700, color: '#1d1d1f' }}>📅 기준일 {data.reportDate || (mtime ? mtime.slice(0, 10) : '–')}</span>
         <span style={{ color: '#86868b' }}>· CSV 갱신 {mtime ? mtime.slice(0, 16).replace('T', ' ') : '–'}</span>
         <span style={{ color: '#86868b' }}>· {source === 'demo' ? '데모 데이터' : source || '–'}</span>
-        <button className="btn secondary sm" onClick={() => load()} style={{ marginLeft: 'auto' }}>🔄 수동 갱신</button>
+        <span style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+          <button className="btn secondary sm" onClick={() => {
+            const html = buildReportHtml({ title: `${plant} 생산현황 보고서`, subtitle: `기준일 ${data.reportDate || ''}`, plants: [{ plant, data, mtime }] });
+            downloadHtml(`ManagePilot_${plant}_보고서.html`, html);
+          }}>📄 보고서</button>
+          {isAll && (
+            <button className="btn secondary sm" onClick={async () => {
+              try {
+                const got = [];
+                for (const pl of ['1공장', '2공장']) {
+                  try { const r = await api.get(`/production/data?plant=${encodeURIComponent(pl)}`); got.push({ plant: pl, data: r.data, mtime: r.mtime }); } catch { /* 해당 공장 데이터 없음 → 건너뜀 */ }
+                }
+                if (!got.length) { toast.err('통합 보고서를 만들 데이터가 없습니다.'); return; }
+                const html = buildReportHtml({ title: '통합 생산현황 보고서', subtitle: got.map((g) => g.plant).join(' + '), plants: got });
+                downloadHtml('ManagePilot_통합_보고서.html', html);
+              } catch (e) { toast.err(e.message); }
+            }}>📑 통합 보고서</button>
+          )}
+          <button className="btn secondary sm" onClick={() => load()}>🔄 수동 갱신</button>
+        </span>
       </div>
 
       {/* ── 공장 탭 (총괄관리자만) ── */}
