@@ -28,6 +28,8 @@ import ProdDashboard from './pages/production/ProdDashboard';
 import ProdManufacturing from './pages/production/ProdManufacturing';
 import ProdSettings from './pages/production/ProdSettings';
 import ProdCellMap from './pages/production/ProdCellMap';
+import ProdCompare from './pages/production/ProdCompare';
+import ProdAlerts from './pages/production/ProdAlerts';
 
 // 큰 묶음 단위로 그룹화 — 그룹마다 테두리로 구분
 const NAV_GROUPS = [
@@ -167,12 +169,14 @@ function Protected({ children, title, adminOnly }) {
 const PROD_NAV = [
   { to: '/production/search', label: 'AI 검색', ico: 'search' },
   { to: '/production', label: '종합현황', ico: 'grid', end: true },
+  { to: '/production/compare', label: '통합뷰', ico: 'grid', superOnly: true },
   { title: '생산관리', items: [
     { to: '/production/manufacturing', label: '생산현황', ico: 'task' },
   ] },
   { title: '설정', adminOnly: true, items: [
     { to: '/production/settings', label: '관리자 설정', ico: 'shield' },
     { to: '/production/cellmap', label: '셀 매핑', ico: 'grid' },
+    { to: '/production/alerts', label: '경고 이력', ico: 'shield' },
   ] },
 ];
 
@@ -243,7 +247,7 @@ function ModuleSwitcher({ current }) {
 }
 
 function ProdSidebar() {
-  const { user, plant, roleLabel, isAdmin } = useAuth();
+  const { user, plant, roleLabel, isAdmin, isSuper } = useAuth();
   const [mini, setMini] = useState(() => localStorage.getItem('prodSidebarMini') === '1');
   useEffect(() => { localStorage.setItem('prodSidebarMini', mini ? '1' : '0'); }, [mini]);
 
@@ -273,7 +277,7 @@ function ProdSidebar() {
       <ModuleSwitcher current="ManagePilot" />
 
       <nav className="nav">
-        {PROD_NAV.filter((g) => !g.adminOnly || isAdmin).map((n, i) =>
+        {PROD_NAV.filter((g) => (!g.adminOnly || isAdmin) && (!g.superOnly || isSuper)).map((n, i) =>
           n.items ? (
             <div className="nav-group" key={i}>
               <div className="nav-section">{n.title}</div>
@@ -368,6 +372,8 @@ export default function App() {
       <Route path="/production/manufacturing" element={<ProtectedProd title="생산현황"><ProdManufacturing /></ProtectedProd>} />
       <Route path="/production/settings" element={<ProtectedProd title="관리자 설정"><ProdSettings /></ProtectedProd>} />
       <Route path="/production/cellmap" element={<ProtectedProd title="셀 매핑"><ProdCellMap /></ProtectedProd>} />
+      <Route path="/production/compare" element={<ProtectedProd title="통합뷰"><ProdCompare /></ProtectedProd>} />
+      <Route path="/production/alerts" element={<ProtectedProd title="경고 이력"><ProdAlerts /></ProtectedProd>} />
       <Route path="*" element={<Navigate to="/hub" replace />} />
     </Routes>
   );

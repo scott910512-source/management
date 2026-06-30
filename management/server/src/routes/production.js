@@ -6,8 +6,9 @@ const path = require('path');
 const XLSX = require('xlsx');
 const { asyncHandler, badRequest } = require('../lib/http');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
-const { readTable } = require('../lib/store');
+const { readTable, mutate } = require('../lib/store');
 const { parseCsvGrid } = require('../lib/csv');
+const { newId, now } = require('../lib/ids');
 
 const router = express.Router();
 
@@ -418,6 +419,42 @@ function applyInventoryConfig(data, invConfigStr) {
   }
 }
 
+// ── 경고 도출 + 일자별 이력 기록 ──────────────────────────────────
+function deriveWarnings(data) {
+  const out = [];
+  for (const p of data.products) {
+    const d = data.byProduct[p]; if (!d) continue;
+    if (d.yield != null && d.yieldTarget != null && d.yield < d.yieldTarget) {
+      const g = d.yieldTarget - d.yield;
+      out.push({ product: p, type: '수율미달', level: g >= 5 ? 'error' : 'warn', detail: `수율 ${d.yield.toFixed(1)}% / 목표 ${d.yieldTarget.toFixed(1)}% (-${g.toFixed(1)}%p)` });
+    }
+    const inv = d.inventory;
+    if (inv && inv.belowSafety && inv.remainingMonths != null) {
+      out.push({ product: p, type: '재고부족', level: 'warn', detail: `잔여 ${inv.remainingMonths.toFixed(1)}개월 / 안전재고 ${inv.safetyMonths}개월` });
+    }
+  }
+  return out;
+}
+
+// 같은 (공장, 보고일, 품목, 유형)은 하루 1회만 기록(중복 방지)
+async function logWarnings(plant, data) {
+  const date = data.reportDate || '';
+  if (!date) return;
+  const warns = deriveWarnings(data);
+  if (!warns.length) return;
+  await mutate('prod_alerts', null, (rows) => {
+    const seen = new Set(rows.map((r) => `${r.plant}|${r.date}|${r.product}|${r.type}`));
+    for (const w of warns) {
+      const key = `${plant}|${date}|${w.product}|${w.type}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      rows.push({ id: newId('al'), plant, date, product: w.product, type: w.type, level: w.level, detail: w.detail, createdAt: now() });
+    }
+    // 과도한 누적 방지: 최근 3000건 유지
+    if (rows.length > 3000) rows.splice(0, rows.length - 3000);
+  });
+}
+
 // ── GET /api/production/data ────────────────────────────────────
 router.get(
   '/data',
@@ -473,6 +510,7 @@ router.get(
     let cols = null;
     try { cols = tableCols ? JSON.parse(tableCols) : null; } catch { cols = null; }
     data.tableCols = Array.isArray(cols) && cols.length ? cols : null;
+    try { await logWarnings(plant, data); } catch { /* 이력 기록 실패는 무시 */ }
     const st = fs.statSync(csvPath);
     res.json({ data, source: 'daily-latest.csv', mtime: new Date(st.mtimeMs).toISOString(), plant });
   }),
@@ -534,6 +572,17 @@ router.post(
       message: `daily-latest.csv 감지 완료 (보고일: ${data.reportDate || '?'}, 인식 품목: ${found.length ? found.join(', ') : '없음 — 셀 매핑 확인 필요'}, 수정일: ${new Date(st.mtimeMs).toLocaleString('ko-KR')}) | ${batchMsg}`,
       file: csvPath,
     });
+  }),
+);
+
+// ── GET /api/production/alerts ── 경고 이력 (관리자) ───────────────
+router.get(
+  '/alerts',
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const rows = await readTable('prod_alerts', null);
+    rows.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+    res.json({ items: rows.slice(0, 500) });
   }),
 );
 

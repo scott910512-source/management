@@ -41,10 +41,12 @@ const TABLES = {
   sub_materials_changelog: ['id', 'lotId', 'itemName', 'lotNo', 'action', 'summary', 'changedBy', 'changedAt'],
   // 로그인 이력 — 전역(공장 공통), 관리자 조회 가능
   login_logs: ['id', 'userId', 'userName', 'ip', 'result', 'note', 'createdAt'],
+  // 생산 경고 이력 — 전역. 수율 미달·재고 부족을 일자별로 1회 기록
+  prod_alerts: ['id', 'plant', 'date', 'product', 'type', 'level', 'detail', 'createdAt'],
 };
 
 // 전역(공장 공통) 테이블 — 공장 하위 폴더가 아닌 DATA_DIR 루트에 저장
-const GLOBAL = new Set(['users', 'login_logs']);
+const GLOBAL = new Set(['users', 'login_logs', 'prod_alerts']);
 
 function headersOf(name) {
   const h = TABLES[name];
