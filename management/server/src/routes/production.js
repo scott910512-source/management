@@ -320,24 +320,37 @@ function mergeBatchYield(data, text, cellMapStr, currentMonth) {
   const reset = () => { counts = {}; names.forEach((p) => { counts[p] = 0; }); };
   reset();
 
+  // 소계는 "월 열" 또는 "품목별 Batch no 열" 어디에 있어도 인식한다.
+  const dbg = { monthCol: bm.monthCol || 'B', subtotal: bm.subtotal || 'Sub total', months: [], subtotalRows: 0, firstSub: null };
+  const isSub = (s) => String(s == null ? '' : s).replace(/\s+/g, '').toLowerCase().includes(subLabel);
+
   for (let r = 0; r < grid.length; r++) {
     const raw = dNorm(dCell(grid, r, monthIdx));
-    const norm = raw.replace(/\s+/g, '').toLowerCase();
     const mm = raw.match(/(\d{1,2})\s*월/);
-    if (norm.includes(subLabel)) {
+    if (mm && !isSub(raw)) { curMonth = parseInt(mm[1], 10); reset(); dbg.months.push(curMonth); }
+
+    // 이 행이 (어떤 품목이든) 소계 행인지 판단: 월 열 또는 각 품목 Batch no 열
+    const rowIsSub = isSub(raw) || names.some((p) => isSub(dCell(grid, r, colToIdx(prods[p].no))));
+    if (rowIsSub) {
+      dbg.subtotalRows += 1;
       if (curMonth) {
         for (const p of names) {
-          const cfg = prods[p];
           out[p][curMonth] = {
-            actual: dNum(dCell(grid, r, colToIdx(cfg.prod))),
-            yield: dPct(dCell(grid, r, colToIdx(cfg.yield))),
+            actual: dNum(dCell(grid, r, colToIdx(prods[p].prod))),
+            yield: dPct(dCell(grid, r, colToIdx(prods[p].yield))),
             batchCount: counts[p] || 0,
           };
         }
+        if (!dbg.firstSub) {
+          dbg.firstSub = {};
+          for (const p of names) dbg.firstSub[p] = { prodCol: prods[p].prod, prodVal: dCell(grid, r, colToIdx(prods[p].prod)), yieldCol: prods[p].yield, yieldVal: dCell(grid, r, colToIdx(prods[p].yield)) };
+        }
       }
-      curMonth = null; reset(); continue;
+      reset();
+      continue;
     }
-    if (mm) { curMonth = parseInt(mm[1], 10); reset(); }  // 월 라벨 행에도 첫 배치가 있을 수 있어 continue 안 함
+
+    // 일반 배치 행: '#' 포함 시 카운트
     if (curMonth) {
       for (const p of names) {
         const v = String(dCell(grid, r, colToIdx(prods[p].no)) || '');
@@ -345,21 +358,7 @@ function mergeBatchYield(data, text, cellMapStr, currentMonth) {
       }
     }
   }
-
-  // 디버그: 감지된 월/소계 수, 첫 소계의 원본값
-  const dbg = { monthCol: bm.monthCol || 'B', subtotal: bm.subtotal || 'Sub total', months: [], subtotalCount: 0, firstSub: null };
-  for (let r = 0; r < grid.length; r++) {
-    const raw = dNorm(dCell(grid, r, monthIdx));
-    const norm = raw.replace(/\s+/g, '').toLowerCase();
-    const mm = raw.match(/(\d{1,2})\s*월/);
-    if (norm.includes(subLabel)) {
-      dbg.subtotalCount += 1;
-      if (!dbg.firstSub) {
-        dbg.firstSub = {};
-        for (const p of names) dbg.firstSub[p] = { prodCol: prods[p].prod, prodVal: dCell(grid, r, colToIdx(prods[p].prod)), yieldCol: prods[p].yield, yieldVal: dCell(grid, r, colToIdx(prods[p].yield)) };
-      }
-    } else if (mm) dbg.months.push(parseInt(mm[1], 10));
-  }
+  dbg.subtotalCount = dbg.subtotalRows;
   data._batchDebug = dbg;
 
   // data.byProduct 에 병합 (등록된 카드 품목만)
