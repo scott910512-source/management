@@ -103,6 +103,24 @@ function Sidebar() {
           {mini ? '»' : '«'}
         </button>
       </div>
+      <Link to="/hub" style={{
+        display: 'flex', alignItems: 'center', gap: 6,
+        margin: '0 10px 6px', padding: '5px 10px', borderRadius: 8,
+        background: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.85)',
+        fontSize: 12, textDecoration: 'none', transition: 'background 0.15s',
+      }}
+        onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
+        onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.12)'}
+        title="모듈 선택 화면으로 이동"
+      >
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+          <rect x="1" y="1" width="6" height="6" rx="1.2" fill="rgba(255,255,255,0.8)"/>
+          <rect x="9" y="1" width="6" height="6" rx="1.2" fill="rgba(255,255,255,0.8)"/>
+          <rect x="1" y="9" width="6" height="6" rx="1.2" fill="rgba(255,255,255,0.8)"/>
+          <rect x="9" y="9" width="6" height="6" rx="1.2" fill="rgba(255,255,255,0.5)"/>
+        </svg>
+        <span>모듈 전환</span>
+      </Link>
 
       <div className="plant-pick">
         <span className="plant-label">공장</span>
@@ -175,7 +193,7 @@ function ProdSidebar() {
   return (
     <aside className={`sidebar ${mini ? 'mini' : ''}`}>
       <div className="brand-row">
-        <Link to="/hub" className="brand" title="허브로 이동">
+        <Link to="/production" className="brand" title="생산관리 종합현황으로 이동">
           <div className="brand-logo">
             <svg viewBox="0 0 34 34" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: '100%', height: '100%' }}>
               <polygon points="3,14 17,5 31,14" fill="rgba(255,255,255,0.25)" stroke="#fff" strokeWidth="1.8" strokeLinejoin="round" />
@@ -187,13 +205,31 @@ function ProdSidebar() {
           </div>
           <div className="brand-text">
             <div className="brand-title">생산관리</div>
-            <div className="brand-sub">← 허브로 돌아가기</div>
+            <div className="brand-sub">화학공장 운영관리</div>
           </div>
         </Link>
         <button className="sidebar-toggle" onClick={() => setMini((v) => !v)} title={mini ? '메뉴 펼치기' : '메뉴 최소화'} aria-label="메뉴 최소화">
           {mini ? '»' : '«'}
         </button>
       </div>
+      <Link to="/hub" style={{
+        display: 'flex', alignItems: 'center', gap: 6,
+        margin: '0 10px 6px', padding: '5px 10px', borderRadius: 8,
+        background: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.85)',
+        fontSize: 12, textDecoration: 'none', transition: 'background 0.15s',
+      }}
+        onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
+        onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.12)'}
+        title="모듈 선택 화면으로 이동"
+      >
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+          <rect x="1" y="1" width="6" height="6" rx="1.2" fill="rgba(255,255,255,0.8)"/>
+          <rect x="9" y="1" width="6" height="6" rx="1.2" fill="rgba(255,255,255,0.8)"/>
+          <rect x="1" y="9" width="6" height="6" rx="1.2" fill="rgba(255,255,255,0.8)"/>
+          <rect x="9" y="9" width="6" height="6" rx="1.2" fill="rgba(255,255,255,0.5)"/>
+        </svg>
+        <span>모듈 전환</span>
+      </Link>
 
       {plant && (
         <div className="plant-pick">
