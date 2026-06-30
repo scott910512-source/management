@@ -405,6 +405,14 @@ export default function ProdDashboard() {
 
   return (
     <>
+      {/* ── 상단 상태바: 파일 · 수정시간 · 수동 갱신 ── */}
+      <div style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 10, fontSize: 11, color: '#86868b' }}>
+        <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#34c759', display: 'inline-block' }} />
+        {source === 'demo' ? '데모 데이터' : source ? `파일: ${source}` : '–'}
+        {mtime && <span>· 수정: {mtime.slice(0, 16).replace('T', ' ')}</span>}
+        <button className="btn secondary sm" onClick={() => load()} style={{ marginLeft: 'auto' }}>🔄 수동 갱신</button>
+      </div>
+
       {/* ── 공장 탭 (총괄관리자만) ── */}
       {isAll && (
         <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
@@ -695,14 +703,6 @@ export default function ProdDashboard() {
               ))}
           </div>
         </div>
-      </div>
-
-      {/* ── 하단 상태바 ── */}
-      <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 10, fontSize: 11, color: '#86868b' }}>
-        <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#34c759', display: 'inline-block' }} />
-        {source === 'demo' ? '데모 데이터' : source ? `파일: ${source}` : '–'}
-        {mtime && <span>· 수정: {mtime.slice(0, 16).replace('T', ' ')}</span>}
-        <button className="btn secondary sm" onClick={() => load()} style={{ marginLeft: 4 }}>🔄 수동 갱신</button>
       </div>
 
       {/* ── 모달 ── */}
