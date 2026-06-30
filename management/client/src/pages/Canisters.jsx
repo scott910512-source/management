@@ -135,21 +135,21 @@ export default function Canisters() {
                 const unit = g.rows[0]?.unit || 'kg';
                 return (
                 <Fragment key={g.content}>
-                  <tr className="group-row"><td colSpan={9}>제품명: {demoText(g.content)} · 총 {g.rows.length}개 ({isDemo ? '***' : sizeStr}) · 총무게 {isDemo ? '***' : totalW.toLocaleString()}{unit}</td></tr>
+                  <tr className="group-row"><td colSpan={9}>제품명: {g.content} · 총 {g.rows.length}개 ({sizeStr}) · 총무게 {totalW.toLocaleString()}{unit}</td></tr>
                   {g.rows.map((c) => (
                     <tr key={c.id} className={c.capWarn ? 'cap-warn' : ''}>
-                      <td style={{ paddingLeft: 24 }}><Link to={`/canisters/${c.id}`} className="inline-link"><b>{demoText(c.canisterNo)}</b></Link></td>
+                      <td style={{ paddingLeft: 24 }}><Link to={`/canisters/${c.id}`} className="inline-link"><b>{c.canisterNo}</b></Link></td>
                       <td><Badge>{c.sizeLabel}</Badge></td>
-                      <td>{c.content ? demoText(c.content) : <span className="muted">(비어있음)</span>}</td>
+                      <td>{c.content ? c.content : <span className="muted">(비어있음)</span>}</td>
                       <td className="num">
-                        <span style={{ color: c.capWarn ? 'var(--red)' : undefined, fontWeight: c.capWarn ? 700 : undefined }}>{isDemo ? '***' : Number(c.weight || 0).toLocaleString()}</span>
-                        {!isDemo && c.maxKg != null && <span className="muted" style={{ fontSize: 11 }}> / {c.maxKg}kg{c.capPct != null ? ` (${c.capPct}%)` : ''}</span>}
-                        {!isDemo && c.capWarn && <span className="badge red" style={{ marginLeft: 4 }}>임박</span>}
+                        <span style={{ color: c.capWarn ? 'var(--red)' : undefined, fontWeight: c.capWarn ? 700 : undefined }}>{Number(c.weight || 0).toLocaleString()}</span>
+                        {c.maxKg != null && <span className="muted" style={{ fontSize: 11 }}> / {c.maxKg}kg{c.capPct != null ? ` (${c.capPct}%)` : ''}</span>}
+                        {c.capWarn && <span className="badge red" style={{ marginLeft: 4 }}>임박</span>}
                       </td>
-                      <td className="muted">{isDemo ? '***' : c.locationLabel}</td>
+                      <td className="muted">{c.locationLabel}</td>
                       <td>{canWrite ? <StatusSelect c={c} statuses={meta.canisterStatuses} onChanged={load} onError={(m) => toast.err(m)} /> : <Badge color={statusColor(c.status)} dot>{c.statusLabel}</Badge>}</td>
-                      <td className="muted" style={{ maxWidth: 160, whiteSpace: 'normal' }}>{demoText(c.note) || '–'}</td>
-                      <td className="muted">{isDemo ? '****-**-**' : (c.updatedAt || '').slice(0, 10)}</td>
+                      <td className="muted" style={{ maxWidth: 160, whiteSpace: 'normal' }}>{c.note || '–'}</td>
+                      <td className="muted">{(c.updatedAt || '').slice(0, 10)}</td>
                       <td>
                         <div className="btn-row">
                           <Link to={`/canisters/${c.id}`} className="btn ghost sm">이력카드</Link>

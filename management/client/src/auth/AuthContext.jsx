@@ -66,14 +66,9 @@ export function AuthProvider({ children }) {
     return '사용자';
   })();
 
-  // 데모 계정용 숫자 마스킹
-  const demoNum = (val) => isDemo ? '***' : val;
-  // 데모 계정용 텍스트 마스킹 (첫 글자 제외 * 처리)
-  const demoText = (val) => {
-    if (!isDemo || !val) return val;
-    const s = String(val);
-    return s.charAt(0) + '*'.repeat(Math.max(s.length - 1, 2));
-  };
+  // 데모 계정은 서버에서 별도 더미 데이터를 제공하므로 마스킹 불필요 (하위 호환 유지)
+  const demoNum = (val) => val;
+  const demoText = (val) => val;
 
   return (
     <AuthCtx.Provider value={{ user, plants, plant, loading, login, signup, logout, changePlant, isAdmin, isViewer, isDemo, canWrite, isSuper, roleLabel, demoNum, demoText }}>

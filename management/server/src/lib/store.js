@@ -6,7 +6,7 @@ const { parseCsv, stringifyCsv } = require('./csv');
 const { DATA_DIR } = require('../config');
 
 // 공장 목록(멀티 사이트). 데이터는 공장별 하위 폴더로 분리 저장된다.
-const PLANTS = ['1공장', '2공장'];
+const PLANTS = ['1공장', '2공장', 'demo'];
 
 // 각 테이블(CSV 파일)의 컬럼 정의.
 const TABLES = {

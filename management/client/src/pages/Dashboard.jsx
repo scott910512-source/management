@@ -148,7 +148,7 @@ export default function Dashboard() {
               <button onClick={() => setWarnIdx((i) => (i + 1) % warnCount)} title="다음 경고">›</button>
             </span>
           )}
-          <span className="topwarn-rollbox"><span className="topwarn-msg roll" key={warnIdx} title={curWarn.content}>{isDemo ? demoText(curWarn.content) : curWarn.content}</span></span>
+          <span className="topwarn-rollbox"><span className="topwarn-msg roll" key={warnIdx} title={curWarn.content}>{curWarn.content}</span></span>
           {canWrite && !curWarn.ackedByMe && <button className="btn sm" onClick={() => ack(curWarn.key, curWarn.content)}>확인</button>}
           {canWrite && <button className="btn secondary sm" onClick={() => dismiss(curWarn.key, curWarn.content)}>삭제</button>}
         </>
@@ -201,15 +201,15 @@ export default function Dashboard() {
                 <tbody>
                   {groupByProduct(mat).map((g, gi) => (
                     <Fragment key={g.product}>
-                      <tr className={`group-row gt${gi % 5}`}><td colSpan={7}>{demoText(g.product)}</td></tr>
+                      <tr className={`group-row gt${gi % 5}`}><td colSpan={7}>{g.product}</td></tr>
                       {g.rows.map((r) => (
                         <tr key={r.name} className={r.below ? 'row-low' : ''} style={{ cursor: 'pointer', background: r.below ? undefined : ROW_TINTS[gi % 5] }} onClick={() => navigate(`${matPath}?q=${encodeURIComponent(r.name)}`)}>
-                          <td><b className="inline-link">{demoText(r.name)}</b></td>
-                          <td className="num">{isDemo ? '***' : r.lots}</td>
-                          <td className="num"><b>{isDemo ? '***' : r.current.toLocaleString()}</b></td>
+                          <td><b className="inline-link">{r.name}</b></td>
+                          <td className="num">{r.lots}</td>
+                          <td className="num"><b>{r.current.toLocaleString()}</b></td>
                           <td className="muted">{r.unit}</td>
-                          <td className="num muted">{isDemo ? '***' : (r.minStock ? r.minStock.toLocaleString() : '–')}</td>
-                          <td className="num">{isDemo ? '***' : r.level == null ? '–' : `${r.level}%`}</td>
+                          <td className="num muted">{r.minStock ? r.minStock.toLocaleString() : '–'}</td>
+                          <td className="num">{r.level == null ? '–' : `${r.level}%`}</td>
                           <td><span className={`state-pill state-${r.state}`}>{r.state}</span></td>
                         </tr>
                       ))}
@@ -235,13 +235,13 @@ export default function Dashboard() {
                     const gWeight = g.rows.reduce((s, c) => s + (Number(c.totalWeight) || 0), 0);
                     return (
                     <Fragment key={g.product}>
-                      <tr className={`group-row gt${gi % 5}`}><td colSpan={4}>제품명: {demoText(g.product)} <span style={{ fontWeight: 600, color: 'var(--text-2)' }}>· 총 {gCount}개 · {isDemo ? '***' : gWeight.toLocaleString()}kg</span></td></tr>
+                      <tr className={`group-row gt${gi % 5}`}><td colSpan={4}>제품명: {g.product} <span style={{ fontWeight: 600, color: 'var(--text-2)' }}>· 총 {gCount}개 · {gWeight.toLocaleString()}kg</span></td></tr>
                       {g.rows.map((c, i) => (
                         <tr key={i} style={{ cursor: 'pointer', background: ROW_TINTS[gi % 5] }} onClick={() => navigate('/canisters')}>
-                          <td style={{ paddingLeft: 24 }}><Badge>{isDemo ? '***' : c.size}</Badge></td>
-                          <td className="num">{isDemo ? '***' : c.count}</td>
-                          <td className="num">{isDemo ? '***' : c.totalWeight.toLocaleString()}</td>
-                          <td className="muted">{isDemo ? '***' : (c.heaviestNote || '–')}</td>
+                          <td style={{ paddingLeft: 24 }}><Badge>{c.size}</Badge></td>
+                          <td className="num">{c.count}</td>
+                          <td className="num">{c.totalWeight.toLocaleString()}</td>
+                          <td className="muted">{c.heaviestNote || '–'}</td>
                         </tr>
                       ))}
                     </Fragment>

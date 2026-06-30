@@ -119,10 +119,10 @@ function MonthBlock({ m, open, md, unit, canWrite, isDemo, onToggle, onSave, onD
       <tr className="haz-month" style={{ cursor: 'pointer', background: open ? 'var(--accent-soft,#eaf3fe)' : undefined }} onClick={onToggle}>
         <td style={{ textAlign: 'center', color: 'var(--accent)' }}>{open ? '▼' : '▶'}</td>
         <td><b>{monthLabel(m.month)}</b></td>
-        <td className="num muted">{isDemo ? '***' : fmt(m.carryIn)}</td>
-        <td className="num" style={{ color: 'var(--green)' }}>{isDemo ? '***' : (m.inQty ? '+' + fmt(m.inQty) : '–')}</td>
-        <td className="num" style={{ color: 'var(--orange)' }}>{isDemo ? '***' : (m.outQty ? '-' + fmt(m.outQty) : '–')}</td>
-        <td className="num"><b>{isDemo ? '***' : fmt(m.balance)}</b></td>
+        <td className="num muted">{fmt(m.carryIn)}</td>
+        <td className="num" style={{ color: 'var(--green)' }}>{m.inQty ? '+' + fmt(m.inQty) : '–'}</td>
+        <td className="num" style={{ color: 'var(--orange)' }}>{m.outQty ? '-' + fmt(m.outQty) : '–'}</td>
+        <td className="num"><b>{fmt(m.balance)}</b></td>
         <td className="muted">{unit}</td>
       </tr>
       {open && (
@@ -169,10 +169,10 @@ function DayRow({ d, unit, canWrite, isDemo, onSave, onDelete }) {
     return (
       <tr style={d.edited ? { background: '#fffaf0' } : {}}>
         <td><b>{d.date}</b>{d.edited && <span className="badge orange" style={{ marginLeft: 6, fontSize: 10 }}>수정</span>}</td>
-        <td className="num muted">{isDemo ? '***' : fmt(d.carryOver)}</td>
-        <td className="num" style={{ color: d.inQty ? 'var(--green)' : undefined }}>{isDemo ? '***' : (d.inQty ? fmt(d.inQty) : '–')}</td>
-        <td className="num" style={{ color: d.outQty ? 'var(--orange)' : undefined }}>{isDemo ? '***' : (d.outQty ? fmt(d.outQty) : '–')}</td>
-        <td className="num"><b>{isDemo ? '***' : fmt(d.balance)}</b> <span className="muted">{unit}</span></td>
+        <td className="num muted">{fmt(d.carryOver)}</td>
+        <td className="num" style={{ color: d.inQty ? 'var(--green)' : undefined }}>{d.inQty ? fmt(d.inQty) : '–'}</td>
+        <td className="num" style={{ color: d.outQty ? 'var(--orange)' : undefined }}>{d.outQty ? fmt(d.outQty) : '–'}</td>
+        <td className="num"><b>{fmt(d.balance)}</b> <span className="muted">{unit}</span></td>
         <td className="muted">{d.note || '–'}</td>
         {canWrite && <td><div className="btn-row">
           <button className="btn secondary sm" onClick={() => { setF({ inQty: d.inQty, outQty: d.outQty, balance: d.balance, note: d.note }); setEdit(true); }}>수정</button>

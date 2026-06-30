@@ -108,13 +108,13 @@ export default function SubMaterials() {
               <tbody>
                 {summary.map((s) => (
                   <tr key={s.name}>
-                    <td><b>{demoText(s.name)}</b>{!s.isMaster && <span className="muted" style={{ fontWeight: 400 }}> (기타)</span>}</td>
-                    <td className="num"><b>{isDemo ? '***' : s.totalQuantity.toLocaleString()}</b> <span className="muted">{s.unit}</span></td>
-                    <td className="num">{isDemo ? <span className="muted">***</span> : <span style={{ display: 'inline-flex', justifyContent: 'flex-end', width: '100%' }}><SignalLight level={s.level} below={s.below} /></span>}</td>
-                    <td className="num muted">{isDemo ? '***' : (s.safetyStock ? s.safetyStock.toLocaleString() : '–')}{!isDemo && s.warningPct ? <span className="muted" style={{fontSize:11}}> ({s.warningPct}%)</span> : ''}</td>
-                    <td className="num muted">{isDemo ? '***' : s.lots}</td>
-                    <td className="muted">{isDemo ? '****-**-**' : s.lastReceived || '–'}</td>
-                    <td className="muted">{isDemo ? '****-**-**' : s.lastUsed || '–'}</td>
+                    <td><b>{s.name}</b>{!s.isMaster && <span className="muted" style={{ fontWeight: 400 }}> (기타)</span>}</td>
+                    <td className="num"><b>{s.totalQuantity.toLocaleString()}</b> <span className="muted">{s.unit}</span></td>
+                    <td className="num"><span style={{ display: 'inline-flex', justifyContent: 'flex-end', width: '100%' }}><SignalLight level={s.level} below={s.below} /></span></td>
+                    <td className="num muted">{s.safetyStock ? s.safetyStock.toLocaleString() : '–'}{s.warningPct ? <span className="muted" style={{fontSize:11}}> ({s.warningPct}%)</span> : ''}</td>
+                    <td className="num muted">{s.lots}</td>
+                    <td className="muted">{s.lastReceived || '–'}</td>
+                    <td className="muted">{s.lastUsed || '–'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -189,30 +189,30 @@ export default function SubMaterials() {
                   return (
                   <Fragment key={g.name}>
                     <tr className={`group-row ${lowSet.has(g.name) ? 'row-low' : ''}`}>
-                      <td style={{ paddingLeft: 20 }}>📦 <b>{demoText(g.name)}</b> · {g.lots.length} Lot {lowSet.has(g.name) && <span className="badge red" style={{ marginLeft: 4 }}>안전재고 부족</span>}</td>
+                      <td style={{ paddingLeft: 20 }}>📦 <b>{g.name}</b> · {g.lots.length} Lot {lowSet.has(g.name) && <span className="badge red" style={{ marginLeft: 4 }}>안전재고 부족</span>}</td>
                       <td className="num">
-                        {isDemo ? <b>***</b> : totalPkg > 1
+                        {totalPkg > 1
                           ? <><b>{totalPkg.toLocaleString()}{pkgType}</b> <span className="muted">/ {totalW.toLocaleString()}{unit}</span></>
                           : <b>{totalW.toLocaleString()}{unit}</b>}
                       </td>
                       <td></td>
-                      <td className="muted">{isDemo ? '****-**-**' : (oldest?.receivedDate || '')}</td>
-                      <td><span style={{color:'var(--blue)', fontSize: 12}}>{demoText(oldest?.lotNo) || ''}</span> <span className="muted" style={{ fontSize: 11 }}>(다음사용 Lot)</span></td>
+                      <td className="muted">{oldest?.receivedDate || ''}</td>
+                      <td><span style={{color:'var(--blue)', fontSize: 12}}>{oldest?.lotNo || ''}</span> <span className="muted" style={{ fontSize: 11 }}>(다음사용 Lot)</span></td>
                       <td></td>
                       <td></td>
                     </tr>
                     {g.lots.map((r) => (
                       <tr key={r.id}>
-                        <td style={{ paddingLeft: 24 }}><Badge color="blue">{demoText(r.lotNo)}</Badge></td>
+                        <td style={{ paddingLeft: 24 }}><Badge color="blue">{r.lotNo}</Badge></td>
                         <td className="num">
-                          {isDemo ? <b>***</b> : r.pkgCount && Number(r.pkgCount) > 1
+                          {r.pkgCount && Number(r.pkgCount) > 1
                             ? <><b>{Number(r.pkgCount)}</b><span className="muted">{r.pkgType || 'pkg'}</span> <span className="muted">({Number(r.weight).toLocaleString()} / {Number(r.initialWeight).toLocaleString()}{r.unit})</span></>
                             : <><b>{Number(r.weight).toLocaleString()}</b> <span className="muted">/ {Number(r.initialWeight).toLocaleString()}{r.unit}</span></>}
                         </td>
-                        <td className="muted">{demoText(r.vendor) || '–'}</td>
-                        <td className="muted">{isDemo ? '****-**-**' : r.receivedDate || '–'}</td>
-                        <td className="muted">{demoText(r.note) || '–'}</td>
-                        <td className="muted">{demoText(r.updatedBy)}</td>
+                        <td className="muted">{r.vendor || '–'}</td>
+                        <td className="muted">{r.receivedDate || '–'}</td>
+                        <td className="muted">{r.note || '–'}</td>
+                        <td className="muted">{r.updatedBy}</td>
                         <td>
                           <div className="btn-row">
                             <button className="btn ghost sm" onClick={() => setLotHistory(r)}>이력</button>
