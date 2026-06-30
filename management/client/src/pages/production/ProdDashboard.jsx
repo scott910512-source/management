@@ -7,10 +7,10 @@ const STEP_ICONS = { done: '✓', active: '●', wait: '–' };
 const ALERT_ICO = { error: '🔴', warn: '🟡', ok: '🟢' };
 
 // ── 유틸 ──────────────────────────────────────────────────────────
-// 숫자는 소수점 2자리 (Can 수량 등 정수는 별도 fmtInt 사용)
-const fmt = (v) => (v == null ? '–' : Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+// 숫자는 소수점 1자리 (Can 수량 등 정수는 별도 fmtInt 사용)
+const fmt = (v) => (v == null ? '–' : Number(v).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 }));
 const fmtInt = (v) => (v == null ? '–' : Number(v).toLocaleString());
-const pct = (v) => (v == null ? '–' : `${Number(v).toFixed(2)}%`);
+const pct = (v) => (v == null ? '–' : `${Number(v).toFixed(1)}%`);
 // 최상단 롤링 경고 배너 (StockPilot 경고창 형식) — 알림을 일정 간격으로 순환 표시
 function RollingAlerts({ alerts }) {
   const items = (alerts || []).filter((a) => a.level && a.level !== 'ok');
@@ -30,7 +30,7 @@ function RollingAlerts({ alerts }) {
     }}>
       <span style={{ fontSize: 15 }}>{err ? '🔴' : '🟡'}</span>
       <span style={{ fontSize: 12.5, fontWeight: 600, color: err ? '#c0001a' : '#795548', flex: 1 }}>
-        {a.product} — {a.batchNo} 수율 {a.yield != null ? `${Number(a.yield).toFixed(2)}%` : '–'} (기준 {a.target != null ? `${Number(a.target).toFixed(2)}%` : '–'})
+        {a.product} — {a.batchNo} 수율 {a.yield != null ? `${Number(a.yield).toFixed(1)}%` : '–'} (기준 {a.target != null ? `${Number(a.target).toFixed(1)}%` : '–'})
         {a.step ? ` · ${a.step}` : ''}{a.date ? ` · ${a.date}` : ''}
       </span>
       <span style={{ fontSize: 11, color: err ? '#c0001a' : '#795548', opacity: 0.7 }}>{(i % items.length) + 1}/{items.length}</span>
@@ -562,7 +562,7 @@ export default function ProdDashboard() {
                   <div style={{ flex: 1, textAlign: 'center', fontSize: 12, color: '#ff9500' }}>{fmtInt(inv.shipped)}</div>
                   <div style={{ flex: 1, textAlign: 'center', fontSize: 12, fontWeight: 700, color: '#0071e3' }}>{fmtInt(inv.total)}</div>
                   <div style={{ flex: 1, textAlign: 'center', fontSize: 12, fontWeight: 700, color: rmColor }}>
-                    {rm == null ? '–' : `${rm.toFixed(2)}개월`}
+                    {rm == null ? '–' : `${rm.toFixed(1)}개월`}
                   </div>
                 </div>
               );
