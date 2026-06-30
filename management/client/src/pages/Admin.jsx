@@ -176,14 +176,12 @@ function PlantFileSettings({ plant, toast }) {
   const [testResult, setTestResult] = useState(null);
   const [testing, setTesting] = useState(false);
 
-  const pathKey = plant === '1공장' ? 'productionFilePath1' : 'productionFilePath';
-  const kwKey = plant === '1공장' ? 'productionFileKeywords1' : 'productionFileKeywords';
-  const defaultKw = plant === '1공장' ? '1공장,Daily,report' : '2공장,Daily,report';
+  const defaultKw = `${plant},Daily,report`;
 
   useEffect(() => {
-    api.get('/settings').then((d) => {
-      setPath(d.settings[pathKey] || '');
-      setKeywords(d.settings[kwKey] || defaultKw);
+    api.get(`/settings?plant=${encodeURIComponent(plant)}`).then((d) => {
+      setPath(d.settings.productionFilePath || '');
+      setKeywords(d.settings.productionFileKeywords || defaultKw);
       setLoaded(true);
     });
   }, [plant]);
@@ -192,7 +190,10 @@ function PlantFileSettings({ plant, toast }) {
     setBusy(true);
     setTestResult(null);
     try {
-      await api.patch('/settings', { [pathKey]: path, [kwKey]: keywords });
+      await api.patch(`/settings?plant=${encodeURIComponent(plant)}`, {
+        productionFilePath: path,
+        productionFileKeywords: keywords,
+      });
       toast.ok(`[${plant}] 파일 경로가 저장되었습니다.`);
     } catch (e) { toast.err(e.message); } finally { setBusy(false); }
   }

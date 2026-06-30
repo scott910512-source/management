@@ -11,14 +11,12 @@ function PlantFileSettings({ plant, toast }) {
   const [testResult, setTestResult] = useState(null);
   const [testing, setTesting] = useState(false);
 
-  const pathKey = plant === '1공장' ? 'productionFilePath1' : 'productionFilePath';
-  const kwKey = plant === '1공장' ? 'productionFileKeywords1' : 'productionFileKeywords';
-  const defaultKw = plant === '1공장' ? '1공장,Daily,report' : '2공장,Daily,report';
+  const defaultKw = `${plant},Daily,report`;
 
   useEffect(() => {
-    api.get('/settings').then((d) => {
-      setPath(d.settings[pathKey] || '');
-      setKeywords(d.settings[kwKey] || defaultKw);
+    api.get(`/settings?plant=${encodeURIComponent(plant)}`).then((d) => {
+      setPath(d.settings.productionFilePath || '');
+      setKeywords(d.settings.productionFileKeywords || defaultKw);
       setLoaded(true);
     });
   }, [plant]);
@@ -27,7 +25,10 @@ function PlantFileSettings({ plant, toast }) {
     setBusy(true);
     setTestResult(null);
     try {
-      await api.patch('/settings', { [pathKey]: path, [kwKey]: keywords });
+      await api.patch(`/settings?plant=${encodeURIComponent(plant)}`, {
+        productionFilePath: path,
+        productionFileKeywords: keywords,
+      });
       toast.ok(`[${plant}] 파일 경로가 저장되었습니다.`);
     } catch (e) { toast.err(e.message); } finally { setBusy(false); }
   }
@@ -44,7 +45,8 @@ function PlantFileSettings({ plant, toast }) {
   }
 
   return (
-    <div style={{ marginTop: 10 }}>
+    <div style={{ border: '1px solid #e5e5ea', borderRadius: 10, padding: '14px 16px', marginBottom: 14 }}>
+      <h4 style={{ margin: '0 0 10px', fontSize: 14, color: '#1c1c1e' }}>🏭 {plant}</h4>
       <Field label="공유폴더 경로" hint="서버 기준 절대경로. 예: C:\Share\DailyReport  또는  /mnt/share/daily">
         <TextInput value={path} onChange={(e) => setPath(e.target.value)} disabled={!loaded}
           placeholder={`예: C:\\Share\\${plant}_Daily`}
@@ -78,7 +80,6 @@ function PlantFileSettings({ plant, toast }) {
 export default function ProdSettings() {
   const { isAdmin, isSuper } = useAuth();
   const toast = useToast();
-  const [activePlant, setActivePlant] = useState('2공장');
 
   if (!isAdmin) {
     return (
@@ -88,6 +89,8 @@ export default function ProdSettings() {
     );
   }
 
+  const plants = isSuper ? ['1공장', '2공장'] : ['2공장'];
+
   return (
     <>
       <div className="page-head">
@@ -96,23 +99,13 @@ export default function ProdSettings() {
 
       <div className="card card-pad" style={{ marginBottom: 16, maxWidth: 680 }}>
         <h3 style={{ marginBottom: 4 }}>🏭 Daily Report 파일 경로 설정</h3>
-        <p className="hint" style={{ marginBottom: 12 }}>
+        <p className="hint" style={{ marginBottom: 14 }}>
           서버에서 접근 가능한 <b>공유폴더 경로</b>를 공장별로 설정합니다.<br />
           지정된 폴더에서 키워드를 포함한 <b>최신 xlsx 파일</b>을 자동으로 찾아 파싱합니다.
         </p>
-        {isSuper ? (
-          <>
-            <div className="btn-row" style={{ marginBottom: 4 }}>
-              {['1공장', '2공장'].map((p) => (
-                <button key={p} className={`btn sm${activePlant === p ? '' : ' ghost'}`}
-                  onClick={() => setActivePlant(p)}>{p}</button>
-              ))}
-            </div>
-            <PlantFileSettings key={activePlant} plant={activePlant} toast={toast} />
-          </>
-        ) : (
-          <PlantFileSettings plant="2공장" toast={toast} />
-        )}
+        {plants.map((p) => (
+          <PlantFileSettings key={p} plant={p} toast={toast} />
+        ))}
       </div>
     </>
   );

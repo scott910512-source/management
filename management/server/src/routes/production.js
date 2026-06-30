@@ -172,10 +172,9 @@ async function readProductionSettings(plant) {
   const rows = await readTable('settings', plant);
   const map = {};
   for (const r of rows) map[r.key] = r.value;
-  const is1 = plant === '1공장';
   return {
-    filePath: (is1 ? map.productionFilePath1 : map.productionFilePath) || '',
-    keywords: (is1 ? map.productionFileKeywords1 : map.productionFileKeywords) || `${plant},Daily,report`,
+    filePath: map.productionFilePath || '',
+    keywords: map.productionFileKeywords || 'Daily,report',
   };
 }
 
