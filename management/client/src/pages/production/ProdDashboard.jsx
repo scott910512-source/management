@@ -36,6 +36,25 @@ function colValue(key, d) {
   }
 }
 
+// 수율 셀: "74.2% (-2.2%p)" 표기, 클릭 시 "목표 78.7% 미달" 노출
+function YieldCell({ actual, target }) {
+  const [open, setOpen] = useState(false);
+  if (actual == null) return <span style={{ color: '#c7c7cc' }}>–</span>;
+  const delta = target != null ? actual - target : null;
+  const ok = delta == null || delta >= 0;
+  return (
+    <div onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }} style={{ cursor: target != null ? 'pointer' : 'default' }} title="클릭: 목표 대비 상세">
+      <div style={{ whiteSpace: 'nowrap' }}>
+        <b style={{ fontSize: 14, color: ok ? '#1d1d1f' : '#ff3b30' }}>{Number(actual).toFixed(1)}%</b>
+        {delta != null && <span style={{ fontSize: 11, fontWeight: 700, marginLeft: 4, color: ok ? '#34c759' : '#ff3b30' }}>({delta >= 0 ? '+' : ''}{delta.toFixed(1)}%p)</span>}
+      </div>
+      {open && target != null && (
+        <div style={{ fontSize: 10, marginTop: 2, color: ok ? '#86868b' : '#ff3b30' }}>목표 {Number(target).toFixed(1)}% {ok ? '달성' : '미달'}</div>
+      )}
+    </div>
+  );
+}
+
 // 최상단 요약 카드
 function SummaryCard({ icon, label, value, unit, sub, color, valueSize = 25 }) {
   return (
@@ -744,6 +763,12 @@ export default function ProdDashboard() {
                           <td style={{ padding: '9px 12px', borderBottom: '1px solid #f5f5f7', whiteSpace: 'nowrap' }}>
                             <span style={{ display: 'inline-block', width: 9, height: 9, borderRadius: '50%', background: d.color || '#ccc', marginRight: 7, verticalAlign: 'middle' }} />
                             <b style={{ color: '#1d1d1f', fontSize: 14 }}>{p}</b>
+                            {d.monthBatch != null && (
+                              <span title={`이번달 ${d.monthBatch}배치 / 연 ${d.yearBatch ?? '-'}배치`}
+                                style={{ fontSize: 10, fontWeight: 700, color: '#86868b', marginLeft: 5, background: '#f0f0f5', borderRadius: 8, padding: '1px 6px', verticalAlign: 'middle' }}>
+                                {d.monthBatch}
+                              </span>
+                            )}
                           </td>
                           {enabled.map((c) => c.key === 'mRate' ? (
                             <td key={c.key} style={{ padding: '9px 10px', borderBottom: '1px solid #f5f5f7', textAlign: 'center', minWidth: 120 }}>
@@ -755,22 +780,10 @@ export default function ProdDashboard() {
                                 <div style={{ height: 4, borderRadius: 3, background: d.color, width: `${Math.min(100, r || 0)}%` }} />
                               </div>
                             </td>
-                          ) : c.key === 'yieldM' ? (
-                            (() => {
-                              const yOk = d.yield != null && d.yield >= (d.yieldTarget || 0);
-                              return (
-                                <td key={c.key} style={{ padding: '9px 10px', borderBottom: '1px solid #f5f5f7', minWidth: 150 }}>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <span style={{ width: 46, textAlign: 'right', fontWeight: 700, fontSize: 13, color: yOk ? '#1d1d1f' : '#ff3b30' }}>{pct(d.yield)}</span>
-                                    <div style={{ flex: 1, position: 'relative', background: '#e9e9ee', borderRadius: 5, height: 8, minWidth: 56 }}>
-                                      <div style={{ height: 8, borderRadius: 5, background: d.color, width: `${Math.min(100, d.yield || 0)}%` }} />
-                                      {d.yieldTarget != null && <div style={{ position: 'absolute', top: -2, height: 12, width: 2, background: '#ff3b30', borderRadius: 1, left: `${Math.min(100, d.yieldTarget)}%` }} />}
-                                    </div>
-                                  </div>
-                                  {d.yieldTarget != null && <div style={{ fontSize: 9, color: yOk ? '#86868b' : '#ff3b30', marginTop: 2, textAlign: 'right' }}>목표 {pct(d.yieldTarget)}{yOk ? ' ✓' : ' 미달'}</div>}
-                                </td>
-                              );
-                            })()
+                          ) : (c.key === 'yieldM' || c.key === 'yieldY') ? (
+                            <td key={c.key} style={{ padding: '9px 10px', borderBottom: '1px solid #f5f5f7', textAlign: 'center' }}>
+                              <YieldCell actual={c.key === 'yieldM' ? d.yield : d.yearYield} target={c.key === 'yieldM' ? d.yieldTarget : d.yearYieldTarget} />
+                            </td>
                           ) : (
                             <td key={c.key} style={{ padding: '9px 10px', borderBottom: '1px solid #f5f5f7', textAlign: 'center', fontSize: 14, fontWeight: c.key === 'mAct' ? 600 : 400, color: c.key === 'batch' ? '#6e6e73' : '#1d1d1f' }}>
                               {colValue(c.key, d)}
@@ -805,7 +818,9 @@ export default function ProdDashboard() {
               const inv = byProduct[p]?.inventory || {};
               const c = byProduct[p]?.color || '#ccc';
               const rm = inv.remainingMonths;
-              const rmColor = rm == null ? '#c7c7cc' : rm < 2 ? '#ff3b30' : rm < 4 ? '#ff9500' : '#34c759';
+              // 색상: 안전재고(개월) 기준. 안전재고 미만=빨강, 1.5배 미만=주황, 이상=초록
+              const sm = inv.safetyMonths != null ? inv.safetyMonths : 2;
+              const rmColor = rm == null ? '#c7c7cc' : rm < sm ? '#ff3b30' : rm < sm * 1.5 ? '#ff9500' : '#34c759';
               return (
                 <div key={p} style={{ display: 'flex', alignItems: 'center', padding: '7px 14px', borderBottom: '1px solid #f5f5f7' }}>
                   <div style={{ width: 88, display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: 12, color: '#1d1d1f', whiteSpace: 'nowrap' }}>
