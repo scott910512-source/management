@@ -200,6 +200,13 @@ function colToIdx(letter) {
   return n - 1;
 }
 
+// 절대 셀 참조("AN10") → { r, c } (0기반). 잘못된 값은 null.
+function parseCellRef(ref) {
+  const m = String(ref || '').trim().toUpperCase().match(/^([A-Z]+)(\d+)$/);
+  if (!m) return null;
+  return { c: colToIdx(m[1]), r: parseInt(m[2], 10) - 1 };
+}
+
 function dNorm(s) { return String(s == null ? '' : s).replace(/[　 ]/g, ' ').trim(); }
 function dCell(grid, r, c) { return (r >= 0 && c >= 0 && grid[r] && grid[r][c] != null) ? grid[r][c] : ''; }
 function dNum(v) {
@@ -231,6 +238,8 @@ function parseDailyCsv(text, cellMapStr) {
   };
   const yieldOffset = Number.isFinite(Number(m.yieldRowOffset)) ? Number(m.yieldRowOffset) : 1;
   const products = String(m.products || DEFAULT_CELLMAP.products).split(',').map((s) => s.trim()).filter(Boolean);
+  // 품목별 재고 절대셀 오버라이드: { "BTBAS-1": { filled:"AF10", shipped:"AJ10", total:"AN10" } }
+  const invCells = (m.invCells && typeof m.invCells === 'object') ? m.invCells : {};
 
   // 보고일자: 표 어딘가의 "N월 N일" 패턴 셀에서 추출
   let reportDate = '';
@@ -248,6 +257,12 @@ function parseDailyCsv(text, cellMapStr) {
     const pr = dFindRow(grid, idx.product, p);  // 생산량 행 (재고도 같은 행 우측)
     const yr = pr >= 0 ? pr + yieldOffset : -1;  // Yield(%) 행
     const g = (r, c) => dCell(grid, r, c);
+    // 재고: 절대셀 오버라이드가 있으면 그 셀, 없으면 제품 행 우측 열
+    const ov = invCells[p] || {};
+    const invVal = (ref, col) => {
+      if (ref) { const rc = parseCellRef(ref); return rc ? dNum(g(rc.r, rc.c)) : null; }
+      return dNum(g(pr, col));
+    };
 
     byProduct[p] = {
       color: CARD_COLORS[p] || FALLBACK_COLORS[pi % FALLBACK_COLORS.length],
@@ -267,10 +282,10 @@ function parseDailyCsv(text, cellMapStr) {
       monthBatch: null,
       yearBatch: null,
       inventory: {
-        carryOver: dNum(g(pr, idx.invCarry)),
-        filled: dNum(g(pr, idx.invFilled)),
-        shipped: dNum(g(pr, idx.invShipped)),
-        total: dNum(g(pr, idx.invTotal)),
+        carryOver: invVal(ov.carryOver, idx.invCarry),
+        filled: invVal(ov.filled, idx.invFilled),
+        shipped: invVal(ov.shipped, idx.invShipped),
+        total: invVal(ov.total, idx.invTotal),
         remainingMonths: null,
       },
       dailyData: [],

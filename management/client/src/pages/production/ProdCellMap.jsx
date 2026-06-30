@@ -39,13 +39,25 @@ function PlantCellMap({ plant, toast }) {
     api.get(`/settings?plant=${encodeURIComponent(plant)}`).then((d) => {
       let parsed = {};
       try { parsed = d.settings.prodCellMap ? JSON.parse(d.settings.prodCellMap) : {}; } catch { parsed = {}; }
-      setCfg({ ...DEFAULTS, ...parsed });
+      setCfg({ ...DEFAULTS, ...parsed, invCells: parsed.invCells || {} });
       setFilePath(d.settings.productionFilePath || '');
       setLoaded(true);
     });
   }, [plant]);
 
   function set(key, val) { setCfg((c) => ({ ...c, [key]: val })); }
+  // 품목별 재고 절대셀 오버라이드 (예: AN10). 비우면 열 기반 자동.
+  function setInvCell(prod, field, val) {
+    setCfg((c) => {
+      const invCells = { ...(c.invCells || {}) };
+      const o = { ...(invCells[prod] || {}) };
+      if (val) o[field] = val; else delete o[field];
+      if (Object.keys(o).length) invCells[prod] = o; else delete invCells[prod];
+      return { ...c, invCells };
+    });
+  }
+
+  const prodList = String(cfg.products || '').split(',').map((s) => s.trim()).filter(Boolean);
 
   async function save() {
     setBusy(true);
@@ -90,6 +102,39 @@ function PlantCellMap({ plant, toast }) {
           <input type="number" value={cfg.yieldRowOffset ?? 1} disabled={!loaded} onChange={(e) => set('yieldRowOffset', e.target.value)}
             style={{ ...inp, fontFamily: 'inherit', textTransform: 'none' }} />
         </div>
+      </div>
+
+      {/* 품목별 재고 절대셀 오버라이드 (BTBAS 합계 등 특수 양식용) */}
+      <div style={{ marginTop: 16, borderTop: '1px dashed #e5e5ea', paddingTop: 12 }}>
+        <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 2 }}>재고 개별 셀 (절대 위치 · 선택)</div>
+        <p className="hint" style={{ marginBottom: 8 }}>
+          특정 품목의 재고가 제품 행이 아닌 <b>고정 셀</b>에 있을 때 입력 (예: BTBAS 합계 잔여 = <code>AN10</code>).
+          비우면 위의 열 기반으로 자동 인식합니다.
+        </p>
+        <table style={{ borderCollapse: 'collapse', fontSize: 12.5 }}>
+          <thead>
+            <tr style={{ color: '#86868b', fontSize: 11.5 }}>
+              <th style={{ textAlign: 'left', padding: '4px 8px' }}>품목</th>
+              <th style={{ textAlign: 'center', padding: '4px 8px' }}>충진 셀</th>
+              <th style={{ textAlign: 'center', padding: '4px 8px' }}>출하 셀</th>
+              <th style={{ textAlign: 'center', padding: '4px 8px' }}>잔여 셀</th>
+            </tr>
+          </thead>
+          <tbody>
+            {prodList.map((p) => {
+              const ov = (cfg.invCells && cfg.invCells[p]) || {};
+              const cinp = { width: 64, textAlign: 'center', padding: '4px 6px', border: '1px solid #d1d1d6', borderRadius: 6, fontFamily: 'monospace', fontSize: 12, textTransform: 'uppercase' };
+              return (
+                <tr key={p}>
+                  <td style={{ padding: '4px 8px', fontWeight: 700 }}>{p}</td>
+                  <td style={{ padding: '4px 8px' }}><input value={ov.filled || ''} disabled={!loaded} placeholder="자동" onChange={(e) => setInvCell(p, 'filled', e.target.value)} style={cinp} /></td>
+                  <td style={{ padding: '4px 8px' }}><input value={ov.shipped || ''} disabled={!loaded} placeholder="자동" onChange={(e) => setInvCell(p, 'shipped', e.target.value)} style={cinp} /></td>
+                  <td style={{ padding: '4px 8px' }}><input value={ov.total || ''} disabled={!loaded} placeholder="자동" onChange={(e) => setInvCell(p, 'total', e.target.value)} style={cinp} /></td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
 
       <div className="btn-row" style={{ marginTop: 14 }}>
