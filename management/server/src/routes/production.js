@@ -105,7 +105,9 @@ function findLatestFile(folderPath, keywords) {
     .sort((a, b) => b.mtime - a.mtime);
 
   if (!matched.length) throw new Error(`키워드(${keywords})에 맞는 xlsx 파일을 찾을 수 없습니다.`);
-  return matched[0];
+  const best = matched[0];
+  best.candidates = matched.map((m) => m.name);
+  return best;
 }
 
 // ── Excel 파싱 ────────────────────────────────────────────────────
@@ -127,7 +129,7 @@ function parseProductionFile(filePath) {
   const dateSheetRe = /^\s*\d{1,2}\s*월\s*\d{1,2}\s*일/;
   const dateSheets = wb.SheetNames.filter((n) => dateSheetRe.test(normSheet(n)));
   if (!dateSheets.length) {
-    throw new Error(`날짜 시트(예: 6월 29일)를 찾을 수 없습니다. 파일 내 시트 목록: [${wb.SheetNames.join(' | ')}]`);
+    throw new Error(`날짜 시트(예: 6월 29일)를 찾을 수 없습니다. 읽은 파일: ${path.basename(filePath)} | 시트 목록: [${wb.SheetNames.join(' | ')}]`);
   }
   const sheetName = dateSheets[dateSheets.length - 1];
   const sheet = wb.Sheets[sheetName];
@@ -210,7 +212,17 @@ router.get(
     }
 
     const found = findLatestFile(filePath, keywords);
-    const data = parseProductionFile(found.full);
+    let data;
+    try {
+      data = parseProductionFile(found.full);
+    } catch (e) {
+      // 후보 파일이 여러 개면 어떤 파일을 골랐는지 함께 안내
+      const extra = found.candidates && found.candidates.length > 1
+        ? ` (키워드에 맞는 파일 ${found.candidates.length}개 중 최신 선택: ${found.candidates.join(', ')})`
+        : '';
+      e.message += extra;
+      throw e;
+    }
     res.json({ data, source: found.name, mtime: new Date(found.mtime).toISOString(), plant });
   }),
 );
