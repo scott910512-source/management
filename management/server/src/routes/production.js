@@ -346,6 +346,22 @@ function mergeBatchYield(data, text, cellMapStr, currentMonth) {
     }
   }
 
+  // 디버그: 감지된 월/소계 수, 첫 소계의 원본값
+  const dbg = { monthCol: bm.monthCol || 'B', subtotal: bm.subtotal || 'Sub total', months: [], subtotalCount: 0, firstSub: null };
+  for (let r = 0; r < grid.length; r++) {
+    const raw = dNorm(dCell(grid, r, monthIdx));
+    const norm = raw.replace(/\s+/g, '').toLowerCase();
+    const mm = raw.match(/(\d{1,2})\s*월/);
+    if (norm.includes(subLabel)) {
+      dbg.subtotalCount += 1;
+      if (!dbg.firstSub) {
+        dbg.firstSub = {};
+        for (const p of names) dbg.firstSub[p] = { prodCol: prods[p].prod, prodVal: dCell(grid, r, colToIdx(prods[p].prod)), yieldCol: prods[p].yield, yieldVal: dCell(grid, r, colToIdx(prods[p].yield)) };
+      }
+    } else if (mm) dbg.months.push(parseInt(mm[1], 10));
+  }
+  data._batchDebug = dbg;
+
   // data.byProduct 에 병합 (등록된 카드 품목만)
   for (const p of data.products) {
     if (!out[p]) continue;
@@ -504,6 +520,14 @@ router.post(
         }).join(', ');
         batchMsg = `배치추이 — ${detail || '매핑품목 없음'}`;
         if (noMatch.length) batchMsg += ` · ⚠️ 종합현황 품목과 불일치(무시됨): ${noMatch.join(', ')}`;
+        const dbg = data._batchDebug;
+        if (dbg) {
+          batchMsg += ` || [디버그] 월라벨열=${dbg.monthCol} 소계="${dbg.subtotal}" · 감지된월=${dbg.months.length ? dbg.months.join('/') : '없음'} · 소계행수=${dbg.subtotalCount}`;
+          if (dbg.firstSub) {
+            const fs2 = Object.entries(dbg.firstSub).map(([p, v]) => `${p}:${v.prodCol}="${v.prodVal}"/${v.yieldCol}="${v.yieldVal}"`).join(' ');
+            batchMsg += ` · 첫소계값 ${fs2}`;
+          }
+        }
       }
     }
 
