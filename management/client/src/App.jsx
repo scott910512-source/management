@@ -85,8 +85,8 @@ function Sidebar() {
   return (
     <aside className={`sidebar ${mini ? 'mini' : ''}`}>
       <div className="brand-row">
-        <Link to="/" className="brand" title="StockPilot 종합현황">
-          <div className="brand-logo">
+        <div className="brand">
+          <Link to="/production" className="brand-logo" title="ManagePilot으로 전환" style={{ position: 'relative' }}>
             <svg viewBox="0 0 34 34" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: '100%', height: '100%' }}>
               <polygon points="3,14 17,5 31,14" fill="rgba(255,255,255,0.25)" stroke="#fff" strokeWidth="1.8" strokeLinejoin="round" />
               <rect x="3" y="14" width="28" height="16" rx="1" stroke="#fff" strokeWidth="1.8" />
@@ -94,12 +94,13 @@ function Sidebar() {
               <rect x="4" y="18" width="7" height="6" rx="0.5" fill="rgba(255,255,255,0.7)" />
               <rect x="23" y="18" width="7" height="6" rx="0.5" fill="rgba(255,255,255,0.7)" />
             </svg>
-          </div>
-          <div className="brand-text">
+            <span className="brand-switch-badge">⇄</span>
+          </Link>
+          <Link to="/" className="brand-text" title="StockPilot 종합현황" style={{ textDecoration: 'none', color: 'inherit' }}>
             <div className="brand-title">StockPilot</div>
             <div className="brand-sub">생산/공장 운영관리</div>
-          </div>
-        </Link>
+          </Link>
+        </div>
         <button className="sidebar-toggle" onClick={() => setMini((v) => !v)} title={mini ? '메뉴 펼치기' : '메뉴 최소화'} aria-label="메뉴 최소화">
           {mini ? '»' : '«'}
         </button>
@@ -247,8 +248,8 @@ function ProdSidebar() {
   return (
     <aside className={`sidebar ${mini ? 'mini' : ''}`}>
       <div className="brand-row">
-        <Link to="/production" className="brand" title="ManagePilot 종합현황">
-          <div className="brand-logo">
+        <div className="brand">
+          <Link to="/" className="brand-logo" title="StockPilot으로 전환" style={{ position: 'relative' }}>
             <svg viewBox="0 0 34 34" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: '100%', height: '100%' }}>
               <polygon points="3,14 17,5 31,14" fill="rgba(255,255,255,0.25)" stroke="#fff" strokeWidth="1.8" strokeLinejoin="round" />
               <rect x="3" y="14" width="28" height="16" rx="1" stroke="#fff" strokeWidth="1.8" />
@@ -256,24 +257,18 @@ function ProdSidebar() {
               <rect x="4" y="18" width="7" height="6" rx="0.5" fill="rgba(255,255,255,0.7)" />
               <rect x="23" y="18" width="7" height="6" rx="0.5" fill="rgba(255,255,255,0.7)" />
             </svg>
-          </div>
-          <div className="brand-text">
+            <span className="brand-switch-badge">⇄</span>
+          </Link>
+          <Link to="/production" className="brand-text" title="ManagePilot 종합현황" style={{ textDecoration: 'none', color: 'inherit' }}>
             <div className="brand-title">ManagePilot</div>
             <div className="brand-sub">생산/공장 운영관리</div>
-          </div>
-        </Link>
+          </Link>
+        </div>
         <button className="sidebar-toggle" onClick={() => setMini((v) => !v)} title={mini ? '메뉴 펼치기' : '메뉴 최소화'} aria-label="메뉴 최소화">
           {mini ? '»' : '«'}
         </button>
       </div>
       <ModuleSwitcher current="ManagePilot" />
-
-      {plant && (
-        <div className="plant-pick">
-          <span className="plant-label">공장</span>
-          <span className="plant-single">{plant}</span>
-        </div>
-      )}
 
       <nav className="nav">
         {PROD_NAV.filter((g) => !g.adminOnly || isAdmin).map((n, i) =>

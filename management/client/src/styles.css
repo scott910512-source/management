@@ -63,7 +63,16 @@ button { font-family: inherit; }
   width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
   background: linear-gradient(135deg, #0a84ff, #5e5ce6);
   display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 17px;
+  position: relative; cursor: pointer;
 }
+.brand-logo:hover { filter: brightness(1.08); }
+.brand-switch-badge {
+  position: absolute; right: -4px; bottom: -4px;
+  width: 15px; height: 15px; border-radius: 50%;
+  background: #fff; color: #0071e3; font-size: 9px; font-weight: 700;
+  display: grid; place-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+.brand-text { display: flex; flex-direction: column; min-width: 0; }
 .brand-title { font-size: 15px; font-weight: 600; line-height: 1.2; }
 .brand-sub { font-size: 11px; color: var(--text-3); }
 .sidebar-toggle { flex-shrink: 0; width: 26px; height: 26px; border: 1px solid var(--line-2); border-radius: 8px; background: var(--surface); color: var(--text-2); cursor: pointer; font-size: 13px; line-height: 1; font-family: inherit; }

@@ -445,6 +445,44 @@ export default function ProdDashboard() {
         </div>
       )}
 
+      {/* ── 품목별 종합 KPI (세로 정렬·색상 구분·헤더 1회 병합) ── */}
+      <div className="card" style={{ marginBottom: 12, overflow: 'hidden' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 16px 7px' }}>
+          <div style={{ fontSize: 18, fontWeight: 700 }}>📊 품목별 종합 현황</div>
+          <div style={{ fontSize: 12.5, color: '#86868b' }}>{data.reportDate} 기준 · {products.length}개 품목</div>
+        </div>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 15 }}>
+            <thead>
+              <tr style={{ background: '#f5f5f7', color: '#6e6e73', fontSize: 13 }}>
+                <th style={{ textAlign: 'left', padding: '11px 14px', fontWeight: 600 }}>품목</th>
+                <th style={{ textAlign: 'right', padding: '11px 14px', fontWeight: 600 }}>오늘 생산량</th>
+                <th style={{ textAlign: 'right', padding: '11px 14px', fontWeight: 600 }}>6월 실적 / 계획</th>
+                <th style={{ textAlign: 'right', padding: '11px 14px', fontWeight: 600 }}>6월 달성율</th>
+                <th style={{ textAlign: 'right', padding: '11px 14px', fontWeight: 600 }}>연간 달성율</th>
+              </tr>
+            </thead>
+            <tbody>
+              {products.map((p) => {
+                const d = byProduct[p] || {};
+                return (
+                  <tr key={p} style={{ borderTop: '1px solid #f0f0f5' }}>
+                    <td style={{ padding: '13px 14px', borderLeft: `5px solid ${d.color || '#ccc'}` }}>
+                      <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: '50%', background: d.color || '#ccc', marginRight: 8, verticalAlign: 'middle' }} />
+                      <b style={{ fontSize: 17 }}>{p}</b>
+                    </td>
+                    <td style={{ padding: '13px 14px', textAlign: 'right' }}><b style={{ fontSize: 19 }}>{fmt(d.todayQty)}</b> <span style={{ color: '#86868b', fontSize: 12 }}>kg</span></td>
+                    <td style={{ padding: '13px 14px', textAlign: 'right' }}><b style={{ fontSize: 19 }}>{fmt(d.monthActual)}</b> <span style={{ color: '#86868b', fontSize: 12 }}>/ {fmt(d.monthPlan)}</span></td>
+                    <td style={{ padding: '13px 14px', textAlign: 'right', fontSize: 19, fontWeight: 700, color: rateColor(d.monthRate) }}>{pct(d.monthRate)}</td>
+                    <td style={{ padding: '13px 14px', textAlign: 'right', fontSize: 19, fontWeight: 700, color: '#0071e3' }}>{pct(d.yearRate)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       {/* ── 최상단: 품목 탭 KPI + 재고 ── */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 290px', gap: 12, marginBottom: 12 }}>
 
