@@ -23,14 +23,17 @@ const DEFAULTS = {
   canisterContents: '톨루엔,황산,활성탄,실링패드',
   // 사이즈별 최대 사용가능 무게(kg). "size:kg" 쉼표 구분. 90% 이상이면 경고.
   canisterSizeMaxKg: '5gal:20,50L:50,100L:100,200L:200',
-  // 생산관리 — Daily Report 엑셀 파일 경로 (공유폴더)
+  // 생산관리 — Daily Report 엑셀 파일 경로 (공유폴더, 공장별)
   productionFilePath: '',
   productionFileKeywords: '2공장,Daily,report',
+  productionFilePath1: '',
+  productionFileKeywords1: '1공장,Daily,report',
 };
 const STRING_KEYS = [
   'canisterDefaultSize', 'canisterDefaultLocation', 'canisterDefaultStatus', 'canisterDefaultContent',
   'canisterSizes', 'canisterLocations', 'canisterStatuses', 'canisterContents', 'canisterSizeMaxKg',
   'productionFilePath', 'productionFileKeywords',
+  'productionFilePath1', 'productionFileKeywords1',
 ];
 
 async function readSettings(plant) {

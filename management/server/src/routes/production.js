@@ -172,9 +172,10 @@ async function readProductionSettings(plant) {
   const rows = await readTable('settings', plant);
   const map = {};
   for (const r of rows) map[r.key] = r.value;
+  const is1 = plant === '1공장';
   return {
-    filePath: map.productionFilePath || '',
-    keywords: map.productionFileKeywords || '2공장,Daily,report',
+    filePath: (is1 ? map.productionFilePath1 : map.productionFilePath) || '',
+    keywords: (is1 ? map.productionFileKeywords1 : map.productionFileKeywords) || `${plant},Daily,report`,
   };
 }
 
@@ -190,17 +191,24 @@ router.get(
       return res.json({ data: makeDemoData(), source: 'demo' });
     }
 
-    // 일반 계정: 공유폴더 파싱
-    const plant = user.plantScope === 'all' ? '1공장' : (user.plantScope || user.plant || '2공장');
+    // 공장 결정: plantScope=all 이면 쿼리 파라미터 허용, 없으면 소속 공장
+    let plant;
+    if (user.plantScope === 'all') {
+      const requested = (req.query.plant || '').trim();
+      plant = ['1공장', '2공장'].includes(requested) ? requested : '1공장';
+    } else {
+      plant = user.plantScope || user.plant || '2공장';
+    }
+
     const { filePath, keywords } = await readProductionSettings(plant);
 
     if (!filePath) {
-      return res.status(404).json({ error: '생산관리 파일 경로가 설정되지 않았습니다. 관리자 설정에서 경로를 입력해 주세요.' });
+      return res.status(404).json({ error: `[${plant}] 생산관리 파일 경로가 설정되지 않았습니다. 관리자 설정에서 경로를 입력해 주세요.` });
     }
 
     const found = findLatestFile(filePath, keywords);
     const data = parseProductionFile(found.full);
-    res.json({ data, source: found.name, mtime: new Date(found.mtime).toISOString() });
+    res.json({ data, source: found.name, mtime: new Date(found.mtime).toISOString(), plant });
   }),
 );
 
@@ -210,7 +218,7 @@ router.post(
   requireAdmin,
   asyncHandler(async (req, res) => {
     const folderPath = (req.body.filePath || '').trim();
-    const keywords = (req.body.keywords || '2공장,Daily,report').trim();
+    const keywords = (req.body.keywords || 'Daily,report').trim();
     if (!folderPath) throw badRequest('경로를 입력하세요.');
     if (!fs.existsSync(folderPath)) throw badRequest(`경로가 존재하지 않습니다: ${folderPath}`);
     if (!fs.statSync(folderPath).isDirectory()) throw badRequest('폴더 경로를 입력해 주세요.');

@@ -335,8 +335,10 @@ function MonthlyExpandModal({ data, onClose }) {
 
 // ── 메인 페이지 ───────────────────────────────────────────────────
 export default function ProdDashboard() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
+  const isAll = user?.plantScope === 'all';
   const toast = useToast();
+  const [plant, setPlant] = useState(isAll ? '1공장' : (user?.plantScope || user?.plant || '2공장'));
   const [data, setData] = useState(null);
   const [source, setSource] = useState('');
   const [mtime, setMtime] = useState('');
@@ -347,27 +349,35 @@ export default function ProdDashboard() {
   const [showMonthly, setShowMonthly] = useState(false);
   const timerRef = useRef(null);
 
-  const load = useCallback(async (silent = false) => {
+  const load = useCallback(async (silent = false, targetPlant) => {
     if (!silent) setLoading(true);
     setError('');
     try {
-      const res = await api.get('/production/data');
+      const p = targetPlant || plant;
+      const url = isAll ? `/production/data?plant=${encodeURIComponent(p)}` : '/production/data';
+      const res = await api.get(url);
       setData(res.data);
       setSource(res.source || '');
       setMtime(res.mtime || '');
-      if (!selProd && res.data?.products?.length) setSelProd(res.data.products[0]);
+      setSelProd('');
     } catch (e) {
       setError(e.message);
     } finally {
       setLoading(false);
     }
-  }, [selProd]);
+  }, [plant, isAll]);
 
   useEffect(() => {
     load();
-    timerRef.current = setInterval(() => load(true), 3600000); // 1시간 자동 갱신
+    timerRef.current = setInterval(() => load(true), 3600000);
     return () => clearInterval(timerRef.current);
-  }, []);
+  }, [plant]);
+
+  function switchPlant(p) {
+    setPlant(p);
+    setData(null);
+    setSelProd('');
+  }
 
   if (loading) return <Loading />;
   if (error) return (
@@ -380,7 +390,8 @@ export default function ProdDashboard() {
   if (!data) return null;
 
   const { products, byProduct, batches, stepLabels, alerts } = data;
-  const cur = byProduct[selProd];
+  const activeProd = selProd && products.includes(selProd) ? selProd : products[0] || '';
+  const cur = byProduct[activeProd];
 
   const totalToday = products.reduce((s, p) => s + (byProduct[p]?.todayQty || 0), 0);
   const totalMonthActual = products.reduce((s, p) => s + (byProduct[p]?.monthActual || 0), 0);
@@ -394,6 +405,27 @@ export default function ProdDashboard() {
 
   return (
     <>
+      {/* ── 공장 탭 (총괄관리자만) ── */}
+      {isAll && (
+        <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+          {['1공장', '2공장'].map((p) => (
+            <button
+              key={p}
+              onClick={() => switchPlant(p)}
+              style={{
+                padding: '5px 18px', borderRadius: 20, border: '1.5px solid',
+                borderColor: plant === p ? '#0071e3' : '#d1d1d6',
+                background: plant === p ? '#0071e3' : '#fff',
+                color: plant === p ? '#fff' : '#3c3c43',
+                fontWeight: plant === p ? 700 : 400,
+                fontSize: 13, cursor: 'pointer',
+              }}
+            >{p}</button>
+          ))}
+          {loading && <span style={{ fontSize: 12, color: '#86868b', alignSelf: 'center' }}>로딩 중…</span>}
+        </div>
+      )}
+
       {/* ── 관리자 불일치 경고 ── */}
       {isAdmin && mismatches.length > 0 && (
         <div style={{ background: '#fff8e1', border: '1px solid #ffe082', borderRadius: 8, padding: '7px 14px', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -425,7 +457,7 @@ export default function ProdDashboard() {
             <div style={{ display: 'flex', gap: 6 }}>
               {products.map((p) => {
                 const c = byProduct[p]?.color || '#ccc';
-                const active = selProd === p;
+                const active = activeProd === p;
                 return (
                   <button key={p} onClick={() => setSelProd(p)} style={{
                     display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px',
