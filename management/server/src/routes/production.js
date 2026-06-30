@@ -121,10 +121,14 @@ function cellVal(sheet, addr) {
 function parseProductionFile(filePath) {
   const wb = XLSX.readFile(filePath, { cellDates: true, sheetStubs: true });
 
-  // 최신 날짜 시트 찾기 (예: "6월 29일", "6월29일")
-  const dateSheetRe = /^\d{1,2}월\s*\d{1,2}일$/;
-  const dateSheets = wb.SheetNames.filter((n) => dateSheetRe.test(n.trim()));
-  if (!dateSheets.length) throw new Error('날짜 시트(예: 6월 29일)를 찾을 수 없습니다.');
+  // 최신 날짜 시트 찾기 (예: "6월 29일", "6월29일", "6월 29일(목)")
+  // 전각/일반 공백 정규화 후, 날짜로 "시작"하는 시트를 인식 (요일·접미사 허용)
+  const normSheet = (n) => String(n).replace(/[　 ]/g, ' ').trim();
+  const dateSheetRe = /^\s*\d{1,2}\s*월\s*\d{1,2}\s*일/;
+  const dateSheets = wb.SheetNames.filter((n) => dateSheetRe.test(normSheet(n)));
+  if (!dateSheets.length) {
+    throw new Error(`날짜 시트(예: 6월 29일)를 찾을 수 없습니다. 파일 내 시트 목록: [${wb.SheetNames.join(' | ')}]`);
+  }
   const sheetName = dateSheets[dateSheets.length - 1];
   const sheet = wb.Sheets[sheetName];
 
