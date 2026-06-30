@@ -26,6 +26,7 @@ import BatchBulk from './pages/BatchBulk';
 import ProdSearch from './pages/production/ProdSearch';
 import ProdDashboard from './pages/production/ProdDashboard';
 import ProdManufacturing from './pages/production/ProdManufacturing';
+import ProdSettings from './pages/production/ProdSettings';
 
 // 큰 묶음 단위로 그룹화 — 그룹마다 테두리로 구분
 const NAV_GROUPS = [
@@ -84,7 +85,7 @@ function Sidebar() {
   return (
     <aside className={`sidebar ${mini ? 'mini' : ''}`}>
       <div className="brand-row">
-        <Link to="/" className="brand" title="종합현황으로 이동">
+        <Link to="/" className="brand" title="StockPilot 종합현황">
           <div className="brand-logo">
             <svg viewBox="0 0 34 34" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: '100%', height: '100%' }}>
               <polygon points="3,14 17,5 31,14" fill="rgba(255,255,255,0.25)" stroke="#fff" strokeWidth="1.8" strokeLinejoin="round" />
@@ -96,31 +97,14 @@ function Sidebar() {
           </div>
           <div className="brand-text">
             <div className="brand-title">StockPilot</div>
-            <div className="brand-sub">화학공장 운영관리</div>
+            <div className="brand-sub">생산/공장 운영관리</div>
           </div>
         </Link>
         <button className="sidebar-toggle" onClick={() => setMini((v) => !v)} title={mini ? '메뉴 펼치기' : '메뉴 최소화'} aria-label="메뉴 최소화">
           {mini ? '»' : '«'}
         </button>
       </div>
-      <Link to="/hub" style={{
-        display: 'flex', alignItems: 'center', gap: 6,
-        margin: '0 10px 6px', padding: '5px 10px', borderRadius: 8,
-        background: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.85)',
-        fontSize: 12, textDecoration: 'none', transition: 'background 0.15s',
-      }}
-        onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
-        onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.12)'}
-        title="모듈 선택 화면으로 이동"
-      >
-        <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
-          <rect x="1" y="1" width="6" height="6" rx="1.2" fill="rgba(255,255,255,0.8)"/>
-          <rect x="9" y="1" width="6" height="6" rx="1.2" fill="rgba(255,255,255,0.8)"/>
-          <rect x="1" y="9" width="6" height="6" rx="1.2" fill="rgba(255,255,255,0.8)"/>
-          <rect x="9" y="9" width="6" height="6" rx="1.2" fill="rgba(255,255,255,0.5)"/>
-        </svg>
-        <span>모듈 전환</span>
-      </Link>
+      <ModuleSwitcher current="StockPilot" />
 
       <div className="plant-pick">
         <span className="plant-label">공장</span>
@@ -183,17 +167,86 @@ const PROD_NAV = [
   { title: '생산관리', items: [
     { to: '/production/manufacturing', label: '생산현황', ico: 'task' },
   ] },
+  { title: '설정', adminOnly: true, items: [
+    { to: '/production/settings', label: '파일 경로 설정', ico: 'shield' },
+  ] },
 ];
 
+const MODULES = [
+  { label: 'ManagePilot', to: '/production', icon: '🏭' },
+  { label: 'StockPilot', to: '/', icon: '📦' },
+];
+
+function ModuleSwitcher({ current }) {
+  const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
+  const cur = MODULES.find((m) => m.label === current) || MODULES[0];
+  return (
+    <div style={{ position: 'relative', margin: '0 10px 6px' }}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          width: '100%', display: 'flex', alignItems: 'center', gap: 6,
+          padding: '5px 10px', borderRadius: 8, border: 'none', cursor: 'pointer',
+          background: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.9)', fontSize: 12,
+        }}
+      >
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+          <rect x="1" y="1" width="6" height="6" rx="1.2" fill="rgba(255,255,255,0.8)"/>
+          <rect x="9" y="1" width="6" height="6" rx="1.2" fill="rgba(255,255,255,0.8)"/>
+          <rect x="1" y="9" width="6" height="6" rx="1.2" fill="rgba(255,255,255,0.8)"/>
+          <rect x="9" y="9" width="6" height="6" rx="1.2" fill="rgba(255,255,255,0.5)"/>
+        </svg>
+        <span style={{ flex: 1, textAlign: 'left' }}>모듈 전환</span>
+        <span>{open ? '▲' : '▼'}</span>
+      </button>
+      {open && (
+        <div style={{
+          position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 999,
+          background: '#fff', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.18)',
+          marginTop: 4, overflow: 'hidden',
+        }}>
+          {MODULES.map((m) => (
+            <button key={m.label} onClick={() => { setOpen(false); navigate(m.to); }}
+              style={{
+                width: '100%', display: 'flex', alignItems: 'center', gap: 8,
+                padding: '9px 12px', border: 'none', cursor: 'pointer', fontSize: 13,
+                background: m.label === current ? '#f0f4ff' : '#fff',
+                color: m.label === current ? '#0071e3' : '#1d1d1f',
+                fontWeight: m.label === current ? 700 : 400,
+              }}
+            >
+              <span>{m.icon}</span>
+              <span>{m.label}</span>
+              {m.label === current && <span style={{ marginLeft: 'auto', fontSize: 11 }}>현재</span>}
+            </button>
+          ))}
+          <div style={{ borderTop: '1px solid #f0f0f0' }}>
+            <button onClick={() => { setOpen(false); navigate('/hub'); }}
+              style={{
+                width: '100%', display: 'flex', alignItems: 'center', gap: 8,
+                padding: '8px 12px', border: 'none', cursor: 'pointer', fontSize: 12,
+                background: '#fff', color: '#86868b',
+              }}
+            >
+              <span>⊞</span><span>전체 모듈 보기</span>
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ProdSidebar() {
-  const { user, plant, roleLabel } = useAuth();
+  const { user, plant, roleLabel, isAdmin } = useAuth();
   const [mini, setMini] = useState(() => localStorage.getItem('prodSidebarMini') === '1');
   useEffect(() => { localStorage.setItem('prodSidebarMini', mini ? '1' : '0'); }, [mini]);
 
   return (
     <aside className={`sidebar ${mini ? 'mini' : ''}`}>
       <div className="brand-row">
-        <Link to="/production" className="brand" title="생산관리 종합현황으로 이동">
+        <Link to="/production" className="brand" title="ManagePilot 종합현황">
           <div className="brand-logo">
             <svg viewBox="0 0 34 34" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: '100%', height: '100%' }}>
               <polygon points="3,14 17,5 31,14" fill="rgba(255,255,255,0.25)" stroke="#fff" strokeWidth="1.8" strokeLinejoin="round" />
@@ -204,32 +257,15 @@ function ProdSidebar() {
             </svg>
           </div>
           <div className="brand-text">
-            <div className="brand-title">생산관리</div>
-            <div className="brand-sub">화학공장 운영관리</div>
+            <div className="brand-title">ManagePilot</div>
+            <div className="brand-sub">생산/공장 운영관리</div>
           </div>
         </Link>
         <button className="sidebar-toggle" onClick={() => setMini((v) => !v)} title={mini ? '메뉴 펼치기' : '메뉴 최소화'} aria-label="메뉴 최소화">
           {mini ? '»' : '«'}
         </button>
       </div>
-      <Link to="/hub" style={{
-        display: 'flex', alignItems: 'center', gap: 6,
-        margin: '0 10px 6px', padding: '5px 10px', borderRadius: 8,
-        background: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.85)',
-        fontSize: 12, textDecoration: 'none', transition: 'background 0.15s',
-      }}
-        onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
-        onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.12)'}
-        title="모듈 선택 화면으로 이동"
-      >
-        <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
-          <rect x="1" y="1" width="6" height="6" rx="1.2" fill="rgba(255,255,255,0.8)"/>
-          <rect x="9" y="1" width="6" height="6" rx="1.2" fill="rgba(255,255,255,0.8)"/>
-          <rect x="1" y="9" width="6" height="6" rx="1.2" fill="rgba(255,255,255,0.8)"/>
-          <rect x="9" y="9" width="6" height="6" rx="1.2" fill="rgba(255,255,255,0.5)"/>
-        </svg>
-        <span>모듈 전환</span>
-      </Link>
+      <ModuleSwitcher current="ManagePilot" />
 
       {plant && (
         <div className="plant-pick">
@@ -239,7 +275,7 @@ function ProdSidebar() {
       )}
 
       <nav className="nav">
-        {PROD_NAV.map((n, i) =>
+        {PROD_NAV.filter((g) => !g.adminOnly || isAdmin).map((n, i) =>
           n.items ? (
             <div className="nav-group" key={i}>
               <div className="nav-section">{n.title}</div>
@@ -331,6 +367,7 @@ export default function App() {
       <Route path="/production" element={<ProtectedProd title="종합현황"><ProdDashboard /></ProtectedProd>} />
       <Route path="/production/search" element={<ProtectedProd title="AI 검색"><ProdSearch /></ProtectedProd>} />
       <Route path="/production/manufacturing" element={<ProtectedProd title="생산현황"><ProdManufacturing /></ProtectedProd>} />
+      <Route path="/production/settings" element={<ProtectedProd title="파일 경로 설정"><ProdSettings /></ProtectedProd>} />
       <Route path="*" element={<Navigate to="/hub" replace />} />
     </Routes>
   );

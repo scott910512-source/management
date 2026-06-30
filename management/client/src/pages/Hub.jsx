@@ -21,7 +21,7 @@ export default function Hub() {
             <rect x="4" y="18" width="7" height="6" rx="0.5" fill="rgba(255,255,255,0.7)" />
             <rect x="23" y="18" width="7" height="6" rx="0.5" fill="rgba(255,255,255,0.7)" />
           </svg>
-          <span>공장 관리 허브</span>
+          <span>TotalPilot</span>
         </div>
         <div className="hub-user">
           <span>{user?.name} 님</span>
@@ -36,22 +36,22 @@ export default function Hub() {
         </div>
 
         <div className="hub-cards">
-          {/* 생산관리 — 좌측 */}
+          {/* ManagePilot — 생산관리 */}
           <div className="hub-card hub-card-primary" onClick={() => navigate('/production')}>
             <div className="hub-card-icon">🏭</div>
             <div className="hub-card-body">
-              <div className="hub-card-title">생산관리</div>
-              <div className="hub-card-desc">생산현황, AI 검색, 종합현황 등 생산 전반을 관리합니다.</div>
+              <div className="hub-card-title">ManagePilot</div>
+              <div className="hub-card-desc">생산현황, 종합현황 등 생산 전반을 관리합니다.</div>
               <ul className="hub-card-features">
-                <li>AI 검색</li>
-                <li>종합현황</li>
+                <li>종합현황 대시보드</li>
                 <li>생산현황</li>
+                <li>AI 검색</li>
               </ul>
             </div>
             <div className="hub-card-arrow">→</div>
           </div>
 
-          {/* StockPilot — 우측 */}
+          {/* StockPilot — 재고관리 */}
           <div className="hub-card hub-card-secondary" onClick={() => navigate('/')}>
             <div className="hub-card-icon">📦</div>
             <div className="hub-card-body">

@@ -11,10 +11,10 @@ const { readTable } = require('../lib/store');
 const router = express.Router();
 
 // ── 데모 더미 데이터 ────────────────────────────────────────────
-const DEMO_COLORS = { CpHf: '#4a90d9', '3DMAS': '#e67e22', STYA1: '#27ae60', SP17: '#c0a800' };
+const DEMO_COLORS = { 'Alpha-X': '#4a90d9', 'Beta-7': '#e67e22', 'GammaS': '#27ae60', 'Delta-P': '#c0a800' };
 
 function makeDemoData() {
-  const products = ['CpHf', '3DMAS', 'STYA1', 'SP17'];
+  const products = ['Alpha-X', 'Beta-7', 'GammaS', 'Delta-P'];
   const daily = (base, noise) =>
     Array.from({ length: 29 }, (_, i) => ({
       date: `2026-06-${String(i + 1).padStart(2, '0')}`,
@@ -27,7 +27,7 @@ function makeDemoData() {
     reportDate: '2026-06-29',
     products,
     byProduct: {
-      CpHf: {
+      'Alpha-X': {
         color: '#4a90d9',
         todayQty: 42, prevDayQty: 39,
         monthPlan: 150, monthActual: 140, monthRate: 92.8,
@@ -38,7 +38,7 @@ function makeDemoData() {
         dailyData: daily(5, 3),
         monthlyData: monthly(150, [120, 135, 148, 130, 142, 140, 0, 0, 0, 0, 0, 0]),
       },
-      '3DMAS': {
+      'Beta-7': {
         color: '#e67e22',
         todayQty: 28, prevDayQty: 30,
         monthPlan: 181, monthActual: 129, monthRate: 71.4,
@@ -49,7 +49,7 @@ function makeDemoData() {
         dailyData: daily(4.5, 2.5),
         monthlyData: monthly(181, [155, 162, 178, 165, 172, 129, 0, 0, 0, 0, 0, 0]),
       },
-      STYA1: {
+      'GammaS': {
         color: '#27ae60',
         todayQty: 320, prevDayQty: 271,
         monthPlan: 1260, monthActual: 1260, monthRate: 100,
@@ -60,7 +60,7 @@ function makeDemoData() {
         dailyData: daily(43, 18),
         monthlyData: monthly(1260, [820, 880, 960, 940, 1000, 1260, 0, 0, 0, 0, 0, 0]),
       },
-      SP17: {
+      'Delta-P': {
         color: '#c0a800',
         todayQty: 188, prevDayQty: 184,
         monthPlan: 1080, monthActual: 1115, monthRate: 103.2,
@@ -73,15 +73,15 @@ function makeDemoData() {
       },
     },
     batches: [
-      { no: '#200', product: 'CpHf', steps: ['done','done','done','active','wait','wait','wait'] },
-      { no: '#199', product: '3DMAS', steps: ['done','done','done','done','active','wait','wait'] },
-      { no: '#RE11', product: 'SP17', steps: ['done','done','done','done','done','done','active'] },
+      { no: '#200', product: 'Alpha-X', steps: ['done','done','done','active','wait','wait','wait'] },
+      { no: '#199', product: 'Beta-7', steps: ['done','done','done','done','active','wait','wait'] },
+      { no: '#RE11', product: 'Delta-P', steps: ['done','done','done','done','done','done','active'] },
     ],
     stepLabels: ['R', 'F', 'D1', 'D2', 'D3', 'FS', 'Fill'],
     alerts: [
-      { level: 'error', product: '3DMAS', batchNo: '#199', yield: 63.2, target: 70, date: '2026-06-27', step: 'Distillation No.2' },
-      { level: 'warn',  product: 'CpHf',  batchNo: '#196', yield: 68.5, target: 70, date: '2026-06-24', step: 'Final Storage' },
-      { level: 'ok',    product: 'STYA1', batchNo: '#198', yield: 85.1, target: 78, date: '2026-06-28', step: '' },
+      { level: 'error', product: 'Beta-7',  batchNo: '#199', yield: 63.2, target: 70, date: '2026-06-27', step: 'Distillation No.2' },
+      { level: 'warn',  product: 'Alpha-X', batchNo: '#196', yield: 68.5, target: 70, date: '2026-06-24', step: 'Final Storage' },
+      { level: 'ok',    product: 'GammaS',  batchNo: '#198', yield: 85.1, target: 78, date: '2026-06-28', step: '' },
     ],
   };
 }
