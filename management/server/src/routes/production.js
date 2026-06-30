@@ -7,6 +7,7 @@ const XLSX = require('xlsx');
 const { asyncHandler, badRequest } = require('../lib/http');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { readTable } = require('../lib/store');
+const { parseCsvGrid } = require('../lib/csv');
 
 const router = express.Router();
 
@@ -173,6 +174,91 @@ function parseProductionFile(filePath) {
   };
 }
 
+// ── 보안 엑셀 → CSV(평문) 파싱 ────────────────────────────────────
+// 회사 IRM 보안으로 xlsx를 직접 못 읽으므로, 사용자 PC의 추출 스크립트가
+// 만든 daily-latest.csv(최신 날짜 시트)를 셀 좌표로 읽는다.
+//
+// 열 매핑(0기반 인덱스) — 현장 양식 기준:
+//   B(1)=제품 | E(4)=일생산량 | H(7)/K(10)/N(13)=6월 계획/실적/달성율
+//   Q(16)/T(19)/W(22)=연간 계획/실적/달성율
+//   재고량(AA(26) 라벨): AB(27)이월재고(can) AD(29)충진kg AF(31)충진can
+//   AH(33)출하kg AJ(35)출하can AL(37)현재고kg AN(39)현재고can
+const DCOL = { B: 1, E: 4, H: 7, K: 10, N: 13, Q: 16, T: 19, W: 22, AA: 26, AB: 27, AD: 29, AF: 31, AH: 33, AJ: 35, AL: 37, AN: 39 };
+const CARD_PRODUCTS = ['CpHf', '3DMAS', 'SP17', 'Ynfinity']; // ACP-3 제외(고정수율)
+const CARD_COLORS = { CpHf: '#4a90d9', '3DMAS': '#e67e22', SP17: '#27ae60', Ynfinity: '#c0a800' };
+
+function dNorm(s) { return String(s == null ? '' : s).replace(/[　 ]/g, ' ').trim(); }
+function dCell(grid, r, c) { return (r >= 0 && grid[r] && grid[r][c] != null) ? grid[r][c] : ''; }
+function dNum(v) {
+  if (v == null) return null;
+  const s = String(v).replace(/,/g, '').trim();
+  if (s === '') return null;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+}
+function dPct(v) { const n = dNum(v); return n == null ? null : Math.round(n * 1000) / 10; } // 0.88→88.0
+function dFindRow(grid, col, label) {
+  const want = dNorm(label);
+  for (let r = 0; r < grid.length; r++) if (dNorm(dCell(grid, r, col)) === want) return r;
+  return -1;
+}
+
+function parseDailyCsv(text) {
+  const grid = parseCsvGrid(text);
+
+  // 보고일자: 표 어딘가의 "N월 N일" 패턴 셀에서 추출
+  let reportDate = '';
+  const dateRe = /\d{1,2}\s*월\s*\d{1,2}\s*일/;
+  outer:
+  for (const row of grid) {
+    for (const c of row) {
+      const m = dNorm(c).match(dateRe);
+      if (m) { reportDate = m[0].replace(/\s/g, ''); break outer; }
+    }
+  }
+
+  const byProduct = {};
+  for (const p of CARD_PRODUCTS) {
+    const pr = dFindRow(grid, DCOL.B, p);   // 생산량 행
+    const yr = pr >= 0 ? pr + 1 : -1;       // 바로 아래 Yield(%) 행
+    const ir = dFindRow(grid, DCOL.AA, p);  // 재고량 블록 행
+    const g = (r, c) => dCell(grid, r, c);
+
+    byProduct[p] = {
+      color: CARD_COLORS[p] || '#888',
+      todayQty: dNum(g(pr, DCOL.E)),
+      prevDayQty: null,
+      monthPlan: dNum(g(pr, DCOL.H)),
+      monthActual: dNum(g(pr, DCOL.K)),
+      monthRate: dPct(g(pr, DCOL.N)),
+      yearPlan: dNum(g(pr, DCOL.Q)),
+      yearActual: dNum(g(pr, DCOL.T)),
+      yearRate: dPct(g(pr, DCOL.W)),
+      // 수율: 월 실적(K) 기준 + 년 실적(T) 병행 (목표=계획 H/Q)
+      yield: dPct(g(yr, DCOL.K)),
+      yieldTarget: dPct(g(yr, DCOL.H)),
+      yieldPrev: null,
+      yearYield: dPct(g(yr, DCOL.T)),
+      yearYieldTarget: dPct(g(yr, DCOL.Q)),
+      monthBatch: null,
+      yearBatch: null,
+      inventory: {
+        carryOver: dNum(g(ir, DCOL.AB)),
+        filled: dNum(g(ir, DCOL.AD)),
+        filledCan: dNum(g(ir, DCOL.AF)),
+        shipped: dNum(g(ir, DCOL.AH)),
+        shippedCan: dNum(g(ir, DCOL.AJ)),
+        total: dNum(g(ir, DCOL.AL)),
+        totalCan: dNum(g(ir, DCOL.AN)),
+      },
+      dailyData: [],
+      monthlyData: [],
+    };
+  }
+
+  return { reportDate, products: CARD_PRODUCTS, byProduct, batches: [], stepLabels: STEP_LABELS, alerts: [] };
+}
+
 // ── settings 읽기 ────────────────────────────────────────────────
 async function readProductionSettings(plant) {
   const rows = await readTable('settings', plant);
@@ -205,25 +291,27 @@ router.get(
       plant = user.plantScope || user.plant || '2공장';
     }
 
-    const { filePath, keywords } = await readProductionSettings(plant);
+    const { filePath } = await readProductionSettings(plant);
 
     if (!filePath) {
-      return res.status(404).json({ error: `[${plant}] 생산관리 파일 경로가 설정되지 않았습니다. 관리자 설정에서 경로를 입력해 주세요.` });
+      return res.status(404).json({ error: `[${plant}] 생산관리 폴더 경로가 설정되지 않았습니다. 관리자 설정에서 경로를 입력해 주세요.` });
     }
 
-    const found = findLatestFile(filePath, keywords);
+    // 추출 스크립트가 생성하는 평문 CSV를 읽는다.
+    const csvPath = path.join(filePath, 'daily-latest.csv');
+    if (!fs.existsSync(csvPath)) {
+      return res.status(404).json({ error: `[${plant}] daily-latest.csv 를 찾을 수 없습니다. 추출 스크립트(export-daily-report-csv.ps1)가 '${filePath}' 폴더에 CSV를 생성했는지 확인하세요.` });
+    }
+
     let data;
     try {
-      data = parseProductionFile(found.full);
+      data = parseDailyCsv(fs.readFileSync(csvPath, 'utf8'));
     } catch (e) {
-      // 후보 파일이 여러 개면 어떤 파일을 골랐는지 함께 안내
-      const extra = found.candidates && found.candidates.length > 1
-        ? ` (키워드에 맞는 파일 ${found.candidates.length}개 중 최신 선택: ${found.candidates.join(', ')})`
-        : '';
-      e.message += extra;
+      e.message = `종합현황 CSV 파싱 실패: ${e.message}`;
       throw e;
     }
-    res.json({ data, source: found.name, mtime: new Date(found.mtime).toISOString(), plant });
+    const st = fs.statSync(csvPath);
+    res.json({ data, source: 'daily-latest.csv', mtime: new Date(st.mtimeMs).toISOString(), plant });
   }),
 );
 
@@ -233,14 +321,20 @@ router.post(
   requireAdmin,
   asyncHandler(async (req, res) => {
     const folderPath = (req.body.filePath || '').trim();
-    const keywords = (req.body.keywords || 'Daily,report').trim();
     if (!folderPath) throw badRequest('경로를 입력하세요.');
     if (!fs.existsSync(folderPath)) throw badRequest(`경로가 존재하지 않습니다: ${folderPath}`);
     if (!fs.statSync(folderPath).isDirectory()) throw badRequest('폴더 경로를 입력해 주세요.');
-    const found = findLatestFile(folderPath, keywords);
+
+    const csvPath = path.join(folderPath, 'daily-latest.csv');
+    if (!fs.existsSync(csvPath)) {
+      throw badRequest(`이 폴더에 daily-latest.csv 가 없습니다. 추출 스크립트가 CSV를 생성하는 폴더를 지정하세요: ${folderPath}`);
+    }
+    const st = fs.statSync(csvPath);
+    const data = parseDailyCsv(fs.readFileSync(csvPath, 'utf8'));
+    const found = CARD_PRODUCTS.filter((p) => data.byProduct[p] && data.byProduct[p].monthActual != null);
     res.json({
-      message: `${found.name} 감지 완료 (수정일: ${new Date(found.mtime).toLocaleString('ko-KR')})`,
-      file: found.full,
+      message: `daily-latest.csv 감지 완료 (보고일: ${data.reportDate || '?'}, 인식 품목: ${found.length ? found.join(', ') : '없음 — 열 매핑 확인 필요'}, 수정일: ${new Date(st.mtimeMs).toLocaleString('ko-KR')})`,
+      file: csvPath,
     });
   }),
 );
