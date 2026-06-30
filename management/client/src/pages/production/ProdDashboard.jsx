@@ -542,25 +542,29 @@ export default function ProdDashboard() {
 
         {/* 우: 재고 현황 */}
         <div className="card">
-          <div className="card-head"><h3>📦 재고 현황 (can)</h3><span style={{ fontSize: 10, color: '#86868b' }}>6월 기준</span></div>
+          <div className="card-head"><h3>📦 재고 현황 (can)</h3><span style={{ fontSize: 10, color: '#86868b' }}>충전·출하·잔여 / 소진</span></div>
           <div style={{ padding: '6px 0' }}>
             {/* 헤더 */}
             <div style={{ display: 'flex', padding: '4px 14px', fontSize: 10, color: '#86868b' }}>
-              <div style={{ width: 64 }} />
-              {['이월', '충진', '출하', '잔량'].map((h) => <div key={h} style={{ flex: 1, textAlign: 'center' }}>{h}</div>)}
+              <div style={{ width: 58 }} />
+              {['충진', '출하', '잔여', '잔여(개월)'].map((h) => <div key={h} style={{ flex: 1, textAlign: 'center' }}>{h}</div>)}
             </div>
             {products.map((p) => {
               const inv = byProduct[p]?.inventory || {};
               const c = byProduct[p]?.color || '#ccc';
+              const rm = inv.remainingMonths;
+              const rmColor = rm == null ? '#c7c7cc' : rm < 2 ? '#ff3b30' : rm < 4 ? '#ff9500' : '#34c759';
               return (
                 <div key={p} style={{ display: 'flex', alignItems: 'center', padding: '7px 14px', borderBottom: '1px solid #f5f5f7' }}>
-                  <div style={{ width: 64, display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: 12, color: c }}>
+                  <div style={{ width: 58, display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: 12, color: c }}>
                     <span style={{ width: 8, height: 8, background: c, borderRadius: '50%', display: 'inline-block', flexShrink: 0 }} />{p}
                   </div>
-                  <div style={{ flex: 1, textAlign: 'center', fontSize: 12, color: '#86868b' }}>{inv.carryOver || '–'}</div>
-                  <div style={{ flex: 1, textAlign: 'center', fontSize: 12, color: '#34c759' }}>{inv.filled || '–'}</div>
-                  <div style={{ flex: 1, textAlign: 'center', fontSize: 12, color: '#ff9500' }}>{inv.shipped || '–'}</div>
-                  <div style={{ flex: 1, textAlign: 'center', fontSize: 12, fontWeight: 700, color: '#0071e3' }}>{inv.total || '–'}</div>
+                  <div style={{ flex: 1, textAlign: 'center', fontSize: 12, color: '#34c759' }}>{inv.filled ?? '–'}</div>
+                  <div style={{ flex: 1, textAlign: 'center', fontSize: 12, color: '#ff9500' }}>{inv.shipped ?? '–'}</div>
+                  <div style={{ flex: 1, textAlign: 'center', fontSize: 12, fontWeight: 700, color: '#0071e3' }}>{inv.total ?? '–'}</div>
+                  <div style={{ flex: 1, textAlign: 'center', fontSize: 12, fontWeight: 700, color: rmColor }}>
+                    {rm == null ? '–' : `${rm.toFixed(1)}개월`}
+                  </div>
                 </div>
               );
             })}

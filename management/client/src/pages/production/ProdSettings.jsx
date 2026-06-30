@@ -77,6 +77,100 @@ function PlantFileSettings({ plant, toast }) {
   );
 }
 
+const INV_PRODUCTS = ['CpHf', '3DMAS', 'SP17', 'Ynfinity'];
+
+// 재고 기준정보: 품목별 연간계획(잔여수량과 같은 단위) → ÷12 월소비 → 잔여 개월수
+function InventoryBaseline({ plant, toast }) {
+  const [cfg, setCfg] = useState({});      // { 제품: { annualPlan, monthlyUse } }
+  const [loaded, setLoaded] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    api.get(`/settings?plant=${encodeURIComponent(plant)}`).then((d) => {
+      let parsed = {};
+      try { parsed = d.settings.prodInvConfig ? JSON.parse(d.settings.prodInvConfig) : {}; } catch { parsed = {}; }
+      setCfg(parsed);
+      setLoaded(true);
+    });
+  }, [plant]);
+
+  function setPlan(p, val) {
+    setCfg((c) => {
+      const next = { ...c, [p]: { ...(c[p] || {}) } };
+      next[p].annualPlan = val;
+      // 월소비 수동값이 비어있으면 자동(연간/12) 표시를 위해 건드리지 않음
+      return next;
+    });
+  }
+  function setMonthly(p, val) {
+    setCfg((c) => ({ ...c, [p]: { ...(c[p] || {}), monthlyUse: val } }));
+  }
+  function autoMonthly(p) {
+    const ap = Number(cfg[p]?.annualPlan);
+    return Number.isFinite(ap) ? Math.round((ap / 12) * 10) / 10 : null;
+  }
+
+  async function save() {
+    setBusy(true);
+    try {
+      // 빈 값 정리
+      const clean = {};
+      for (const p of INV_PRODUCTS) {
+        const ap = cfg[p]?.annualPlan, mu = cfg[p]?.monthlyUse;
+        const o = {};
+        if (ap !== undefined && ap !== '') o.annualPlan = Number(ap);
+        if (mu !== undefined && mu !== '') o.monthlyUse = Number(mu);
+        if (Object.keys(o).length) clean[p] = o;
+      }
+      await api.patch(`/settings?plant=${encodeURIComponent(plant)}`, { prodInvConfig: JSON.stringify(clean) });
+      toast.ok(`[${plant}] 재고 기준정보가 저장되었습니다.`);
+    } catch (e) { toast.err(e.message); } finally { setBusy(false); }
+  }
+
+  return (
+    <div style={{ border: '1px solid #e5e5ea', borderRadius: 10, padding: '14px 16px', marginBottom: 14 }}>
+      <h4 style={{ margin: '0 0 4px', fontSize: 14 }}>🏭 {plant} — 재고 기준정보 (잔여 개월수)</h4>
+      <p className="hint" style={{ marginBottom: 10 }}>
+        품목별 <b>연간계획</b>(잔여수량과 같은 단위)을 입력하면 <b>÷12</b>로 월 소비량이 계산됩니다.
+        월 소비량은 직접 수정할 수 있습니다. 잔여수량 ÷ 월소비 = <b>잔여 개월수</b>.
+      </p>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+        <thead>
+          <tr style={{ color: '#86868b', fontSize: 12 }}>
+            <th style={{ textAlign: 'left', padding: '6px 8px' }}>품목</th>
+            <th style={{ textAlign: 'right', padding: '6px 8px' }}>연간계획</th>
+            <th style={{ textAlign: 'right', padding: '6px 8px' }}>월 소비량 (자동=÷12, 수정가능)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {INV_PRODUCTS.map((p) => {
+            const auto = autoMonthly(p);
+            return (
+              <tr key={p} style={{ borderTop: '1px solid #f0f0f5' }}>
+                <td style={{ padding: '7px 8px', fontWeight: 700 }}>{p}</td>
+                <td style={{ padding: '7px 8px', textAlign: 'right' }}>
+                  <input type="number" value={cfg[p]?.annualPlan ?? ''} disabled={!loaded}
+                    onChange={(e) => setPlan(p, e.target.value)}
+                    style={{ width: 110, textAlign: 'right', padding: '4px 8px', border: '1px solid #d1d1d6', borderRadius: 6 }} />
+                </td>
+                <td style={{ padding: '7px 8px', textAlign: 'right' }}>
+                  <input type="number" value={cfg[p]?.monthlyUse ?? ''} disabled={!loaded}
+                    onChange={(e) => setMonthly(p, e.target.value)}
+                    placeholder={auto != null ? String(auto) : '자동'}
+                    style={{ width: 110, textAlign: 'right', padding: '4px 8px', border: '1px solid #d1d1d6', borderRadius: 6 }} />
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      <div className="btn-row" style={{ marginTop: 10 }}>
+        <button className="btn" onClick={save} disabled={busy || !loaded}>{busy ? '저장 중…' : '재고 기준정보 저장'}</button>
+      </div>
+    </div>
+  );
+}
+
 export default function ProdSettings() {
   const { isAdmin, isSuper } = useAuth();
   const toast = useToast();
@@ -105,6 +199,16 @@ export default function ProdSettings() {
         </p>
         {plants.map((p) => (
           <PlantFileSettings key={p} plant={p} toast={toast} />
+        ))}
+      </div>
+
+      <div className="card card-pad" style={{ marginBottom: 16, maxWidth: 680 }}>
+        <h3 style={{ marginBottom: 4 }}>📦 재고 기준정보</h3>
+        <p className="hint" style={{ marginBottom: 14 }}>
+          품목별 <b>연간계획</b>을 입력하면 종합현황 재고 카드에 <b>잔여 개월수</b>가 표시됩니다.
+        </p>
+        {plants.map((p) => (
+          <InventoryBaseline key={p} plant={p} toast={toast} />
         ))}
       </div>
     </>

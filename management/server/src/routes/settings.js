@@ -26,11 +26,13 @@ const DEFAULTS = {
   // 생산관리 — Daily Report 엑셀 파일 경로 (공유폴더, 공장별 각자 CSV에 저장)
   productionFilePath: '',
   productionFileKeywords: 'Daily,report',
+  // 재고 기준정보 — 품목별 연간계획/월소비 (JSON). 잔여 개월수 계산용.
+  prodInvConfig: '',
 };
 const STRING_KEYS = [
   'canisterDefaultSize', 'canisterDefaultLocation', 'canisterDefaultStatus', 'canisterDefaultContent',
   'canisterSizes', 'canisterLocations', 'canisterStatuses', 'canisterContents', 'canisterSizeMaxKg',
-  'productionFilePath', 'productionFileKeywords',
+  'productionFilePath', 'productionFileKeywords', 'prodInvConfig',
 ];
 
 async function readSettings(plant) {
