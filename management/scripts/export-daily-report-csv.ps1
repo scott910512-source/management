@@ -23,7 +23,9 @@ $ErrorActionPreference = "Stop"
 # 콘솔 한글 깨짐 방지
 try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
 
-if (-not (Test-Path $Source)) { Write-Error "원본 파일이 없습니다: $Source"; exit 1 }
+# 주의: 공유폴더(예: E:\전사...)는 PowerShell의 Test-Path가 "Access is denied"로
+# 막혀도 Excel은 열 수 있는 경우가 있다. 그래서 Source 존재검사는 하지 않고
+# 바로 Excel.Open() 에 맡긴다(열기 실패 시 아래 catch에서 안내).
 if (-not (Test-Path $DestFolder)) { New-Item -ItemType Directory -Path $DestFolder -Force | Out-Null }
 
 function Safe([string]$s) { return ($s -replace '[\\/:*?"<>|]', '_') }
