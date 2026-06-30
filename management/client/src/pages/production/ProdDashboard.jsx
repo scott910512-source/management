@@ -11,6 +11,46 @@ const ALERT_ICO = { error: '🔴', warn: '🟡', ok: '🟢' };
 const fmt = (v) => (v == null ? '–' : Number(v).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 }));
 const fmtInt = (v) => (v == null ? '–' : Number(v).toLocaleString());
 const pct = (v) => (v == null ? '–' : `${Number(v).toFixed(1)}%`);
+
+// 계획달성 표에 표시 가능한 컬럼 (관리자 설정에서 선택). mRate는 특수 렌더.
+export const PROD_TABLE_COLS = [
+  { key: 'today', label: '일생산' },
+  { key: 'mPlan', label: '6월계획' },
+  { key: 'mAct', label: '6월실적' },
+  { key: 'mRate', label: '6월 달성율' },
+  { key: 'cumRate', label: '누적생산달성율' },
+  { key: 'batch', label: 'Batch(월/년)' },
+  { key: 'yieldM', label: '수율(월)' },
+  { key: 'yieldY', label: '수율(년)' },
+];
+function colValue(key, d) {
+  switch (key) {
+    case 'today': return fmt(d.todayQty);
+    case 'mPlan': return fmt(d.monthPlan);
+    case 'mAct': return fmt(d.monthActual);
+    case 'cumRate': return pct(d.yearRate);
+    case 'batch': return `${d.monthBatch ?? '–'} / ${d.yearBatch ?? '–'}`;
+    case 'yieldM': return pct(d.yield);
+    case 'yieldY': return pct(d.yearYield);
+    default: return '';
+  }
+}
+
+// 최상단 요약 카드
+function SummaryCard({ icon, label, value, unit, sub, color, valueSize = 25 }) {
+  return (
+    <div className="card" style={{ padding: '14px 16px', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+      <div style={{ width: 36, height: 36, borderRadius: 10, background: '#f0f4ff', display: 'grid', placeItems: 'center', fontSize: 18, flexShrink: 0 }}>{icon}</div>
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div style={{ fontSize: 11.5, color: '#86868b', marginBottom: 3 }}>{label}</div>
+        <div style={{ fontSize: valueSize, fontWeight: 800, lineHeight: 1.05, color, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {value}{unit && <span style={{ fontSize: 13, fontWeight: 600, color: '#86868b', marginLeft: 3 }}>{unit}</span>}
+        </div>
+        <div style={{ fontSize: 10.5, color: '#86868b', marginTop: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sub}</div>
+      </div>
+    </div>
+  );
+}
 // 최상단 롤링 경고 배너 (StockPilot 경고창 형식) — 알림을 일정 간격으로 순환 표시
 function RollingAlerts({ alerts }) {
   const items = (alerts || []).filter((a) => a.level && a.level !== 'ok');
@@ -477,7 +517,36 @@ export default function ProdDashboard() {
         </div>
       )}
 
-      {/* ── 최상단: 품목별 계획 달성 현황(좌) + 재고 현황(우) ── */}
+      {/* ── 최상단 요약 카드 (공장별) ── */}
+      {(() => {
+        const rates = products.map((p) => byProduct[p]?.monthRate).filter((v) => v != null);
+        const avgRate = rates.length ? rates.reduce((a, b) => a + b, 0) / rates.length : null;
+        let yieldWarn = null;
+        for (const p of products) {
+          const d = byProduct[p];
+          if (!d || d.yield == null || d.yieldTarget == null) continue;
+          const gap = d.yieldTarget - d.yield;
+          if (gap > 0 && (!yieldWarn || gap > yieldWarn.gap)) yieldWarn = { p, gap };
+        }
+        let invWarn = null;
+        for (const p of products) {
+          const inv = byProduct[p]?.inventory;
+          if (!inv || !inv.belowSafety || inv.remainingMonths == null) continue;
+          if (!invWarn || inv.remainingMonths < invWarn.rm) invWarn = { p, rm: inv.remainingMonths };
+        }
+        return (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 12 }}>
+            <SummaryCard icon="📊" label="6월 생산 실적" value={fmt(totalMonthActual)} unit="kg" sub="6월 총 실적 생산량" color="#0071e3" />
+            <SummaryCard icon="🎯" label="평균 생산 달성율" value={pct(avgRate)} sub="품목별 계획 대비 평균" color={rateColor(avgRate)} />
+            <SummaryCard icon="📈" label="수율 주의 품목" value={yieldWarn ? yieldWarn.p : '없음'}
+              sub={yieldWarn ? `목표대비 -${yieldWarn.gap.toFixed(1)}%p` : '모두 목표 달성'} color={yieldWarn ? '#ff3b30' : '#34c759'} valueSize={20} />
+            <SummaryCard icon="📦" label="재고관리 필요" value={invWarn ? invWarn.p : '없음'}
+              sub={invWarn ? `안전재고 이탈 · 잔여 ${invWarn.rm.toFixed(1)}개월` : '모두 정상'} color={invWarn ? '#ff9500' : '#34c759'} valueSize={20} />
+          </div>
+        );
+      })()}
+
+      {/* ── 품목별 계획 달성 현황(좌) + 재고 현황(우) ── */}
       <div style={{ display: 'grid', gridTemplateColumns: '1.55fr 1fr', gap: 12, marginBottom: 12 }}>
 
         {/* 좌: 품목별 계획 달성 현황 */}
@@ -490,52 +559,69 @@ export default function ProdDashboard() {
             </button>
           </div>
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-              <thead>
-                <tr style={{ background: '#fafafd' }}>
-                  {['품목', '일생산', '6월계획', '6월실적', '6월 달성율', '연%', 'Batch(월/연)'].map((h) => (
-                    <th key={h} style={{ padding: '8px 10px', borderBottom: '1px solid #e5e5ea', color: '#6e6e73', fontSize: 12, fontWeight: 600, textAlign: h === '품목' ? 'left' : 'center', whiteSpace: 'nowrap' }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {products.map((p) => {
-                  const d = byProduct[p] || {};
-                  const r = d.monthRate;
-                  const badge = r == null ? null : r >= 100 ? { t: '달성', c: '#34c759' } : r >= 85 ? { t: '진행', c: '#ff9500' } : { t: '미달', c: '#ff3b30' };
-                  return (
-                    <tr key={p}>
-                      <td style={{ padding: '9px 10px', borderBottom: '1px solid #f5f5f7', borderLeft: `4px solid ${d.color || '#ccc'}` }}>
-                        <b style={{ color: d.color, fontSize: 14 }}>{p}</b>
-                      </td>
-                      <td style={{ padding: '9px 10px', borderBottom: '1px solid #f5f5f7', textAlign: 'center', fontSize: 14 }}>{fmt(d.todayQty)}</td>
-                      <td style={{ padding: '9px 10px', borderBottom: '1px solid #f5f5f7', textAlign: 'center', fontSize: 14 }}>{fmt(d.monthPlan)}</td>
-                      <td style={{ padding: '9px 10px', borderBottom: '1px solid #f5f5f7', textAlign: 'center', fontWeight: 600, fontSize: 14 }}>{fmt(d.monthActual)}</td>
-                      <td style={{ padding: '9px 10px', borderBottom: '1px solid #f5f5f7', textAlign: 'center' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                          <span style={{ fontWeight: 700, fontSize: 14, color: rateColor(r) }}>{pct(r)}</span>
-                          {badge && <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: badge.c, borderRadius: 10, padding: '1px 7px' }}>{badge.t}</span>}
-                        </div>
-                        <div style={{ height: 4, background: '#f0f0f5', borderRadius: 3, marginTop: 4 }}>
-                          <div style={{ height: 4, borderRadius: 3, background: d.color, width: `${Math.min(100, r || 0)}%` }} />
-                        </div>
-                      </td>
-                      <td style={{ padding: '9px 10px', borderBottom: '1px solid #f5f5f7', textAlign: 'center', fontWeight: 700, fontSize: 14, color: '#0071e3' }}>{pct(d.yearRate)}</td>
-                      <td style={{ padding: '9px 10px', borderBottom: '1px solid #f5f5f7', textAlign: 'center', color: '#6e6e73', fontSize: 13 }}>{d.monthBatch ?? '–'} / {d.yearBatch ?? '–'}</td>
+            {(() => {
+              const enabled = (data.tableCols && data.tableCols.length)
+                ? data.tableCols.map((k) => PROD_TABLE_COLS.find((c) => c.key === k)).filter(Boolean)
+                : PROD_TABLE_COLS;
+              const footer = (key) => {
+                switch (key) {
+                  case 'today': return fmt(products.reduce((s, p) => s + (byProduct[p]?.todayQty || 0), 0));
+                  case 'mPlan': return fmt(totalMonthPlan);
+                  case 'mAct': return fmt(totalMonthActual);
+                  case 'mRate': return pct(totalMonthPlan ? totalMonthActual / totalMonthPlan * 100 : null);
+                  case 'cumRate': return pct(totalYearPlan ? totalYearActual / totalYearPlan * 100 : null);
+                  case 'batch': return `${products.reduce((s, p) => s + (byProduct[p]?.monthBatch || 0), 0)} / ${products.reduce((s, p) => s + (byProduct[p]?.yearBatch || 0), 0)}`;
+                  default: return '–';
+                }
+              };
+              return (
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ background: '#fafafd' }}>
+                      <th style={{ padding: '8px 12px', borderBottom: '1px solid #e5e5ea', color: '#6e6e73', fontSize: 12, fontWeight: 600, textAlign: 'left', whiteSpace: 'nowrap' }}>품목</th>
+                      {enabled.map((c) => (
+                        <th key={c.key} style={{ padding: '8px 10px', borderBottom: '1px solid #e5e5ea', color: '#6e6e73', fontSize: 12, fontWeight: 600, textAlign: 'center', whiteSpace: 'nowrap' }}>{c.label}</th>
+                      ))}
                     </tr>
-                  );
-                })}
-                <tr style={{ background: '#f8f8fb' }}>
-                  <td colSpan={3} style={{ padding: '7px 10px', fontWeight: 700, color: '#6e6e73', fontSize: 12 }}>합계</td>
-                  <td style={{ padding: '7px 10px', textAlign: 'center', fontWeight: 700, fontSize: 12 }}>{fmt(totalMonthActual)}</td>
-                  <td style={{ padding: '7px 10px', textAlign: 'center', fontWeight: 700, fontSize: 12 }}>{pct(totalMonthPlan ? totalMonthActual / totalMonthPlan * 100 : null)}</td>
-                  <td style={{ padding: '7px 10px', textAlign: 'center', fontWeight: 700, fontSize: 12, color: '#0071e3' }}>{pct(totalYearPlan ? totalYearActual / totalYearPlan * 100 : null)}</td>
-                  <td style={{ padding: '7px 10px', textAlign: 'center', fontWeight: 700, fontSize: 12 }}>
-                    {products.reduce((s, p) => s + (byProduct[p]?.monthBatch || 0), 0)} / {products.reduce((s, p) => s + (byProduct[p]?.yearBatch || 0), 0)}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+                  </thead>
+                  <tbody>
+                    {products.map((p) => {
+                      const d = byProduct[p] || {};
+                      const r = d.monthRate;
+                      const badge = r == null ? null : r >= 100 ? { t: '달성', c: '#34c759' } : r >= 85 ? { t: '진행', c: '#ff9500' } : { t: '미달', c: '#ff3b30' };
+                      return (
+                        <tr key={p}>
+                          <td style={{ padding: '9px 12px', borderBottom: '1px solid #f5f5f7', borderLeft: `4px solid ${d.color || '#ccc'}`, whiteSpace: 'nowrap' }}>
+                            <b style={{ color: d.color, fontSize: 14 }}>{p}</b>
+                          </td>
+                          {enabled.map((c) => c.key === 'mRate' ? (
+                            <td key={c.key} style={{ padding: '9px 10px', borderBottom: '1px solid #f5f5f7', textAlign: 'center', minWidth: 120 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                                <span style={{ fontWeight: 700, fontSize: 14, color: rateColor(r) }}>{pct(r)}</span>
+                                {badge && <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: badge.c, borderRadius: 10, padding: '1px 7px' }}>{badge.t}</span>}
+                              </div>
+                              <div style={{ height: 4, background: '#f0f0f5', borderRadius: 3, marginTop: 4 }}>
+                                <div style={{ height: 4, borderRadius: 3, background: d.color, width: `${Math.min(100, r || 0)}%` }} />
+                              </div>
+                            </td>
+                          ) : (
+                            <td key={c.key} style={{ padding: '9px 10px', borderBottom: '1px solid #f5f5f7', textAlign: 'center', fontSize: 14, fontWeight: c.key === 'mAct' ? 600 : 400, color: c.key === 'cumRate' ? '#0071e3' : c.key === 'batch' ? '#6e6e73' : '#1d1d1f' }}>
+                              {colValue(c.key, d)}
+                            </td>
+                          ))}
+                        </tr>
+                      );
+                    })}
+                    <tr style={{ background: '#f8f8fb' }}>
+                      <td style={{ padding: '7px 12px', fontWeight: 700, color: '#6e6e73', fontSize: 12 }}>합계</td>
+                      {enabled.map((c) => (
+                        <td key={c.key} style={{ padding: '7px 10px', textAlign: 'center', fontWeight: 700, fontSize: 12, color: c.key === 'cumRate' ? '#0071e3' : '#1d1d1f' }}>{footer(c.key)}</td>
+                      ))}
+                    </tr>
+                  </tbody>
+                </table>
+              );
+            })()}
           </div>
         </div>
 
@@ -545,7 +631,7 @@ export default function ProdDashboard() {
           <div style={{ padding: '6px 0' }}>
             {/* 헤더 */}
             <div style={{ display: 'flex', padding: '4px 14px', fontSize: 10, color: '#86868b' }}>
-              <div style={{ width: 58 }} />
+              <div style={{ width: 88 }} />
               {['충진', '출하', '잔여', '잔여(개월)'].map((h) => <div key={h} style={{ flex: 1, textAlign: 'center' }}>{h}</div>)}
             </div>
             {products.map((p) => {
@@ -555,7 +641,7 @@ export default function ProdDashboard() {
               const rmColor = rm == null ? '#c7c7cc' : rm < 2 ? '#ff3b30' : rm < 4 ? '#ff9500' : '#34c759';
               return (
                 <div key={p} style={{ display: 'flex', alignItems: 'center', padding: '7px 14px', borderBottom: '1px solid #f5f5f7' }}>
-                  <div style={{ width: 58, display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: 12, color: c }}>
+                  <div style={{ width: 88, display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: 12, color: c, whiteSpace: 'nowrap' }}>
                     <span style={{ width: 8, height: 8, background: c, borderRadius: '50%', display: 'inline-block', flexShrink: 0 }} />{p}
                   </div>
                   <div style={{ flex: 1, textAlign: 'center', fontSize: 12, color: '#34c759' }}>{fmtInt(inv.filled)}</div>
@@ -571,8 +657,8 @@ export default function ProdDashboard() {
         </div>
       </div>
 
-      {/* ── 중단: 차트 + 달성테이블 ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+      {/* ── 중단: 생산 추이 차트 (전체폭) ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12, marginBottom: 12 }}>
 
         {/* 일별+월별 차트 */}
         <div className="card">
@@ -601,73 +687,6 @@ export default function ProdDashboard() {
             <div style={{ fontSize: 9, color: '#86868b', marginTop: 2 }}>■ 실적 &nbsp;■ 예측(점선, 미래월)</div>
           </div>
         </div>
-
-        {/* 수율 트래킹 */}
-        <div className="card">
-          <div className="card-head"><h3>📊 수율 트래킹 (6월)</h3></div>
-          <div style={{ padding: '8px 14px' }}>
-            {products.map((p) => {
-              const d = byProduct[p];
-              if (!d) return null;
-              const fillPct = Math.min(100, (d.yield / Math.max(d.yieldTarget || 1, d.yield || 1)) * 100);
-              const targetPct = Math.min(100, (d.yieldTarget / Math.max(d.yieldTarget || 1, d.yield || 1)) * 100);
-              const ok = d.yield >= (d.yieldTarget || 0);
-              return (
-                <div key={p} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', borderBottom: '1px solid #f5f5f7' }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, width: 56, color: d.color }}>{p}</div>
-                  <div style={{ fontSize: 14, fontWeight: 700, width: 64, textAlign: 'right', color: ok ? '#1d1d1f' : '#ff3b30' }}>{pct(d.yield)}</div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ background: '#f0f0f5', borderRadius: 5, height: 8, position: 'relative' }}>
-                      <div style={{ height: 8, borderRadius: 5, background: d.color, width: `${fillPct}%` }} />
-                      <div style={{ position: 'absolute', top: -2, height: 12, width: 2, background: '#ff3b30', borderRadius: 1, left: `${targetPct}%` }} />
-                    </div>
-                    <div style={{ fontSize: 9, color: ok ? '#86868b' : '#ff3b30', marginTop: 2 }}>목표 {pct(d.yieldTarget)}{ok ? ' ✓' : ' 미달'}</div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      {/* ── 하단: 배치 진행 ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
-
-        {/* 배치 타임라인 */}
-        <div className="card">
-          <div className="card-head">
-            <h3>🔧 현재 배치 진행</h3>
-            <span style={{ background: '#e3f0ff', color: '#0055b3', fontSize: 10, fontWeight: 700, borderRadius: 20, padding: '1px 8px' }}>
-              {batches.filter((b) => b.steps.includes('active')).length} 진행중
-            </span>
-          </div>
-          <div style={{ padding: '8px 14px' }}>
-            {/* 스텝 라벨 헤더 */}
-            <div style={{ display: 'flex', gap: 2, marginBottom: 6, paddingLeft: 44, fontSize: 9, color: '#86868b' }}>
-              {(stepLabels || []).map((s) => <div key={s} style={{ flex: 1, textAlign: 'center' }}>{s}</div>)}
-            </div>
-            {batches.length === 0 ? <div style={{ textAlign: 'center', color: '#86868b', padding: 16, fontSize: 12 }}>진행 중인 배치가 없습니다.</div> : batches.map((b) => {
-              const c = byProduct[b.product]?.color || '#ccc';
-              return (
-                <div key={b.no} style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6 }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, width: 40, flexShrink: 0, lineHeight: 1.3, color: c }}>{b.no}<br /><span style={{ fontWeight: 400, color: '#86868b', fontSize: 9 }}>{b.product}</span></div>
-                  <div style={{ flex: 1, display: 'flex', gap: 2 }}>
-                    {b.steps.map((s, si) => (
-                      <div key={si} style={{
-                        flex: 1, padding: '3px 0', borderRadius: 4, fontSize: 9, textAlign: 'center', border: '1px solid transparent',
-                        background: s === 'done' ? '#e8f8ed' : s === 'active' ? '#e3f0ff' : '#f5f5f7',
-                        borderColor: s === 'done' ? '#a8e6bc' : s === 'active' ? '#7bb8f5' : '#ebebf0',
-                        color: s === 'done' ? '#1a7f3c' : s === 'active' ? '#0055b3' : '#c0c0c5',
-                        fontWeight: s === 'active' ? 700 : 400,
-                      }}>{STEP_ICONS[s]}</div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
       </div>
 
       {/* ── 모달 ── */}

@@ -306,6 +306,7 @@ async function readProductionSettings(plant) {
     keywords: map.productionFileKeywords || 'Daily,report',
     invConfig: map.prodInvConfig || '',
     cellMap: map.prodCellMap || '',
+    tableCols: map.prodTableCols || '',
   };
 }
 
@@ -332,6 +333,10 @@ function applyInventoryConfig(data, invConfigStr) {
     inv.remainingMonths = (Number.isFinite(monthlyUse) && monthlyUse > 0 && inv.total != null)
       ? Math.round((inv.total / monthlyUse) * 10) / 10
       : null;
+    // 안전재고(개월): 미입력 시 기본 2개월
+    const sm = Number(c.safetyMonths);
+    inv.safetyMonths = Number.isFinite(sm) ? sm : 2;
+    inv.belowSafety = (inv.remainingMonths != null) ? inv.remainingMonths < inv.safetyMonths : false;
   }
 }
 
@@ -356,7 +361,7 @@ router.get(
       plant = user.plantScope || user.plant || '2공장';
     }
 
-    const { filePath, invConfig, cellMap } = await readProductionSettings(plant);
+    const { filePath, invConfig, cellMap, tableCols } = await readProductionSettings(plant);
 
     if (!filePath) {
       return res.status(404).json({ error: `[${plant}] 생산관리 폴더 경로가 설정되지 않았습니다. 관리자 설정에서 경로를 입력해 주세요.` });
@@ -376,6 +381,9 @@ router.get(
       throw e;
     }
     applyInventoryConfig(data, invConfig);
+    let cols = null;
+    try { cols = tableCols ? JSON.parse(tableCols) : null; } catch { cols = null; }
+    data.tableCols = Array.isArray(cols) && cols.length ? cols : null;
     const st = fs.statSync(csvPath);
     res.json({ data, source: 'daily-latest.csv', mtime: new Date(st.mtimeMs).toISOString(), plant });
   }),

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../../api';
 import { useAuth } from '../../auth/AuthContext';
 import { Field, TextInput, useToast } from '../../components/ui';
+import { PROD_TABLE_COLS } from './ProdDashboard';
 
 function PlantFileSettings({ plant, toast }) {
   const [path, setPath] = useState('');
@@ -77,11 +78,12 @@ function PlantFileSettings({ plant, toast }) {
   );
 }
 
-const INV_PRODUCTS = ['CpHf', '3DMAS', 'SP17', 'Ynfinity'];
+const DEFAULT_PRODUCTS = ['CpHf', '3DMAS', 'SP17', 'Ynfinity'];
 
-// 재고 기준정보: 품목별 연간계획(잔여수량과 같은 단위) → ÷12 월소비 → 잔여 개월수
+// 재고 기준정보: 품목별 연간계획(kg)/포장단위(kg) → ÷12÷포장 = 월소비(can) → 잔여 개월수
 function InventoryBaseline({ plant, toast }) {
-  const [cfg, setCfg] = useState({});      // { 제품: { annualPlan, monthlyUse } }
+  const [cfg, setCfg] = useState({});      // { 제품: { annualPlan, packageUnit, monthlyUse, safetyMonths } }
+  const [productList, setProductList] = useState(DEFAULT_PRODUCTS);
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -90,6 +92,13 @@ function InventoryBaseline({ plant, toast }) {
       let parsed = {};
       try { parsed = d.settings.prodInvConfig ? JSON.parse(d.settings.prodInvConfig) : {}; } catch { parsed = {}; }
       setCfg(parsed);
+      // 품목 목록은 셀 매핑(prodCellMap.products)에서 가져온다.
+      let prods = DEFAULT_PRODUCTS;
+      try {
+        const cm = d.settings.prodCellMap ? JSON.parse(d.settings.prodCellMap) : null;
+        if (cm && cm.products) prods = String(cm.products).split(',').map((s) => s.trim()).filter(Boolean);
+      } catch { /* 기본값 */ }
+      setProductList(prods.length ? prods : DEFAULT_PRODUCTS);
       setLoaded(true);
     });
   }, [plant]);
@@ -108,12 +117,13 @@ function InventoryBaseline({ plant, toast }) {
     setBusy(true);
     try {
       const clean = {};
-      for (const p of INV_PRODUCTS) {
-        const ap = cfg[p]?.annualPlan, pk = cfg[p]?.packageUnit, mu = cfg[p]?.monthlyUse;
+      for (const p of productList) {
+        const ap = cfg[p]?.annualPlan, pk = cfg[p]?.packageUnit, mu = cfg[p]?.monthlyUse, sm = cfg[p]?.safetyMonths;
         const o = {};
         if (ap !== undefined && ap !== '') o.annualPlan = Number(ap);
         if (pk !== undefined && pk !== '') o.packageUnit = Number(pk);
         if (mu !== undefined && mu !== '') o.monthlyUse = Number(mu);
+        if (sm !== undefined && sm !== '') o.safetyMonths = Number(sm);
         if (Object.keys(o).length) clean[p] = o;
       }
       await api.patch(`/settings?plant=${encodeURIComponent(plant)}`, { prodInvConfig: JSON.stringify(clean) });
@@ -135,12 +145,13 @@ function InventoryBaseline({ plant, toast }) {
             <th style={{ textAlign: 'right', padding: '6px 8px' }}>연간계획 (kg)</th>
             <th style={{ textAlign: 'right', padding: '6px 8px' }}>포장단위 (kg/can)</th>
             <th style={{ textAlign: 'right', padding: '6px 8px' }}>월 소비량 (can, 자동/수정)</th>
+            <th style={{ textAlign: 'right', padding: '6px 8px' }}>안전재고 (개월)</th>
           </tr>
         </thead>
         <tbody>
-          {INV_PRODUCTS.map((p) => {
+          {productList.map((p) => {
             const auto = autoMonthly(p);
-            const cell = { width: 92, textAlign: 'right', padding: '4px 8px', border: '1px solid #d1d1d6', borderRadius: 6 };
+            const cell = { width: 88, textAlign: 'right', padding: '4px 8px', border: '1px solid #d1d1d6', borderRadius: 6 };
             return (
               <tr key={p} style={{ borderTop: '1px solid #f0f0f5' }}>
                 <td style={{ padding: '7px 8px', fontWeight: 700 }}>{p}</td>
@@ -157,6 +168,11 @@ function InventoryBaseline({ plant, toast }) {
                     onChange={(e) => setField(p, 'monthlyUse', e.target.value)}
                     placeholder={auto != null ? String(auto) : '자동'} style={cell} />
                 </td>
+                <td style={{ padding: '7px 8px', textAlign: 'right' }}>
+                  <input type="number" value={cfg[p]?.safetyMonths ?? ''} disabled={!loaded}
+                    onChange={(e) => setField(p, 'safetyMonths', e.target.value)}
+                    placeholder="2" style={cell} />
+                </td>
               </tr>
             );
           })}
@@ -164,6 +180,56 @@ function InventoryBaseline({ plant, toast }) {
       </table>
       <div className="btn-row" style={{ marginTop: 10 }}>
         <button className="btn" onClick={save} disabled={busy || !loaded}>{busy ? '저장 중…' : '재고 기준정보 저장'}</button>
+      </div>
+    </div>
+  );
+}
+
+// 계획달성 표에 표시할 컬럼 선택
+function TableColsConfig({ plant, toast }) {
+  const [sel, setSel] = useState(PROD_TABLE_COLS.map((c) => c.key));
+  const [loaded, setLoaded] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    api.get(`/settings?plant=${encodeURIComponent(plant)}`).then((d) => {
+      let arr = null;
+      try { arr = d.settings.prodTableCols ? JSON.parse(d.settings.prodTableCols) : null; } catch { arr = null; }
+      setSel(Array.isArray(arr) && arr.length ? arr : PROD_TABLE_COLS.map((c) => c.key));
+      setLoaded(true);
+    });
+  }, [plant]);
+
+  function toggle(key) {
+    setSel((s) => (s.includes(key) ? s.filter((k) => k !== key) : [...s, key]));
+  }
+  async function save() {
+    setBusy(true);
+    try {
+      const ordered = PROD_TABLE_COLS.filter((c) => sel.includes(c.key)).map((c) => c.key);
+      await api.patch(`/settings?plant=${encodeURIComponent(plant)}`, { prodTableCols: JSON.stringify(ordered) });
+      toast.ok(`[${plant}] 표시 컬럼이 저장되었습니다.`);
+    } catch (e) { toast.err(e.message); } finally { setBusy(false); }
+  }
+
+  return (
+    <div style={{ border: '1px solid #e5e5ea', borderRadius: 10, padding: '14px 16px', marginBottom: 14 }}>
+      <h4 style={{ margin: '0 0 8px', fontSize: 14 }}>🏭 {plant} — 계획 달성 현황 표시 컬럼</h4>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+        {PROD_TABLE_COLS.map((c) => {
+          const on = sel.includes(c.key);
+          return (
+            <button key={c.key} onClick={() => toggle(c.key)} disabled={!loaded}
+              style={{
+                padding: '5px 12px', borderRadius: 20, cursor: 'pointer', fontSize: 12.5, fontWeight: 600,
+                border: `1.5px solid ${on ? '#0071e3' : '#d1d1d6'}`,
+                background: on ? '#0071e3' : '#fff', color: on ? '#fff' : '#6e6e73',
+              }}>{on ? '✓ ' : ''}{c.label}</button>
+          );
+        })}
+      </div>
+      <div className="btn-row" style={{ marginTop: 12 }}>
+        <button className="btn" onClick={save} disabled={busy || !loaded}>{busy ? '저장 중…' : '표시 컬럼 저장'}</button>
       </div>
     </div>
   );
@@ -207,6 +273,16 @@ export default function ProdSettings() {
         </p>
         {plants.map((p) => (
           <InventoryBaseline key={p} plant={p} toast={toast} />
+        ))}
+      </div>
+
+      <div className="card card-pad" style={{ marginBottom: 16, maxWidth: 680 }}>
+        <h3 style={{ marginBottom: 4 }}>📋 계획 달성 현황 표시 컬럼</h3>
+        <p className="hint" style={{ marginBottom: 14 }}>
+          종합현황의 <b>품목별 계획 달성 현황</b> 표에 표시할 컬럼을 선택합니다.
+        </p>
+        {plants.map((p) => (
+          <TableColsConfig key={p} plant={p} toast={toast} />
         ))}
       </div>
     </>

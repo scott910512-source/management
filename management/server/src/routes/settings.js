@@ -30,11 +30,13 @@ const DEFAULTS = {
   prodInvConfig: '',
   // 공장별 셀 매핑 (JSON). daily-latest.csv 열 위치 지정.
   prodCellMap: '',
+  // 계획달성 표에 표시할 컬럼 키 (JSON 배열). 비우면 전체 표시.
+  prodTableCols: '',
 };
 const STRING_KEYS = [
   'canisterDefaultSize', 'canisterDefaultLocation', 'canisterDefaultStatus', 'canisterDefaultContent',
   'canisterSizes', 'canisterLocations', 'canisterStatuses', 'canisterContents', 'canisterSizeMaxKg',
-  'productionFilePath', 'productionFileKeywords', 'prodInvConfig', 'prodCellMap',
+  'productionFilePath', 'productionFileKeywords', 'prodInvConfig', 'prodCellMap', 'prodTableCols',
 ];
 
 async function readSettings(plant) {
