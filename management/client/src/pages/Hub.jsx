@@ -10,6 +10,12 @@ export default function Hub() {
     navigate('/login');
   }
 
+  // 모듈 진입 표시 — "/" 재진입 시 Hub로 되튕기지 않도록 미리 세팅
+  function enterModule(path) {
+    try { sessionStorage.setItem('mp_entered_app', '1'); } catch { /* ignore */ }
+    navigate(path);
+  }
+
   return (
     <div className="hub-shell">
       <div className="hub-topbar">
@@ -37,7 +43,7 @@ export default function Hub() {
 
         <div className="hub-cards">
           {/* ManagePilot — 생산관리 */}
-          <div className="hub-card hub-card-primary" onClick={() => navigate('/production')}>
+          <div className="hub-card hub-card-primary" onClick={() => enterModule('/production')}>
             <div className="hub-card-icon">🏭</div>
             <div className="hub-card-body">
               <div className="hub-card-title">ManagePilot</div>
@@ -52,7 +58,7 @@ export default function Hub() {
           </div>
 
           {/* StockPilot — 재고관리 */}
-          <div className="hub-card hub-card-secondary" onClick={() => navigate('/')}>
+          <div className="hub-card hub-card-secondary" onClick={() => enterModule('/')}>
             <div className="hub-card-icon">📦</div>
             <div className="hub-card-body">
               <div className="hub-card-title">StockPilot</div>

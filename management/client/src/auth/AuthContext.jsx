@@ -44,6 +44,7 @@ export function AuthProvider({ children }) {
   const logout = useCallback(async () => {
     await api.post('/auth/logout');
     setUser(null);
+    try { sessionStorage.removeItem('mp_entered_app'); } catch { /* ignore */ }
   }, []);
 
   // 공장 전환: 저장 후 전체 화면 갱신(모든 데이터 재조회)

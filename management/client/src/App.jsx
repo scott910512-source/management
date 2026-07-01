@@ -135,9 +135,16 @@ function Sidebar() {
   );
 }
 
+// 이 탭에서 모듈에 진입했음을 표시 — 세션이 남아있어도 "/" 직접 접근 시
+// Hub를 건너뛰지 않도록 RootEntry가 이 값을 확인한다.
+function markEnteredApp() {
+  try { sessionStorage.setItem('mp_entered_app', '1'); } catch { /* ignore */ }
+}
+
 function Shell({ children, title }) {
   const { user, logout, isViewer, plant } = useAuth();
   const navigate = useNavigate();
+  useEffect(() => { markEnteredApp(); }, []);
   return (
     <div className="app-shell">
       <Sidebar />
@@ -307,6 +314,7 @@ function ProdSidebar() {
 function ProdShell({ children, title }) {
   const { user, logout, isViewer } = useAuth();
   const navigate = useNavigate();
+  useEffect(() => { markEnteredApp(); }, []);
   return (
     <div className="app-shell">
       <ProdSidebar />
@@ -341,6 +349,18 @@ function ProtectedHub({ children }) {
   return children;
 }
 
+// "/" 진입 게이트: 로그인 세션이 남아있어도, 이 브라우저 탭에서 아직
+// 모듈에 들어간 적이 없으면 StockPilot으로 바로 가지 않고 Hub를 먼저 보여준다.
+function RootEntry() {
+  const { user, loading } = useAuth();
+  if (loading) return <Loading />;
+  if (!user) return <Navigate to="/login" replace />;
+  let entered = false;
+  try { entered = sessionStorage.getItem('mp_entered_app') === '1'; } catch { entered = false; }
+  if (!entered) return <Navigate to="/hub" replace />;
+  return <Shell title="종합현황"><Dashboard /></Shell>;
+}
+
 export default function App() {
   const { user, loading } = useAuth();
   if (loading) return <Loading />;
@@ -349,7 +369,7 @@ export default function App() {
       <Route path="/login" element={user ? <Navigate to="/hub" replace /> : <Login />} />
       <Route path="/signup" element={user ? <Navigate to="/hub" replace /> : <Signup />} />
       <Route path="/hub" element={<ProtectedHub><Hub /></ProtectedHub>} />
-      <Route path="/" element={<Protected title="종합현황"><Dashboard /></Protected>} />
+      <Route path="/" element={<RootEntry />} />
       <Route path="/search" element={<Protected title="AI 검색"><Search /></Protected>} />
       <Route path="/manual" element={<Protected title="사용자 메뉴얼"><Manual /></Protected>} />
       <Route path="/suggestions" element={<Protected title="건의사항"><Suggestions /></Protected>} />
