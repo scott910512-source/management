@@ -26,8 +26,8 @@ $BAE = [char]0xBC30; $CHI = [char]0xCE58; $BYEOL = [char]0xBCC4; $SU = [char]0xC
 $WON = [char]0xC6D0; $RYO = [char]0xB8CC                 # raw material (won-ryo)
 $SA = [char]0xC0AC; $YONG = [char]0xC6A9; $RYANG = [char]0xB7C9   # usage (sa-yong-ryang)
 $DATE_RE  = '^\s*(\d{1,2})\s*' + $WOL + '\s*(\d{1,2})\s*' + $IL
-# batch sheet: "baechi-byeol ... suyul"  OR  "... won-ryo ... sa-yong-ryang"
-$BATCH_RE = '(' + $BAE + $CHI + $BYEOL + '.*' + $SU + $YUL + ')|(' + $WON + $RYO + '.*' + $SA + $YONG + $RYANG + ')'
+# batch sheet: "... won-ryo ... sa-yong-ryang"  (Batch by raw-material usage)
+$BATCH_RE = $WON + $RYO + '.*' + $SA + $YONG + $RYANG
 $FWSP_RE  = '[' + [char]0x3000 + ' ]'
 
 function CsvCell($v) {
