@@ -14,16 +14,23 @@ const fmtInt = (v) => (v == null ? '–' : Number(v).toLocaleString());
 const pct = (v) => (v == null ? '–' : `${Number(v).toFixed(1)}%`);
 
 // 계획달성 표에 표시 가능한 컬럼 (관리자 설정에서 선택). mRate는 특수 렌더.
+// 라벨의 ${MON} 은 데이터 기준월(예: 7월)로 치환된다.
 export const PROD_TABLE_COLS = [
   { key: 'today', label: '일생산' },
-  { key: 'mPlan', label: '6월계획' },
-  { key: 'mAct', label: '6월실적' },
-  { key: 'mRate', label: '6월 달성율' },
+  { key: 'mPlan', label: '${MON}계획' },
+  { key: 'mAct', label: '${MON}실적' },
+  { key: 'mRate', label: '${MON} 달성율' },
   { key: 'cumRate', label: '연 생산 달성율' },
   { key: 'batch', label: 'Batch(월/년)' },
   { key: 'yieldM', label: '수율(월)' },
   { key: 'yieldY', label: '수율(년)' },
 ];
+// reportDate("7월29일" 등) → "7월". 없으면 "당월".
+export function monthLabel(reportDate) {
+  const m = String(reportDate || '').match(/(\d{1,2})\s*월/);
+  return m ? `${parseInt(m[1], 10)}월` : '당월';
+}
+export function colLabel(label, mon) { return String(label).replace('${MON}', mon); }
 function colValue(key, d) {
   switch (key) {
     case 'today': return fmt(d.todayQty);
@@ -378,6 +385,7 @@ function MonthlyMiniChart({ byProduct, products }) {
 // ── 전체 품목 보기 모달 ───────────────────────────────────────────
 function AllProductsModal({ data, onClose }) {
   const { byProduct, products } = data;
+  const mon = monthLabel(data.reportDate);
   useEffect(() => {
     const h = (e) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', h);
@@ -406,7 +414,7 @@ function AllProductsModal({ data, onClose }) {
         <div style={{ background: '#f5f8ff', borderBottom: '1px solid #e5e5ea', padding: '9px 20px', display: 'flex', gap: 20, flexShrink: 0, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 11, color: '#86868b' }}>전체 합계</span>
           <span style={{ fontSize: 12, fontWeight: 700 }}>오늘 <b style={{ color: '#1d1d1f' }}>{fmt(totalToday)} kg</b></span>
-          <span style={{ fontSize: 12, fontWeight: 700 }}>6월 실적 <b>{fmt(totalMonthActual)} kg</b> <span style={{ color: rateColor(totalMonthPlan ? totalMonthActual / totalMonthPlan * 100 : null) }}>{pct(totalMonthPlan ? totalMonthActual / totalMonthPlan * 100 : null)}</span></span>
+          <span style={{ fontSize: 12, fontWeight: 700 }}>{mon} 실적 <b>{fmt(totalMonthActual)} kg</b> <span style={{ color: rateColor(totalMonthPlan ? totalMonthActual / totalMonthPlan * 100 : null) }}>{pct(totalMonthPlan ? totalMonthActual / totalMonthPlan * 100 : null)}</span></span>
           <span style={{ fontSize: 12, fontWeight: 700 }}>연간 실적 <b>{fmt(totalYearActual)} kg</b></span>
           <span style={{ fontSize: 12, fontWeight: 700 }}>이번달 배치 <b>{totalBatch}배치</b></span>
         </div>
@@ -418,8 +426,8 @@ function AllProductsModal({ data, onClose }) {
             const isWarn = d.monthRate != null && d.monthRate < 85;
             const cols = [
               { label: '오늘 생산량', val: fmt(d.todayQty), unit: 'kg', sub: d.prevDayQty != null ? (d.todayQty >= d.prevDayQty ? `▲ 전일 +${Math.round((d.todayQty - d.prevDayQty) / d.prevDayQty * 100)}%` : `▼ 전일 ${Math.round((d.todayQty - d.prevDayQty) / d.prevDayQty * 100)}%`) : '–', subColor: deltaColor(d.todayQty, d.prevDayQty) },
-              { label: '6월 실적', val: fmt(d.monthActual), unit: `kg · 계획 ${fmt(d.monthPlan)}` },
-              { label: '6월 달성율', val: pct(d.monthRate), subColor: rateColor(d.monthRate), valColor: rateColor(d.monthRate), sub: d.monthRate >= 100 ? '▲ 달성' : d.monthRate >= 85 ? '△ 진행중' : '▼ 미달' },
+              { label: `${mon} 실적`, val: fmt(d.monthActual), unit: `kg · 계획 ${fmt(d.monthPlan)}` },
+              { label: `${mon} 달성율`, val: pct(d.monthRate), subColor: rateColor(d.monthRate), valColor: rateColor(d.monthRate), sub: d.monthRate >= 100 ? '▲ 달성' : d.monthRate >= 85 ? '△ 진행중' : '▼ 미달' },
               { label: '연간 달성율', val: pct(d.yearRate), valColor: '#0071e3', sub: '연 계획 진행중' },
               { label: '수율', val: pct(d.yield), unit: `목표 ${pct(d.yieldTarget)}`, sub: d.yieldPrev != null ? (d.yield >= d.yieldPrev ? `▲ +${(d.yield - d.yieldPrev).toFixed(1)}%p` : `▼ ${(d.yield - d.yieldPrev).toFixed(1)}%p`) : '', subColor: deltaColor(d.yield, d.yieldPrev) },
             ];
@@ -767,7 +775,7 @@ export default function ProdDashboard() {
         }
         return (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 12 }}>
-            <SummaryCard icon="📊" label="6월 생산 실적" value={fmt(totalMonthActual)} unit="kg" sub="6월 총 실적 생산량" color="#0071e3" />
+            <SummaryCard icon="📊" label={`${monthLabel(data.reportDate)} 생산 실적`} value={fmt(totalMonthActual)} unit="kg" sub={`${monthLabel(data.reportDate)} 총 실적 생산량`} color="#0071e3" />
             <SummaryCard icon="🎯" label="평균 생산 달성율" value={pct(avgRate)} sub="품목별 계획 대비 평균" color={rateColor(avgRate)} />
             <SummaryCard icon="📈" label="수율 주의 품목" value={yieldWarn ? yieldWarn.p : '없음'}
               sub={yieldWarn ? `목표대비 -${yieldWarn.gap.toFixed(1)}%p` : '모두 목표 달성'} color={yieldWarn ? '#ff3b30' : '#34c759'} valueSize={20} />
@@ -811,7 +819,7 @@ export default function ProdDashboard() {
                     <tr style={{ background: '#fafafd' }}>
                       <th style={{ padding: '8px 12px', borderBottom: '1px solid #e5e5ea', color: '#6e6e73', fontSize: 12, fontWeight: 600, textAlign: 'left', whiteSpace: 'nowrap' }}>품목</th>
                       {enabled.map((c) => (
-                        <th key={c.key} style={{ padding: '8px 10px', borderBottom: '1px solid #e5e5ea', color: '#6e6e73', fontSize: 12, fontWeight: 600, textAlign: 'center', whiteSpace: 'nowrap' }}>{c.label}</th>
+                        <th key={c.key} style={{ padding: '8px 10px', borderBottom: '1px solid #e5e5ea', color: '#6e6e73', fontSize: 12, fontWeight: 600, textAlign: 'center', whiteSpace: 'nowrap' }}>{colLabel(c.label, monthLabel(data.reportDate))}</th>
                       ))}
                     </tr>
                   </thead>

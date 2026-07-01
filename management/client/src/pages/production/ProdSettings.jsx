@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../../api';
 import { useAuth } from '../../auth/AuthContext';
 import { Field, TextInput, useToast } from '../../components/ui';
-import { PROD_TABLE_COLS } from './ProdDashboard';
+import { PROD_TABLE_COLS, colLabel } from './ProdDashboard';
 
 function PlantFileSettings({ plant, toast }) {
   const [path, setPath] = useState('');
@@ -224,7 +224,7 @@ function TableColsConfig({ plant, toast }) {
                 padding: '5px 12px', borderRadius: 20, cursor: 'pointer', fontSize: 12.5, fontWeight: 600,
                 border: `1.5px solid ${on ? '#0071e3' : '#d1d1d6'}`,
                 background: on ? '#0071e3' : '#fff', color: on ? '#fff' : '#6e6e73',
-              }}>{on ? '✓ ' : ''}{c.label}</button>
+              }}>{on ? '✓ ' : ''}{colLabel(c.label, '당월')}</button>
           );
         })}
       </div>
