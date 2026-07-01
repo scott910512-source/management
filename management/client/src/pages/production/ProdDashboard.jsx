@@ -610,14 +610,19 @@ export default function ProdDashboard() {
   const [showAll, setShowAll] = useState(false);
   const [showMonthly, setShowMonthly] = useState(false);
   const [matrixMode, setMatrixMode] = useState(null);  // 'prod' | 'yield' | null
+  const [month, setMonth] = useState(null);  // null=최신, 숫자=해당월 스냅샷
   const timerRef = useRef(null);
 
-  const load = useCallback(async (silent = false, targetPlant) => {
+  const load = useCallback(async (silent = false, targetPlant, targetMonth) => {
     if (!silent) setLoading(true);
     setError('');
     try {
       const p = targetPlant || plant;
-      const url = isAll ? `/production/data?plant=${encodeURIComponent(p)}` : '/production/data';
+      const mo = targetMonth !== undefined ? targetMonth : month;
+      const params = [];
+      if (isAll) params.push(`plant=${encodeURIComponent(p)}`);
+      if (mo != null) params.push(`month=${mo}`);
+      const url = '/production/data' + (params.length ? `?${params.join('&')}` : '');
       const res = await api.get(url);
       setData(res.data);
       setSource(res.source || '');
@@ -628,13 +633,13 @@ export default function ProdDashboard() {
     } finally {
       setLoading(false);
     }
-  }, [plant, isAll]);
+  }, [plant, isAll, month]);
 
   useEffect(() => {
     load();
     timerRef.current = setInterval(() => load(true), 3600000);
     return () => clearInterval(timerRef.current);
-  }, [plant]);
+  }, [plant, month]);
 
   function switchPlant(p) {
     setPlant(p);
@@ -702,6 +707,16 @@ export default function ProdDashboard() {
         <span style={{ fontWeight: 700, color: '#1d1d1f' }}>📅 기준일 {data.reportDate || (mtime ? mtime.slice(0, 10) : '–')}</span>
         <span style={{ color: '#86868b' }}>· CSV 갱신 {mtime ? mtime.slice(0, 16).replace('T', ' ') : '–'}</span>
         <span style={{ color: '#86868b' }}>· {source === 'demo' ? '데모 데이터' : source || '–'}</span>
+        {(data.availableMonths || []).length > 0 && (
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4, marginLeft: 4 }}>
+            <span style={{ color: '#86868b' }}>기준월</span>
+            <select value={month == null ? '' : month} onChange={(e) => setMonth(e.target.value === '' ? null : parseInt(e.target.value, 10))}
+              style={{ fontSize: 12, padding: '3px 6px', borderRadius: 6, border: '1px solid #d1d1d6', cursor: 'pointer' }}>
+              <option value="">최신</option>
+              {data.availableMonths.map((m) => <option key={m} value={m}>{m}월 말</option>)}
+            </select>
+          </span>
+        )}
         <span style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
           <button className="btn secondary sm" onClick={() => {
             const html = buildReportHtml({ title: `${plant} 생산현황 보고서`, subtitle: `기준일 ${data.reportDate || ''}`, plants: [{ plant, data, mtime }] });

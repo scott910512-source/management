@@ -75,13 +75,23 @@ function Run-Job($job) {
     }
     if ($null -eq $wb) { Write-Warning ("  no file opened for " + $job.Name); return }
     $latestWs = $null; $latestKey = -1; $batchWs = $null
+    $monthLast = @{}   # month(int) -> @{ key; ws }  (each month's last-day sheet)
     foreach ($ws in $wb.Worksheets) {
       $n = ($ws.Name -replace $FWSP_RE, ' ').Trim()
-      if ($n -match $DATE_RE) { $key = [int]$matches[1] * 100 + [int]$matches[2]; if ($key -gt $latestKey) { $latestKey = $key; $latestWs = $ws } }
+      if ($n -match $DATE_RE) {
+        $mon = [int]$matches[1]; $key = $mon * 100 + [int]$matches[2]
+        if ($key -gt $latestKey) { $latestKey = $key; $latestWs = $ws }
+        if (-not $monthLast.ContainsKey($mon) -or $key -gt $monthLast[$mon].key) { $monthLast[$mon] = @{ key = $key; ws = $ws } }
+      }
       elseif ($n -match $BATCH_RE) { $batchWs = $ws }
     }
     if ($latestWs) { try { $dim = Export-SheetCsv $latestWs (Join-Path $job.Dst 'daily-latest.csv'); Write-Host ("  [CSV] daily-latest.csv <= '" + $latestWs.Name + "' (" + $dim + ")") } catch { Write-Warning ("  daily failed: " + $_.Exception.Message) } }
     else { Write-Warning "  date sheet not found" }
+    # Per-month month-end snapshots: daily-<month>.csv (e.g. daily-6.csv = last day of month 6)
+    foreach ($mon in $monthLast.Keys) {
+      try { $dim = Export-SheetCsv $monthLast[$mon].ws (Join-Path $job.Dst ("daily-" + $mon + ".csv")); Write-Host ("  [CSV] daily-" + $mon + ".csv <= '" + $monthLast[$mon].ws.Name + "' (" + $dim + ")") }
+      catch { Write-Warning ("  daily-" + $mon + " failed: " + $_.Exception.Message) }
+    }
     if ($batchWs) { try { $dim = Export-SheetCsv $batchWs (Join-Path $job.Dst 'batch-yield.csv'); Write-Host ("  [CSV] batch-yield.csv <= '" + $batchWs.Name + "' (" + $dim + ")") } catch { Write-Warning ("  batch failed: " + $_.Exception.Message) } }
     else { Write-Warning "  batch-yield sheet not found" }
     # If a sheet was not detected, list all sheet names (diagnostic).
