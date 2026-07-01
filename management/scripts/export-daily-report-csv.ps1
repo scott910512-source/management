@@ -16,7 +16,9 @@
 # ============================================================================
 
 param(
-  [Parameter(Mandatory = $true)] [string] $Source,
+  [string] $Source = "",          # full file path (direct)
+  [string] $SourceFolder = "",    # folder path (auto-pick latest xlsx by keywords)
+  [string] $Keywords = "Daily,report",  # all keywords must be in file name (comma)
   [Parameter(Mandatory = $true)] [string] $DestFolder,
   [string] $Only = ""
 )
@@ -25,6 +27,28 @@ $ErrorActionPreference = "Stop"
 try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
 
 if (-not (Test-Path $DestFolder)) { New-Item -ItemType Directory -Path $DestFolder -Force | Out-Null }
+
+# Resolve source: if folder+keywords, auto-pick latest matching xlsx.
+# If -Source points to a folder, promote it to SourceFolder.
+if ($Source -ne "" -and $SourceFolder -eq "") {
+  $isDir = $false
+  try { $isDir = (Test-Path -LiteralPath $Source -PathType Container) } catch { $isDir = $false }
+  if ($isDir) { $SourceFolder = $Source; $Source = "" }
+}
+if ($SourceFolder -ne "") {
+  $kws = $Keywords.Split(',') | ForEach-Object { $_.Trim().ToLower() } | Where-Object { $_ -ne "" }
+  $cand = Get-ChildItem -LiteralPath $SourceFolder -Filter *.xlsx -File -ErrorAction Stop |
+    Where-Object {
+      $nm = $_.Name.ToLower()
+      $all = $true
+      foreach ($k in $kws) { if (-not $nm.Contains($k)) { $all = $false; break } }
+      $all -and ($_.Name -notlike '~$*')   # skip Excel temp files
+    } | Sort-Object LastWriteTime -Descending
+  if (-not $cand) { Write-Error ("No xlsx matching keywords [" + $Keywords + "] in: " + $SourceFolder); exit 1 }
+  $Source = $cand[0].FullName
+  Write-Host ("[SRC] " + $Source + "  (" + $cand[0].LastWriteTime + ")")
+}
+if ($Source -eq "") { Write-Error "Specify -Source (file) or -SourceFolder (+ -Keywords)."; exit 1 }
 
 # Korean characters as Unicode code points (encoding-proof)
 $WOL = [char]0xC6D4    # month
