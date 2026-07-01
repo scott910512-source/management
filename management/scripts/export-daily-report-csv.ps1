@@ -35,6 +35,8 @@ if ($Source -ne "" -and $SourceFolder -eq "") {
   try { $isDir = (Test-Path -LiteralPath $Source -PathType Container) } catch { $isDir = $false }
   if ($isDir) { $SourceFolder = $Source; $Source = "" }
 }
+# $Candidates: files to try, newest first (all matches for folder mode, else [$Source]).
+$Candidates = @()
 if ($SourceFolder -ne "") {
   $kws = $Keywords.Split(',') | ForEach-Object { $_.Trim().ToLower() } | Where-Object { $_ -ne "" }
   $cand = Get-ChildItem -LiteralPath $SourceFolder -Filter *.xlsx -File -ErrorAction Stop |
@@ -45,10 +47,11 @@ if ($SourceFolder -ne "") {
       $all -and ($_.Name -notlike '~$*')   # skip Excel temp files
     } | Sort-Object LastWriteTime -Descending
   if (-not $cand) { Write-Error ("No xlsx matching keywords [" + $Keywords + "] in: " + $SourceFolder); exit 1 }
-  $Source = $cand[0].FullName
-  Write-Host ("[SRC] " + $Source + "  (" + $cand[0].LastWriteTime + ")")
+  $Candidates = @($cand | ForEach-Object { $_.FullName })
+  Write-Host ("[MATCH] " + $Candidates.Count + " file(s): " + (($cand | ForEach-Object { $_.Name }) -join ' | '))
 }
-if ($Source -eq "") { Write-Error "Specify -Source (file) or -SourceFolder (+ -Keywords)."; exit 1 }
+elseif ($Source -ne "") { $Candidates = @($Source) }
+if ($Candidates.Count -eq 0) { Write-Error "Specify -Source (file) or -SourceFolder (+ -Keywords)."; exit 1 }
 
 # Korean characters as Unicode code points (encoding-proof)
 $WOL = [char]0xC6D4    # month
@@ -100,7 +103,22 @@ try {
   $excel.DisplayAlerts = $false
   $excel.AutomationSecurity = 3
 
-  $wb = $excel.Workbooks.Open($Source, $false, $true)   # read-only
+  # Try candidates newest-first: skip locked/encrypted ones to the next.
+  $wb = $null
+  $openErr = ""
+  foreach ($cf in $Candidates) {
+    try {
+      # ReadOnly=$true, IgnoreReadOnlyRecommended=$true
+      $wb = $excel.Workbooks.Open($cf, $false, $true, [Type]::Missing, [Type]::Missing, [Type]::Missing, $true)
+      $Source = $cf
+      Write-Host ("[SRC] " + $cf)
+      break
+    } catch {
+      $openErr = $_.Exception.Message
+      Write-Warning ("open failed: " + (Split-Path $cf -Leaf) + " -> " + $openErr)
+    }
+  }
+  if ($null -eq $wb) { Write-Error ("No candidate could be opened. Last error: " + $openErr); exit 1 }
 
   $count = 0
 
