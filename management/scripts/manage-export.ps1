@@ -87,10 +87,12 @@ function Run-Job($job) {
     }
     if ($latestWs) { try { $dim = Export-SheetCsv $latestWs (Join-Path $job.Dst 'daily-latest.csv'); Write-Host ("  [CSV] daily-latest.csv <= '" + $latestWs.Name + "' (" + $dim + ")") } catch { Write-Warning ("  daily failed: " + $_.Exception.Message) } }
     else { Write-Warning "  date sheet not found" }
-    # Per-month month-end snapshots: daily-<month>.csv (e.g. daily-6.csv = last day of month 6)
+    # Per-month month-end snapshots: daily-<year>-<month>.csv (e.g. daily-2026-6.csv)
+    $yr = (Get-Date).Year
     foreach ($mon in $monthLast.Keys) {
-      try { $dim = Export-SheetCsv $monthLast[$mon].ws (Join-Path $job.Dst ("daily-" + $mon + ".csv")); Write-Host ("  [CSV] daily-" + $mon + ".csv <= '" + $monthLast[$mon].ws.Name + "' (" + $dim + ")") }
-      catch { Write-Warning ("  daily-" + $mon + " failed: " + $_.Exception.Message) }
+      $fn = "daily-" + $yr + "-" + $mon + ".csv"
+      try { $dim = Export-SheetCsv $monthLast[$mon].ws (Join-Path $job.Dst $fn); Write-Host ("  [CSV] " + $fn + " <= '" + $monthLast[$mon].ws.Name + "' (" + $dim + ")") }
+      catch { Write-Warning ("  " + $fn + " failed: " + $_.Exception.Message) }
     }
     if ($batchWs) { try { $dim = Export-SheetCsv $batchWs (Join-Path $job.Dst 'batch-yield.csv'); Write-Host ("  [CSV] batch-yield.csv <= '" + $batchWs.Name + "' (" + $dim + ")") } catch { Write-Warning ("  batch failed: " + $_.Exception.Message) } }
     else { Write-Warning "  batch-yield sheet not found" }

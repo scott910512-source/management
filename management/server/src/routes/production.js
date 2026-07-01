@@ -482,18 +482,19 @@ router.get(
       return res.status(404).json({ error: `[${plant}] 생산관리 폴더 경로가 설정되지 않았습니다. 관리자 설정에서 경로를 입력해 주세요.` });
     }
 
-    // 사용 가능한 월별 스냅샷 목록 (daily-N.csv)
-    let availableMonths = [];
+    // 사용 가능한 월말 스냅샷 목록 (daily-<year>-<month>.csv) → "2026-6" 형태
+    let availablePeriods = [];
     try {
-      availableMonths = fs.readdirSync(filePath)
-        .map((f) => { const m = f.match(/^daily-(\d{1,2})\.csv$/i); return m ? parseInt(m[1], 10) : null; })
-        .filter((v) => v != null).sort((a, b) => a - b);
-    } catch { availableMonths = []; }
+      availablePeriods = fs.readdirSync(filePath)
+        .map((f) => { const m = f.match(/^daily-(\d{4})-(\d{1,2})\.csv$/i); return m ? `${m[1]}-${parseInt(m[2], 10)}` : null; })
+        .filter(Boolean)
+        .sort((a, b) => { const [ay, am] = a.split('-').map(Number); const [by, bm] = b.split('-').map(Number); return ay - by || am - bm; });
+    } catch { availablePeriods = []; }
 
-    // 기준월 선택: ?month=6 이면 daily-6.csv, 없으면 daily-latest.csv
-    const reqMonth = parseInt((req.query.month || '').trim(), 10);
-    const useMonth = Number.isFinite(reqMonth) && availableMonths.includes(reqMonth);
-    const csvName = useMonth ? `daily-${reqMonth}.csv` : 'daily-latest.csv';
+    // 기준월 선택: ?period=2026-6 이면 daily-2026-6.csv, 없으면 daily-latest.csv
+    const reqPeriod = String(req.query.period || '').trim();
+    const usePeriod = /^\d{4}-\d{1,2}$/.test(reqPeriod) && availablePeriods.includes(reqPeriod);
+    const csvName = usePeriod ? `daily-${reqPeriod}.csv` : 'daily-latest.csv';
     const csvPath = path.join(filePath, csvName);
     if (!fs.existsSync(csvPath)) {
       return res.status(404).json({ error: `[${plant}] ${csvName} 를 찾을 수 없습니다. 추출 스크립트가 '${filePath}' 폴더에 CSV를 생성했는지 확인하세요.` });
@@ -522,8 +523,8 @@ router.get(
     try { cols = tableCols ? JSON.parse(tableCols) : null; } catch { cols = null; }
     data.tableCols = Array.isArray(cols) && cols.length ? cols : null;
     try { await logWarnings(plant, data); } catch { /* 이력 기록 실패는 무시 */ }
-    data.availableMonths = availableMonths;
-    data.selectedMonth = useMonth ? reqMonth : null;
+    data.availablePeriods = availablePeriods;
+    data.selectedPeriod = usePeriod ? reqPeriod : null;
     const st = fs.statSync(csvPath);
     res.json({ data, source: csvName, mtime: new Date(st.mtimeMs).toISOString(), plant });
   }),
