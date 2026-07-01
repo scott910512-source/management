@@ -28,30 +28,49 @@ try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
 
 if (-not (Test-Path $DestFolder)) { New-Item -ItemType Directory -Path $DestFolder -Force | Out-Null }
 
-# Resolve source: if folder+keywords, auto-pick latest matching xlsx.
-# If -Source points to a folder, promote it to SourceFolder.
-if ($Source -ne "" -and $SourceFolder -eq "") {
+# $Candidates: files to try, newest-first. Three modes:
+#  (A) -Source with {M}/{MM}/{YY}/{YYYY} placeholders -> build filenames for
+#      current & previous months, open directly (NO folder listing; works on
+#      shares that deny directory listing).
+#  (B) -SourceFolder -> list folder, pick by keywords (needs list permission).
+#  (C) plain -Source -> use as-is.
+$Candidates = @()
+# -Source points to a folder? promote to SourceFolder (only if listing allowed)
+if ($Source -ne "" -and $SourceFolder -eq "" -and ($Source -notmatch '\{')) {
   $isDir = $false
   try { $isDir = (Test-Path -LiteralPath $Source -PathType Container) } catch { $isDir = $false }
   if ($isDir) { $SourceFolder = $Source; $Source = "" }
 }
-# $Candidates: files to try, newest first (all matches for folder mode, else [$Source]).
-$Candidates = @()
-if ($SourceFolder -ne "") {
+
+if ($Source -match '\{M+\}|\{Y+\}') {
+  # (A) placeholder mode: current, previous, 2-months-ago
+  foreach ($off in 0, -1, -2) {
+    $d = (Get-Date).AddMonths($off)
+    $p = $Source
+    $p = $p -replace '\{MM\}', $d.ToString('MM')
+    $p = $p -replace '\{M\}',  ([string]$d.Month)
+    $p = $p -replace '\{YYYY\}', ([string]$d.Year)
+    $p = $p -replace '\{YY\}', $d.ToString('yy')
+    if ($Candidates -notcontains $p) { $Candidates += $p }
+  }
+  Write-Host ("[TRY] " + ($Candidates -join ' | '))
+}
+elseif ($SourceFolder -ne "") {
+  # (B) folder + keywords
   $kws = $Keywords.Split(',') | ForEach-Object { $_.Trim().ToLower() } | Where-Object { $_ -ne "" }
   $cand = Get-ChildItem -LiteralPath $SourceFolder -Filter *.xlsx -File -ErrorAction Stop |
     Where-Object {
       $nm = $_.Name.ToLower()
       $all = $true
       foreach ($k in $kws) { if (-not $nm.Contains($k)) { $all = $false; break } }
-      $all -and ($_.Name -notlike '~$*')   # skip Excel temp files
+      $all -and ($_.Name -notlike '~$*')
     } | Sort-Object LastWriteTime -Descending
   if (-not $cand) { Write-Error ("No xlsx matching keywords [" + $Keywords + "] in: " + $SourceFolder); exit 1 }
   $Candidates = @($cand | ForEach-Object { $_.FullName })
   Write-Host ("[MATCH] " + $Candidates.Count + " file(s): " + (($cand | ForEach-Object { $_.Name }) -join ' | '))
 }
-elseif ($Source -ne "") { $Candidates = @($Source) }
-if ($Candidates.Count -eq 0) { Write-Error "Specify -Source (file) or -SourceFolder (+ -Keywords)."; exit 1 }
+elseif ($Source -ne "") { $Candidates = @($Source) }  # (C)
+if ($Candidates.Count -eq 0) { Write-Error "Specify -Source (file or pattern with {M}) or -SourceFolder."; exit 1 }
 
 # Korean characters as Unicode code points (encoding-proof)
 $WOL = [char]0xC6D4    # month
