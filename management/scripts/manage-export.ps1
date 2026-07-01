@@ -23,8 +23,11 @@ if ($Jobs.Count -eq 0) { Write-Error "No jobs in manage-config.txt (need: Name|S
 # --- sheet patterns (Korean as code points -> ASCII source) ---
 $WOL = [char]0xC6D4; $IL = [char]0xC77C
 $BAE = [char]0xBC30; $CHI = [char]0xCE58; $BYEOL = [char]0xBCC4; $SU = [char]0xC218; $YUL = [char]0xC728
+$WON = [char]0xC6D0; $RYO = [char]0xB8CC                 # raw material (won-ryo)
+$SA = [char]0xC0AC; $YONG = [char]0xC6A9; $RYANG = [char]0xB7C9   # usage (sa-yong-ryang)
 $DATE_RE  = '^\s*(\d{1,2})\s*' + $WOL + '\s*(\d{1,2})\s*' + $IL
-$BATCH_RE = $BAE + $CHI + $BYEOL + '.*' + $SU + $YUL
+# batch sheet: "baechi-byeol ... suyul"  OR  "... won-ryo ... sa-yong-ryang"
+$BATCH_RE = '(' + $BAE + $CHI + $BYEOL + '.*' + $SU + $YUL + ')|(' + $WON + $RYO + '.*' + $SA + $YONG + $RYANG + ')'
 $FWSP_RE  = '[' + [char]0x3000 + ' ]'
 
 function CsvCell($v) {
