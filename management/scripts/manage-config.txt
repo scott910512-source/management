@@ -1,0 +1,8 @@
+# ManagePilot 추출 설정  (이 파일은 반드시 "UTF-8"로 저장)
+# 형식:  이름|소스경로(형식)|저장폴더
+#   {M}=월(7)  {MM}=월2자리(07)  {YY}=연도2자리(26)  {YYYY}=연도(2026)
+#   '#' 로 시작하는 줄과 빈 줄은 무시됩니다.
+# 아래 경로만 실제 환경에 맞게 수정하세요.
+
+1gongjang|E:\전사 폴더\채널 문서함\SKTC\MIG_SK트리켐 생산팀\1공장 보드\최신 {YY}년_1공장_Daily report_{M}월.xlsx|C:\ManagePilot\watch\1공장
+2gongjang|E:\전사 폴더\채널 문서함\SKTC\MIG_SK트리켐 생산팀\2공장 보드\최신 {YY}년_2공장_Daily report_{M}월.xlsx|C:\ManagePilot\watch\2공장

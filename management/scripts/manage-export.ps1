@@ -1,26 +1,26 @@
 # ============================================================================
-#  manage-export.ps1   *** 반드시 "UTF-8 (BOM)" 인코딩으로 저장하세요 ***
-#  ManagePilot - 보안 Daily Report(IRM) -> 평문 CSV
-#  공유폴더가 목록 조회를 막으므로, 파일명을 현재 월로 직접 만들어서 엽니다.
-#    {M}=월(7)  {MM}=월2자리(07)  {YY}=연도2자리(26)  {YYYY}=연도(2026)
-#  현재월 파일이 없으면 전월/전전월을 자동 시도합니다.
-#
-#  ▼▼▼ 아래 $Jobs 의 Src(파일 경로 형식) / Dst(CSV 저장 폴더)만 수정 ▼▼▼
+#  manage-export.ps1   (PURE ASCII - safe to save in any encoding)
+#  ManagePilot - protected Daily Report (IRM) -> plain CSV
+#  Reads plant paths from  manage-config.txt  (UTF-8) next to this file.
+#  Builds current-month filename ({M}/{MM}/{YY}/{YYYY}); no folder listing.
 # ============================================================================
-$Jobs = @(
-  @{ Name = '1gongjang'
-     Src  = 'E:\전사 폴더\채널 문서함\SKTC\MIG_SK트리켐 생산팀\1공장 보드\최신 {YY}년_1공장_Daily report_{M}월.xlsx'
-     Dst  = 'C:\ManagePilot\watch\1공장' },
-  @{ Name = '2gongjang'
-     Src  = 'E:\전사 폴더\채널 문서함\SKTC\MIG_SK트리켐 생산팀\2공장 보드\최신 {YY}년_2공장_Daily report_{M}월.xlsx'
-     Dst  = 'C:\ManagePilot\watch\2공장' }
-)
-# ============================================================================
-
 $ErrorActionPreference = 'Stop'
 try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
 
-# 시트 인식 패턴 (한글을 코드포인트로 — 인코딩 영향 없음)
+# --- read config (forced UTF-8, so Korean paths never break) ---
+$cfgPath = Join-Path $PSScriptRoot 'manage-config.txt'
+if (-not (Test-Path $cfgPath)) { Write-Error ("manage-config.txt not found next to script: " + $cfgPath); exit 1 }
+$Jobs = @()
+foreach ($ln in [System.IO.File]::ReadAllLines($cfgPath, [System.Text.Encoding]::UTF8)) {
+  $t = $ln.Trim()
+  if ($t -eq '' -or $t.StartsWith('#')) { continue }
+  $parts = $t.Split('|')
+  if ($parts.Count -lt 3) { continue }
+  $Jobs += @{ Name = $parts[0].Trim(); Src = $parts[1].Trim(); Dst = $parts[2].Trim() }
+}
+if ($Jobs.Count -eq 0) { Write-Error "No jobs in manage-config.txt (need: Name|SourcePattern|DestFolder)"; exit 1 }
+
+# --- sheet patterns (Korean as code points -> ASCII source) ---
 $WOL = [char]0xC6D4; $IL = [char]0xC77C
 $BAE = [char]0xBC30; $CHI = [char]0xCE58; $BYEOL = [char]0xBCC4; $SU = [char]0xC218; $YUL = [char]0xC728
 $DATE_RE  = '^\s*(\d{1,2})\s*' + $WOL + '\s*(\d{1,2})\s*' + $IL
@@ -78,7 +78,7 @@ function Run-Job($job) {
       elseif ($n -match $BATCH_RE) { $batchWs = $ws }
     }
     if ($latestWs) { try { $dim = Export-SheetCsv $latestWs (Join-Path $job.Dst 'daily-latest.csv'); Write-Host ("  [CSV] daily-latest.csv <= '" + $latestWs.Name + "' (" + $dim + ")") } catch { Write-Warning ("  daily failed: " + $_.Exception.Message) } }
-    else { Write-Warning "  date sheet (N wol N il) not found" }
+    else { Write-Warning "  date sheet not found" }
     if ($batchWs) { try { $dim = Export-SheetCsv $batchWs (Join-Path $job.Dst 'batch-yield.csv'); Write-Host ("  [CSV] batch-yield.csv <= '" + $batchWs.Name + "' (" + $dim + ")") } catch { Write-Warning ("  batch failed: " + $_.Exception.Message) } }
     else { Write-Warning "  batch-yield sheet not found" }
     $wb.Close($false); $wb = $null
