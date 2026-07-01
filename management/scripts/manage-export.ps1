@@ -81,7 +81,7 @@ function Run-Job($job) {
     else { Write-Warning "  date sheet not found" }
     if ($batchWs) { try { $dim = Export-SheetCsv $batchWs (Join-Path $job.Dst 'batch-yield.csv'); Write-Host ("  [CSV] batch-yield.csv <= '" + $batchWs.Name + "' (" + $dim + ")") } catch { Write-Warning ("  batch failed: " + $_.Exception.Message) } }
     else { Write-Warning "  batch-yield sheet not found" }
-    # 시트 인식 실패 시, 파일에 어떤 시트들이 있는지 표시 (진단용)
+    # If a sheet was not detected, list all sheet names (diagnostic).
     if (-not $latestWs -or -not $batchWs) {
       $allNames = @(); foreach ($ws in $wb.Worksheets) { $allNames += $ws.Name }
       Write-Host ("  [SHEETS] " + ($allNames -join ' | '))
