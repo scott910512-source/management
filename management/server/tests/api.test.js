@@ -94,6 +94,30 @@ describe('선입선출(FIFO) 경고/이상발생 — 원재료', () => {
 });
 
 // 같은 날짜로 대량 등록된 Lot(예: A01~A20)도 Lot 번호 순서로 선입선출이 적용돼야 한다.
+// 사용 처리로 Lot을 완전히 소진 → '소진 Lot 정리'로 Lot 행 자체를 삭제한 뒤,
+// 그 사용(출고) 수불 내역을 취소(삭제)하면 재고가 원복돼야 한다(Lot이 없으면 자동 복원).
+describe('수불 취소 — 소진 후 Lot 정리된 상태에서도 재고가 복원된다', () => {
+  let lotId, txId;
+  beforeAll(async () => {
+    const res = await admin.post('/api/raw-materials')
+      .send({ itemName: '자일렌D', lotNo: 'D01', quantity: 10, unit: 'kg', receivedDate: '2026-04-01' }).expect(201);
+    lotId = res.body.item.id;
+    const txRes = await admin.post(`/api/raw-materials/${lotId}/transaction`).send({ type: '출고', quantity: 10 }).expect(201);
+    txId = txRes.body.transaction.id;
+    // 소진(잔량 0) Lot 정리 — Lot 행 자체가 삭제된다
+    await admin.delete('/api/raw-materials/cleanup/empty').expect(200);
+    const list = await admin.get('/api/raw-materials?item=' + encodeURIComponent('자일렌D') + '&all=1').expect(200);
+    expect(list.body.items.find((r) => r.id === lotId)).toBeUndefined();
+  });
+  test('해당 출고 수불을 취소하면, Lot이 없어도 재고가 자동 복원된다', async () => {
+    await admin.delete(`/api/transactions/${txId}`).expect(200);
+    const list = await admin.get('/api/raw-materials?item=' + encodeURIComponent('자일렌D') + '&all=1').expect(200);
+    const restored = list.body.items.find((r) => r.id === lotId);
+    expect(restored).toBeTruthy();
+    expect(Number(restored.quantity)).toBe(10);
+  });
+});
+
 describe('선입선출 — 동일 입고일 Lot은 Lot 번호 순서로 판정(A01~A20)', () => {
   const ids = {};
   beforeAll(async () => {

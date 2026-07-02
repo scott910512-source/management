@@ -3,8 +3,29 @@
 const express = require('express');
 const { readTable, mutate, headersOf } = require('../lib/store');
 const { asyncHandler, str, num, badRequest, notFound, sendCsv } = require('../lib/http');
+const { now } = require('../lib/ids');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { resolvePlant } = require('../middleware/plant');
+
+// 수불 취소(삭제) 시 재고를 원복할 Lot을 찾는다. 이미 '소진 Lot 정리' 등으로
+// 원본 Lot이 삭제된 경우, 수불 내역 자체의 정보(품목명·Lot No·단위)로 Lot을 복원한다.
+// (그렇지 않으면 재고가 조용히 복구되지 않으면서도 "복원했습니다"로 표시되는 문제가 있었음)
+function findOrRestoreLot(rows, t, nameKey) {
+  let r = rows.find((x) => x.id === t.materialId);
+  if (r) return r;
+  r = {
+    id: t.materialId,
+    [nameKey]: t.materialName,
+    lotNo: t.lotNo || '',
+    unit: t.unit || '',
+    receivedDate: (t.createdAt || '').slice(0, 10),
+    note: '수불 취소로 자동 복원(원본 Lot 삭제됨)',
+    createdAt: now(),
+    updatedAt: now(),
+  };
+  rows.push(r);
+  return r;
+}
 
 const router = express.Router();
 router.use(requireAuth, resolvePlant);
@@ -12,14 +33,15 @@ router.use(requireAuth, resolvePlant);
 const TYPE_ORDER = { raw: 0, sub: 1, canister: 2 };
 
 function filterRows(rows, query) {
-  const type = str(query.materialType); // raw | sub | canister
+  // raw | sub | canister — 쉼표로 여러 개 지정 가능 (예: "raw,sub" → 원부재료만)
+  const types = str(query.materialType).split(',').map((s) => s.trim()).filter(Boolean);
   const kind = str(query.type); // 입고 | 출고 | 반입 | 반출
   const q = str(query.q).toLowerCase();
   const from = str(query.from);
   const to = str(query.to);
   const sort = str(query.sort) || 'category'; // category | date
   const list = rows.filter((r) => {
-    if (type && r.materialType !== type) return false;
+    if (types.length && !types.includes(r.materialType)) return false;
     if (kind && r.type !== kind) return false;
     if (q && !`${r.materialName} ${r.lotNo} ${r.content}`.toLowerCase().includes(q)) return false;
     const day = (r.createdAt || '').slice(0, 10);
@@ -108,14 +130,18 @@ router.post(
         const delta = (t.type === '출고' || t.type === '반출') ? q : -q;
         adj[t.materialType].set(t.materialId, (adj[t.materialType].get(t.materialId) || 0) + delta);
       }
+      const firstTxByMaterial = new Map(); // materialId → 대표 수불 내역(복원용 정보 확보)
+      for (const t of toDel) if (!firstTxByMaterial.has(t.materialId)) firstTxByMaterial.set(t.materialId, t);
       for (const cat of ['raw', 'sub']) {
         if (adj[cat].size === 0) continue;
         const table = cat === 'raw' ? 'raw_materials' : 'sub_materials';
         const qtyKey = cat === 'raw' ? 'quantity' : 'weight';
+        const nameKey = cat === 'raw' ? 'itemName' : 'name';
         await mutate(table, req.plant, (rows) => {
           for (const [mid, delta] of adj[cat]) {
-            const r = rows.find((x) => x.id === mid);
-            if (r) r[qtyKey] = String(Math.max(0, (num(r[qtyKey]) || 0) + delta));
+            const rep = firstTxByMaterial.get(mid);
+            const r = findOrRestoreLot(rows, rep, nameKey);
+            r[qtyKey] = String(Math.max(0, (num(r[qtyKey]) || 0) + delta));
           }
         });
       }
@@ -149,10 +175,11 @@ router.delete(
     if (restock && (t.materialType === 'raw' || t.materialType === 'sub')) {
       const table = t.materialType === 'raw' ? 'raw_materials' : 'sub_materials';
       const qtyKey = t.materialType === 'raw' ? 'quantity' : 'weight';
+      const nameKey = t.materialType === 'raw' ? 'itemName' : 'name';
       const delta = (t.type === '출고' || t.type === '반출') ? (num(t.quantity) || 0) : -(num(t.quantity) || 0);
       await mutate(table, req.plant, (rows) => {
-        const r = rows.find((x) => x.id === t.materialId);
-        if (r) r[qtyKey] = String(Math.max(0, (num(r[qtyKey]) || 0) + delta));
+        const r = findOrRestoreLot(rows, t, nameKey);
+        r[qtyKey] = String(Math.max(0, (num(r[qtyKey]) || 0) + delta));
       });
     }
     await mutate('transactions', req.plant, (rows) => {
