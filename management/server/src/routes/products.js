@@ -120,6 +120,8 @@ router.delete(
 );
 
 // 사용 처리 자동입력용 — (제품, 구분, 품목)의 Batch 기준량
+// 품목그룹 대응: BOM이 품목그룹명으로 등록된 경우, 그 그룹에 속한 어떤 납품업체
+// 품목으로 사용 처리하더라도 동일한 기준량이 자동 반영되어야 한다.
 router.get(
   '/standard-qty',
   asyncHandler(async (req, res) => {
@@ -127,8 +129,14 @@ router.get(
     const category = str(req.query.category);
     const materialName = str(req.query.materialName);
     if (!product || !materialName) return res.json({ qtyPerBatch: 0 });
-    const rows = await readTable('boms', req.plant);
-    const hit = rows.find((r) => r.product === product && r.category === category && r.materialName === materialName);
+    const [boms, items] = await Promise.all([
+      readTable('boms', req.plant),
+      readTable('items', req.plant),
+    ]);
+    const master = items.find((i) => i.category === category && i.name === materialName);
+    const group = master && (master.itemGroup || '').trim();
+    const candidates = group ? [materialName, group] : [materialName];
+    const hit = boms.find((r) => r.product === product && r.category === category && candidates.includes(r.materialName));
     res.json({ qtyPerBatch: hit ? num(hit.qtyPerBatch) || 0 : 0 });
   }),
 );

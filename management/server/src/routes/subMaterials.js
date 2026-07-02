@@ -5,7 +5,7 @@ const { mutate, readTable, headersOf } = require('../lib/store');
 const { asyncHandler, str, num, badRequest, notFound, sendCsv } = require('../lib/http');
 const { newId, now } = require('../lib/ids');
 const { appendTransaction } = require('../lib/tx');
-const { appendAnomaly, findEarlierLot } = require('../lib/anomaly');
+const { appendAnomaly, findEarlierLot, findLaterLot } = require('../lib/anomaly');
 const { ensureBatch, yearOf } = require('../lib/batch');
 const { requireAuth, requireAdmin, requireWrite } = require('../middleware/auth');
 const { resolvePlant } = require('../middleware/plant');
@@ -144,6 +144,19 @@ router.post(
     if (Number.isNaN(weight) || weight <= 0) throw badRequest('무게(수량)는 필수이며 0보다 큰 숫자여야 합니다.');
     if (!unit) throw badRequest('단위는 필수 입력입니다.');
     if (!receivedDate) throw badRequest('입고일은 필수 입력입니다.');
+    const force = req.body.force === true || str(req.body.force) === '1';
+
+    // 입고 순서 검사: 같은 품목의 기존 재고 중 Lot 번호가 더 늦은 Lot이 이미 있으면
+    // (예: 1010이 있는데 1009를 입고) 순서가 뒤바뀐 입고이므로 확인 후 진행하도록 경고한다.
+    const allExisting = await readTable('sub_materials', req.plant);
+    const laterLot = findLaterLot(allExisting, { name, lotNo }, 'name');
+    if (laterLot && !force) {
+      return res.status(409).json({
+        fifoWarning: true,
+        message: `기존 재고 중 Lot 번호가 더 빠른 것(${lotNo})이 존재합니다. 이미 등록된 Lot ${laterLot.lotNo}보다 번호가 빠릅니다. 계속 입고하시겠습니까?`,
+        later: { lotNo: laterLot.lotNo, receivedDate: laterLot.receivedDate },
+      });
+    }
 
     const me = req.session.user.id;
     let isRestock = false;
@@ -187,6 +200,13 @@ router.post(
       await appendTransaction({
         plant: req.plant, materialType: 'sub', materialId: item.id, materialName: item.name, lotNo,
         type: '입고', quantity: weight, unit, balanceAfter: weight, note: isRestock ? '재입고' : '신규 입고', user: me,
+      });
+    }
+    if (laterLot && force) {
+      await appendAnomaly({
+        plant: req.plant, type: '선입선출 오류(입고순서)', itemName: name,
+        lotInfo: `${lotNo} — 기존 재고 중 Lot 번호가 더 늦은 Lot ${laterLot.lotNo}(${laterLot.receivedDate}) 존재`,
+        account: me, note: '순서 무시 강제 입고',
       });
     }
     res.status(201).json({ item });
@@ -274,7 +294,7 @@ router.post(
       if (violation && !force) {
         return res.status(409).json({
           fifoWarning: true,
-          message: '선입선출 오류가 발생합니다. 입고일이 더 빠른 Lot이 존재합니다.',
+          message: '선입선출 오류가 발생합니다. Lot 번호가 더 빠른 Lot이 존재합니다.',
           earliest: { lotNo: violation.lotNo, receivedDate: violation.receivedDate },
         });
       }

@@ -93,6 +93,55 @@ describe('선입선출(FIFO) 경고/이상발생 — 원재료', () => {
   });
 });
 
+// 같은 날짜로 대량 등록된 Lot(예: A01~A20)도 Lot 번호 순서로 선입선출이 적용돼야 한다.
+describe('선입선출 — 동일 입고일 Lot은 Lot 번호 순서로 판정(A01~A20)', () => {
+  const ids = {};
+  beforeAll(async () => {
+    for (const n of ['A01', 'A02', 'A10', 'A20']) {
+      const res = await admin.post('/api/raw-materials')
+        .send({ itemName: '자일렌B', lotNo: n, quantity: 20, unit: 'kg', receivedDate: '2026-03-01' }).expect(201);
+      ids[n] = res.body.item.id;
+    }
+  });
+  test('A20을 먼저 출고하려 하면 A01이 더 이른 Lot으로 경고된다', async () => {
+    const res = await admin.post(`/api/raw-materials/${ids.A20}/transaction`).send({ type: '출고', quantity: 5 }).expect(409);
+    expect(res.body.earliest.lotNo).toBe('A01');
+  });
+  test('A01을 완전히 소진하면, 다음으로 A02가 정상 출고된다', async () => {
+    // A01 재고 20 전량 소진 — A01이 여전히 남아있으면 A02 출고도 경고 대상이 되어야 하므로 완전히 비운다.
+    await admin.post(`/api/raw-materials/${ids.A01}/transaction`).send({ type: '출고', quantity: 20 }).expect(201);
+    await admin.post(`/api/raw-materials/${ids.A02}/transaction`).send({ type: '출고', quantity: 5 }).expect(201);
+  });
+  test('A02가 아직 남아있으면 A10 출고는 여전히 경고된다', async () => {
+    const res = await admin.post(`/api/raw-materials/${ids.A10}/transaction`).send({ type: '출고', quantity: 5 }).expect(409);
+    expect(res.body.earliest.lotNo).toBe('A02');
+  });
+});
+
+// 입고 순서 검사: 예) 1010 Lot이 이미 재고에 있는 상태에서 1009 Lot을 입고하면
+// Lot 번호가 더 빠른 것이 나중에 입고되는 것이므로 확인창(409) 대상이어야 한다.
+describe('입고 순서 확인 — Lot 번호가 더 늦은 재고가 이미 있으면 409 경고', () => {
+  beforeAll(async () => {
+    await admin.post('/api/raw-materials')
+      .send({ itemName: '자일렌C', lotNo: '1010', quantity: 20, unit: 'kg', receivedDate: '2026-03-01' }).expect(201);
+  });
+  test('1010이 재고에 있는데 1009를 입고하면 409 확인 대상', async () => {
+    const res = await admin.post('/api/raw-materials')
+      .send({ itemName: '자일렌C', lotNo: '1009', quantity: 10, unit: 'kg', receivedDate: '2026-03-02' }).expect(409);
+    expect(res.body.fifoWarning).toBe(true);
+    expect(res.body.later.lotNo).toBe('1010');
+  });
+  test('force=true로 강제 입고하면 등록된다', async () => {
+    const res = await admin.post('/api/raw-materials')
+      .send({ itemName: '자일렌C', lotNo: '1009', quantity: 10, unit: 'kg', receivedDate: '2026-03-02', force: true }).expect(201);
+    expect(res.body.item.lotNo).toBe('1009');
+  });
+  test('1011처럼 더 늦은 번호를 입고하는 것은 경고 없이 정상 처리된다', async () => {
+    await admin.post('/api/raw-materials')
+      .send({ itemName: '자일렌C', lotNo: '1011', quantity: 10, unit: 'kg', receivedDate: '2026-03-03' }).expect(201);
+  });
+});
+
 describe('선입선출(FIFO) 경고/이상발생 — 부재료', () => {
   let earlyId, lateId;
   beforeAll(async () => {
@@ -115,6 +164,23 @@ describe('선입선출(FIFO) 경고/이상발생 — 부재료', () => {
     await admin.post(`/api/sub-materials/${lateId}/transaction`).send({ type: '출고', quantity: 5, force: true }).expect(201);
     const an = await admin.get('/api/anomalies').expect(200);
     expect(an.body.items.some((a) => a.type === '선입선출 오류' && a.itemName === '테스트패드')).toBe(true);
+  });
+});
+
+// 품목그룹(같은 자재, 다른 납품업체) 내 어떤 품목으로 사용 처리해도
+// BOM 기준량이 자동 반영돼야 한다 (그룹명으로 등록된 BOM도 매칭).
+describe('품목그룹 — 사용 처리 시 BOM 기준량 자동입력', () => {
+  beforeAll(async () => {
+    await admin.post('/api/items').send({ category: 'raw', name: '자일렌-한솔', unit: 'kg', safetyStock: 10, itemGroup: '자일렌그룹' }).expect(201);
+    await admin.post('/api/items').send({ category: 'raw', name: '자일렌-대정', unit: 'kg', safetyStock: 10, itemGroup: '자일렌그룹' }).expect(201);
+    // BOM은 개별 품목명이 아니라 "그룹명"으로 등록
+    await admin.post('/api/products/bom').send({ product: 'A제품', category: 'raw', materialName: '자일렌그룹', qtyPerBatch: 42 }).expect(201);
+  });
+  test('그룹에 속한 특정 납품업체 품목으로 조회해도 그룹 BOM 기준량이 반환된다', async () => {
+    const r1 = await admin.get('/api/products/standard-qty?product=A제품&category=raw&materialName=' + encodeURIComponent('자일렌-한솔')).expect(200);
+    expect(r1.body.qtyPerBatch).toBe(42);
+    const r2 = await admin.get('/api/products/standard-qty?product=A제품&category=raw&materialName=' + encodeURIComponent('자일렌-대정')).expect(200);
+    expect(r2.body.qtyPerBatch).toBe(42);
   });
 });
 

@@ -276,7 +276,7 @@ router.post(
     if (violations.length > 0 && !force) {
       return res.status(409).json({
         fifoWarning: true,
-        message: '선입선출 오류가 발생합니다. 입고일이 더 빠른 Lot이 존재합니다.',
+        message: '선입선출 오류가 발생합니다. Lot 번호가 더 빠른 Lot이 존재합니다.',
         violations,
       });
     }

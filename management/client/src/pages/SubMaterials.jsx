@@ -333,14 +333,12 @@ function SubForm({ mode, initial, onClose, onSaved, onError }) {
   const [f, setF] = useState({ ...blank, ...initial });
   const [lotPattern, setLotPattern] = useState('');
   const [busy, setBusy] = useState(false);
+  const [fifo, setFifo] = useState(null);
   const set = (k, v) => setF((p) => ({ ...p, [k]: v }));
   const hasPkg = !!f.pkgType;
   const pkgQty = hasPkg && f.pkgCount && f.pkgSize ? Number(f.pkgCount) * Number(f.pkgSize) : null;
 
-  async function submit() {
-    if (isDemo) return onError('데모 계정은 데이터를 변경할 수 없습니다.');
-    if (!f.name.trim()) return onError('품목을 선택하거나 입력하세요.');
-    if (!f.lotNo.trim()) return onError('Lot No를 입력하세요.');
+  async function doSubmit(force) {
     setBusy(true);
     try {
       const payload = { name: f.name.trim(), receivedDate: f.receivedDate, lotNo: f.lotNo.trim(), vendor: f.vendor, unit: f.unit, note: f.note };
@@ -351,15 +349,27 @@ function SubForm({ mode, initial, onClose, onSaved, onError }) {
         } else {
           payload.weight = f.weight === '' ? 0 : Number(f.weight);
         }
+        if (force) payload.force = true;
         await api.post('/sub-materials', payload);
       } else {
         await api.patch('/sub-materials/' + initial.id, payload);
       }
       onSaved();
-    } catch (e) { onError(e.message); } finally { setBusy(false); }
+    } catch (e) {
+      if (mode === 'create' && e.status === 409 && e.data && e.data.fifoWarning) setFifo(e.data);
+      else onError(e.message);
+    } finally { setBusy(false); }
+  }
+
+  function submit() {
+    if (isDemo) return onError('데모 계정은 데이터를 변경할 수 없습니다.');
+    if (!f.name.trim()) return onError('품목을 선택하거나 입력하세요.');
+    if (!f.lotNo.trim()) return onError('Lot No를 입력하세요.');
+    doSubmit(false);
   }
 
   return (
+    <>
     <Modal
       title={mode === 'create' ? '부재료 입고' : '부재료 수정'}
       onClose={onClose}
@@ -422,6 +432,24 @@ function SubForm({ mode, initial, onClose, onSaved, onError }) {
         <TextInput value={f.note} onChange={(e) => set('note', e.target.value)} placeholder="선택 입력" />
       </Field>
     </Modal>
+    {fifo && (
+      <Modal
+        title="⚠ 입고 순서 확인"
+        onClose={() => setFifo(null)}
+        footer={<>
+          <button className="btn secondary" onClick={() => setFifo(null)}>취소</button>
+          <button className="btn danger" onClick={() => { setFifo(null); doSubmit(true); }}>그대로 입고</button>
+        </>}
+      >
+        <p style={{ margin: 0, color: 'var(--text-2)' }}>
+          {fifo.message}<br />
+          기존 Lot: <b>{fifo.later?.lotNo}</b> (입고 {fifo.later?.receivedDate})
+          <br /><br />
+          그대로 입고 시 <b>이상발생 목록에 자동 기록</b>됩니다. 계속하시겠습니까?
+        </p>
+      </Modal>
+    )}
+    </>
   );
 }
 
