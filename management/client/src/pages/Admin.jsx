@@ -1,7 +1,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import { api } from '../api';
 import { useAuth } from '../auth/AuthContext';
-import { Loading, Empty, Badge, useToast, ConfirmDialog, Select, Field, TextInput } from '../components/ui';
+import { Loading, Empty, Badge, useToast, ConfirmDialog, Select, Field, TextInput, Modal } from '../components/ui';
+import PlantManagement from '../components/PlantManagement';
 
 const statusBadge = { pending: { c: 'orange', t: '승인대기' }, approved: { c: 'green', t: '승인됨' }, rejected: { c: 'red', t: '거절/금지' } };
 
@@ -10,6 +11,8 @@ export default function Admin() {
   const toast = useToast();
   const [items, setItems] = useState(null);
   const [del, setDel] = useState(null);
+  const [resetTarget, setResetTarget] = useState(null);
+  const [newPw, setNewPw] = useState('');
 
   const load = useCallback(async () => {
     if (!isSuper) { setItems([]); return; }
@@ -39,7 +42,12 @@ export default function Admin() {
         <div className="desc">가입 승인·권한 관리와 안전재고 경고 비율을 설정합니다.</div>
       </div>
 
+      <PlantManagement />
+      <ProductionFileCard toast={toast} />
       <SafetyRatioCard toast={toast} />
+      <StockCheckCard />
+      <LoginLogCard />
+      <SettingsLogCard />
 
       {!isSuper && (
         <div className="card card-pad">
@@ -96,6 +104,7 @@ export default function Admin() {
                         <option value="user">사용자(등록)</option>
                         <option value="admin">공장 관리자</option>
                         <option value="viewer">팀관리자(조회)</option>
+                        <option value="demo">데모</option>
                       </Select>
                     </td>
                     <td>
@@ -117,6 +126,7 @@ export default function Admin() {
                         {u.status !== 'approved' && (
                           <button className="btn ghost sm" onClick={() => action(() => api.post(`/users/${u.id}/approve`, { role: u.role }), '승인했습니다.')}>승인</button>
                         )}
+                        {!self && <button className="btn secondary sm" onClick={() => { setResetTarget(u); setNewPw(''); }}>비번초기화</button>}
                         {!self && <button className="btn danger sm" onClick={() => setDel(u)}>삭제</button>}
                       </div>
                     </td>
@@ -127,6 +137,25 @@ export default function Admin() {
           </table>
         )}
       </div>
+      )}
+
+      {resetTarget && (
+        <Modal title={`비밀번호 초기화 — ${resetTarget.name}`} size="sm" onClose={() => setResetTarget(null)}
+          footer={
+            <>
+              <button className="btn" onClick={async () => {
+                if (newPw.length < 4) { toast.err('비밀번호는 4자 이상이어야 합니다.'); return; }
+                await action(() => api.patch(`/users/${resetTarget.id}`, { password: newPw }), `${resetTarget.name} 비밀번호를 초기화했습니다.`);
+                setResetTarget(null);
+              }}>확인</button>
+              <button className="btn secondary" onClick={() => setResetTarget(null)}>취소</button>
+            </>
+          }
+        >
+          <Field label="새 비밀번호" hint="4자 이상 입력하세요.">
+            <TextInput type="password" value={newPw} onChange={e => setNewPw(e.target.value)} placeholder="새 비밀번호" autoFocus />
+          </Field>
+        </Modal>
       )}
 
       {del && (
@@ -141,30 +170,386 @@ export default function Admin() {
   );
 }
 
+function PlantFileSettings({ plant, toast }) {
+  const [path, setPath] = useState('');
+  const [keywords, setKeywords] = useState('');
+  const [loaded, setLoaded] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [testResult, setTestResult] = useState(null);
+  const [testing, setTesting] = useState(false);
+
+  const defaultKw = `${plant},Daily,report`;
+
+  useEffect(() => {
+    api.get(`/settings?plant=${encodeURIComponent(plant)}`).then((d) => {
+      setPath(d.settings.productionFilePath || '');
+      setKeywords(d.settings.productionFileKeywords || defaultKw);
+      setLoaded(true);
+    });
+  }, [plant]);
+
+  async function save() {
+    setBusy(true);
+    setTestResult(null);
+    try {
+      await api.patch(`/settings?plant=${encodeURIComponent(plant)}`, {
+        productionFilePath: path,
+        productionFileKeywords: keywords,
+      });
+      toast.ok(`[${plant}] 파일 경로가 저장되었습니다.`);
+    } catch (e) { toast.err(e.message); } finally { setBusy(false); }
+  }
+
+  async function testPath() {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const d = await api.post('/production/test-path', { filePath: path, keywords });
+      setTestResult({ ok: true, message: d.message, file: d.file });
+    } catch (e) {
+      setTestResult({ ok: false, message: e.message });
+    } finally { setTesting(false); }
+  }
+
+  return (
+    <div style={{ marginTop: 10 }}>
+      <Field label="공유폴더 경로" hint="서버 기준 절대경로. 예: C:\Share\DailyReport  또는  /mnt/share/daily">
+        <TextInput value={path} onChange={(e) => setPath(e.target.value)} disabled={!loaded}
+          placeholder={`예: C:\\Share\\${plant}_Daily`}
+          style={{ fontFamily: 'monospace', fontSize: 13 }} />
+      </Field>
+      <Field label="파일명 검색 키워드" hint="쉼표로 구분. 파일명에 모두 포함된 경우만 인식. (대소문자 무시)">
+        <TextInput value={keywords} onChange={(e) => setKeywords(e.target.value)} disabled={!loaded}
+          placeholder={defaultKw} />
+      </Field>
+      <div className="btn-row" style={{ marginTop: 4 }}>
+        <button className="btn" onClick={save} disabled={busy || !loaded}>{busy ? '저장 중…' : '저장'}</button>
+        <button className="btn secondary" onClick={testPath} disabled={testing || !path}>{testing ? '확인 중…' : '경로 테스트'}</button>
+      </div>
+      {testResult && (
+        <div style={{
+          marginTop: 10, padding: '10px 14px', borderRadius: 8, fontSize: 13,
+          background: testResult.ok ? '#e8f8ed' : '#ffe8e8',
+          border: `1px solid ${testResult.ok ? '#a8e6bc' : '#ffb3b3'}`,
+        }}>
+          <span style={{ fontWeight: 700, color: testResult.ok ? '#1a7f3c' : '#c0001a' }}>
+            {testResult.ok ? '✅ 파일 감지 성공' : '❌ 오류'}
+          </span>
+          <div style={{ marginTop: 4, color: '#3c3c43' }}>{testResult.message}</div>
+          {testResult.file && <div style={{ marginTop: 4, fontFamily: 'monospace', fontSize: 12, color: '#6e6e73' }}>→ {testResult.file}</div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProductionFileCard({ toast }) {
+  const { isSuper, plants: allowedPlants } = useAuth();
+  // 비활성화된 공장은 자동 제외됨 (allowedPlants = useAuth().plants)
+  const plants = (allowedPlants || []).filter((p) => p !== 'demo');
+  const [activePlant, setActivePlant] = useState(plants[0] || '2공장');
+
+  return (
+    <div className="card card-pad" style={{ marginBottom: 16, maxWidth: 680 }}>
+      <h3 style={{ marginBottom: 4 }}>🏭 생산관리 — Daily Report 파일 경로</h3>
+      <p className="hint" style={{ marginBottom: 12 }}>
+        서버에서 접근 가능한 <b>공유폴더 경로</b>를 공장별로 설정합니다. 지정 폴더에서 키워드를 포함한 <b>최신 xlsx 파일</b>을 자동으로 찾아 파싱합니다.
+      </p>
+      {isSuper ? (
+        <>
+          <div className="btn-row" style={{ marginBottom: 4 }}>
+            {plants.map((p) => (
+              <button key={p} className={`btn sm${activePlant === p ? '' : ' ghost'}`}
+                onClick={() => setActivePlant(p)}>{p}</button>
+            ))}
+          </div>
+          {activePlant && <PlantFileSettings key={activePlant} plant={activePlant} toast={toast} />}
+        </>
+      ) : (
+        plants[0] && <PlantFileSettings plant={plants[0]} toast={toast} />
+      )}
+    </div>
+  );
+}
+
 function SafetyRatioCard({ toast }) {
   const [ratio, setRatio] = useState('');
+  const [roll, setRoll] = useState('');
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
-    api.get('/settings').then((d) => { setRatio(d.settings.safetyRatioPercent); setLoaded(true); });
+    api.get('/settings').then((d) => { setRatio(d.settings.safetyRatioPercent); setRoll(d.settings.warningRollSeconds || '4'); setLoaded(true); });
   }, []);
   async function save() {
     setBusy(true);
-    try { await api.patch('/settings', { safetyRatioPercent: Number(ratio) }); toast.ok('경고 비율을 저장했습니다.'); }
+    try { await api.patch('/settings', { safetyRatioPercent: Number(ratio), warningRollSeconds: Number(roll) }); toast.ok('설정을 저장했습니다.'); }
     catch (e) { toast.err(e.message); } finally { setBusy(false); }
   }
   return (
     <div className="card card-pad" style={{ marginBottom: 16, maxWidth: 560 }}>
-      <h3 style={{ marginBottom: 6 }}>안전재고 경고 비율</h3>
+      <h3 style={{ marginBottom: 6 }}>안전재고 경고 · 상단 경고 표시</h3>
       <p className="hint" style={{ marginBottom: 14 }}>
         품목별 <b>안전재고 목표값</b>은 [기준정보]에서 설정합니다. 현재 재고가 <b>(목표값 × 비율%)</b> 미만이면 경고합니다.
       </p>
       <Field label="경고 비율 (%)" hint="예: 100 → 목표값 미만 시 경고 / 120 → 목표값의 1.2배 미만 시 경고">
+        <TextInput type="number" value={ratio} onChange={(e) => setRatio(e.target.value)} disabled={!loaded} style={{ maxWidth: 200 }} />
+      </Field>
+      <Field label="상단 경고 자동 넘김 간격 (초)" hint="여러 경고가 있을 때 다음 경고로 넘어가는 시간 (1~60초). 클수록 천천히 넘어갑니다.">
         <div className="form-row" style={{ maxWidth: 260 }}>
-          <TextInput type="number" value={ratio} onChange={(e) => setRatio(e.target.value)} disabled={!loaded} />
+          <TextInput type="number" min="1" max="60" value={roll} onChange={(e) => setRoll(e.target.value)} disabled={!loaded} />
           <button className="btn" onClick={save} disabled={busy || !loaded}>{busy ? '저장 중…' : '저장'}</button>
         </div>
       </Field>
     </div>
   );
 }
+
+function StockCheckCard() {
+  const [result, setResult] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [reconciling, setReconciling] = useState(false);
+
+  async function run() {
+    setLoading(true);
+    try {
+      const d = await api.get('/settings/stock-check');
+      setResult(d);
+    } catch (e) {
+      setResult({ items: [], error: e.message });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function reconcile() {
+    if (!window.confirm(`불일치 ${result.items.length}건에 조정 수불을 삽입해 현재고와 일치화합니다. 계속하시겠습니까?`)) return;
+    setReconciling(true);
+    try {
+      const d = await api.post('/settings/reconcile', {});
+      alert(`일치화 완료: ${d.count}건 조정 수불 삽입`);
+      run();
+    } catch (e) {
+      alert('오류: ' + e.message);
+    } finally {
+      setReconciling(false);
+    }
+  }
+
+  return (
+    <div className="card card-pad" style={{ marginBottom: 16, maxWidth: 700 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: result ? 12 : 0 }}>
+        <div>
+          <h3 style={{ margin: 0 }}>재고 정합성 검사</h3>
+          <p className="hint" style={{ margin: '4px 0 0' }}>현재고와 수불 이력 합산을 비교해 차이가 있는 Lot을 표시합니다. (이력이 없는 초기 등록 Lot은 제외)</p>
+        </div>
+        <button className="btn sm" onClick={run} disabled={loading} style={{ whiteSpace: 'nowrap', marginLeft: 12 }}>
+          {loading ? '검사 중…' : '검사 실행'}
+        </button>
+      </div>
+      {result && (
+        result.error ? (
+          <p style={{ color: 'var(--red)', margin: 0 }}>{result.error}</p>
+        ) : result.items.length === 0 ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 0' }}>
+            <span style={{ fontSize: 20 }}>✅</span>
+            <span>이력이 있는 모든 Lot의 현재고가 수불 합산과 일치합니다.</span>
+          </div>
+        ) : (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+              <span style={{ fontSize: 18 }}>⚠️</span>
+              <span style={{ color: 'var(--orange)', fontWeight: 600 }}>{result.items.length}건 불일치 발견</span>
+              <span className="muted" style={{ fontSize: 12 }}>검사시각: {(result.checkedAt || '').slice(0, 16).replace('T', ' ')}</span>
+              <button className="btn sm" style={{ marginLeft: 'auto', whiteSpace: 'nowrap' }} onClick={reconcile} disabled={reconciling}>
+                {reconciling ? '처리 중…' : '재고 일치화'}
+              </button>
+            </div>
+            <table className="tbl compact">
+              <thead>
+                <tr>
+                  <th>구분</th><th>품목명</th><th>Lot No.</th>
+                  <th className="num">현재고</th>
+                  <th className="num">이력 합산</th>
+                  <th className="num">차이</th>
+                  <th className="num">이력 건수</th>
+                </tr>
+              </thead>
+              <tbody>
+                {result.items.map((r, i) => (
+                  <tr key={i}>
+                    <td><Badge color={r.type === '원재료' ? 'blue' : 'green'}>{r.type}</Badge></td>
+                    <td><b>{r.name}</b></td>
+                    <td className="muted">{r.lotNo}</td>
+                    <td className="num">{r.current.toLocaleString()} {r.unit}</td>
+                    <td className="num muted">{r.calculated.toLocaleString()} {r.unit}</td>
+                    <td className="num" style={{ color: r.diff > 0 ? 'var(--orange)' : 'var(--red)', fontWeight: 600 }}>
+                      {r.diff > 0 ? '+' : ''}{r.diff.toLocaleString()} {r.unit}
+                    </td>
+                    <td className="num muted">{r.txCount}건</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="hint" style={{ marginTop: 8 }}>
+              차이가 양수(+)이면 현재고가 이력 합산보다 많습니다 → 초기 입고 이력 누락 가능성.<br />
+              차이가 음수(-)이면 현재고가 이력 합산보다 적습니다 → 출고 이력 중복 가능성.
+            </p>
+          </>
+        )
+      )}
+    </div>
+  );
+}
+
+const KEY_LABELS = {
+  safetyRatioPercent: '안전재고 경고 비율',
+  warningRollSeconds: '상단 경고 자동 넘김 간격(초)',
+  canisterDefaultSize: 'Canister 기본 사이즈',
+  canisterDefaultLocation: 'Canister 기본 위치',
+  canisterDefaultStatus: 'Canister 기본 상태',
+  canisterDefaultContent: 'Canister 기본 내용물',
+  canisterSizes: 'Canister 사이즈 목록',
+  canisterLocations: 'Canister 위치 목록',
+  canisterStatuses: 'Canister 상태 목록',
+  canisterContents: 'Canister 내용물 목록',
+  productionFilePath: '생산관리 파일 경로',
+  productionFileKeywords: '생산관리 파일 검색 키워드',
+};
+
+const RESULT_META = {
+  success: { label: '로그인 성공', color: '#1a7f3c', bg: '#e8f8ed' },
+  fail:    { label: '인증 실패',   color: '#c0001a', bg: '#ffe8e8' },
+  blocked: { label: '접근 차단',   color: '#9a5700', bg: '#fff4e0' },
+};
+
+function LoginLogCard() {
+  const [logs, setLogs] = useState(null);
+  const [open, setOpen] = useState(false);
+  const [filter, setFilter] = useState('all');
+
+  function load() {
+    api.get('/auth/login-logs?limit=500').then((d) => setLogs(d.items)).catch(() => setLogs([]));
+  }
+
+  useEffect(() => {
+    if (open && !logs) load();
+  }, [open]);
+
+  const filtered = logs
+    ? (filter === 'all' ? logs : logs.filter((r) => r.result === filter))
+    : [];
+
+  return (
+    <div className="card card-pad" style={{ marginBottom: 16, maxWidth: 840 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div>
+          <h3 style={{ margin: 0 }}>로그인 이력</h3>
+          <p className="hint" style={{ margin: '3px 0 0' }}>로그인 성공·실패·차단 이력을 최근 500건까지 확인합니다.</p>
+        </div>
+        <div className="btn-row">
+          {open && <button className="btn ghost sm" onClick={load}>새로고침</button>}
+          <button className="btn ghost sm" onClick={() => setOpen((v) => !v)}>{open ? '숨기기' : '펼치기'}</button>
+        </div>
+      </div>
+
+      {open && (
+        <div style={{ marginTop: 14 }}>
+          <div className="btn-row" style={{ marginBottom: 10 }}>
+            {['all', 'success', 'fail', 'blocked'].map((v) => (
+              <button
+                key={v}
+                className={`btn ghost sm${filter === v ? ' active' : ''}`}
+                onClick={() => setFilter(v)}
+                style={filter === v ? { background: 'var(--accent)', color: '#fff', borderColor: 'var(--accent)' } : {}}
+              >
+                {v === 'all' ? '전체' : RESULT_META[v].label}
+              </button>
+            ))}
+            {logs && (
+              <span className="muted" style={{ fontSize: 12, marginLeft: 4 }}>
+                {filtered.length}건 / 총 {logs.length}건
+              </span>
+            )}
+          </div>
+
+          {!logs ? <Loading /> : filtered.length === 0 ? <Empty>이력이 없습니다.</Empty> : (
+            <table className="tbl compact">
+              <thead>
+                <tr>
+                  <th style={{ width: 150 }}>일시</th>
+                  <th>아이디</th>
+                  <th>이름</th>
+                  <th>IP</th>
+                  <th style={{ width: 100 }}>결과</th>
+                  <th>비고</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((r) => {
+                  const m = RESULT_META[r.result] || { label: r.result, color: '#666', bg: '#f0f0f0' };
+                  return (
+                    <tr key={r.id}>
+                      <td className="muted" style={{ whiteSpace: 'nowrap' }}>
+                        {(r.createdAt || '').slice(0, 19).replace('T', ' ')}
+                      </td>
+                      <td><b>{r.userId}</b></td>
+                      <td>{r.userName || <span className="muted">–</span>}</td>
+                      <td className="muted" style={{ fontFamily: 'monospace', fontSize: 12 }}>{r.ip || '–'}</td>
+                      <td>
+                        <span style={{
+                          display: 'inline-block', padding: '2px 8px', borderRadius: 999,
+                          fontSize: 11, fontWeight: 700,
+                          color: m.color, background: m.bg,
+                        }}>{m.label}</span>
+                      </td>
+                      <td className="muted">{r.note || ''}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SettingsLogCard() {
+  const [logs, setLogs] = useState(null);
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (open && !logs) {
+      api.get('/settings/log').then((d) => setLogs(d.items)).catch(() => setLogs([]));
+    }
+  }, [open, logs]);
+  return (
+    <div className="card card-pad" style={{ marginBottom: 16, maxWidth: 700 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <h3 style={{ margin: 0 }}>설정 변경 이력</h3>
+        <button className="btn ghost sm" onClick={() => setOpen((v) => !v)}>{open ? '숨기기' : '펼치기'}</button>
+      </div>
+      {open && (
+        <div style={{ marginTop: 12 }}>
+          {!logs ? <Loading /> : logs.length === 0 ? <Empty>변경 이력이 없습니다.</Empty> : (
+            <table className="tbl compact">
+              <thead><tr><th>일시</th><th>항목</th><th>이전 값</th><th>변경 후 값</th><th>변경자</th></tr></thead>
+              <tbody>
+                {logs.map((r) => (
+                  <tr key={r.id}>
+                    <td className="muted">{(r.createdAt || '').slice(0, 16).replace('T', ' ')}</td>
+                    <td>{KEY_LABELS[r.key] || r.key}</td>
+                    <td className="muted" style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.oldValue || '–'}</td>
+                    <td style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.newValue || '–'}</td>
+                    <td className="muted">{r.changedBy}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+

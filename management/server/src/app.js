@@ -21,6 +21,13 @@ const { router: tasksRoutes } = require('./routes/tasks');
 const { router: warningsRoutes } = require('./routes/warnings');
 const { router: trendsRoutes } = require('./routes/trends');
 const { router: searchRoutes } = require('./routes/search');
+const { router: hazardousRoutes } = require('./routes/hazardous');
+const { router: batchRoutes } = require('./routes/batches');
+const { router: suggestionRoutes } = require('./routes/suggestions');
+const { router: productRoutes } = require('./routes/products');
+const { router: reportRoutes } = require('./routes/reports');
+const productionRoutes = require('./routes/production');
+const plantsRoutes = require('./routes/plants');
 
 function createApp() {
   const app = express();
@@ -45,9 +52,15 @@ function createApp() {
   app.get('/api/health', (req, res) => res.json({ ok: true, env: NODE_ENV }));
 
   // 팀관리자(viewer)는 전체 조회만 가능 — 모든 쓰기(POST/PATCH/DELETE) 차단(인증/로그아웃 제외)
+  // 단, 건의사항(/api/suggestions)은 피드백 창구이므로 팀관리자도 본인 건의 등록/수정/삭제 가능
+  //  (수정·삭제는 작성자 본인만, 완료처리는 관리자만 — 라우트 핸들러에서 추가 검증)
   app.use((req, res, next) => {
     const u = req.session && req.session.user;
-    if (u && u.role === 'viewer' && req.method !== 'GET' && req.path.startsWith('/api/') && !req.path.startsWith('/api/auth/')) {
+    if (
+      u && u.role === 'viewer' && req.method !== 'GET' &&
+      req.path.startsWith('/api/') && !req.path.startsWith('/api/auth/') &&
+      !req.path.startsWith('/api/suggestions')
+    ) {
       return res.status(403).json({ error: '팀관리자(조회 전용)는 등록·수정·삭제를 할 수 없습니다.' });
     }
     next();
@@ -68,6 +81,13 @@ function createApp() {
   app.use('/api/warnings', warningsRoutes);
   app.use('/api/trends', trendsRoutes);
   app.use('/api/search', searchRoutes);
+  app.use('/api/hazardous', hazardousRoutes);
+  app.use('/api/batches', batchRoutes);
+  app.use('/api/suggestions', suggestionRoutes);
+  app.use('/api/products', productRoutes);
+  app.use('/api/reports', reportRoutes);
+  app.use('/api/production', productionRoutes);
+  app.use('/api/plants', plantsRoutes);
 
   // 프로덕션: 빌드된 React 정적 파일 서빙 + SPA 폴백
   const clientDist = path.join(__dirname, '..', '..', 'client', 'dist');

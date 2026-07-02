@@ -1,0 +1,4 @@
+﻿id,title,category,categoryEtc,content,status,createdBy,createdAt,updatedBy,updatedAt,completedBy,completedAt
+sg_dbaf89d7c7f3,단가 입력란 추가,원재료,,단가+통화 입력,완료,user1,2026-06-28T11:15:11.556Z,admin,2026-06-28T11:15:11.650Z,admin,2026-06-28T11:15:11.650Z
+sg_794f37a61f4a,부재료 일괄출고에 비고 일괄적용,부재료,,일괄출고 시 공통 비고를 모든 항목에 적용하면 편할 것 같습니다.,대기,user1,2026-06-28T11:17:24.764Z,user1,2026-06-28T11:17:24.764Z,,
+sg_a8850b994715,Canister 상태별 색상 더 뚜렷하게,Canister,,세정의뢰/사용금지 상태가 한눈에 들어오게 색을 강조해주세요.,대기,user1,2026-06-28T11:17:24.767Z,user1,2026-06-28T11:17:24.767Z,,

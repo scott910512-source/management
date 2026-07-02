@@ -6,7 +6,7 @@ const { asyncHandler, str, num, badRequest } = require('../lib/http');
 const { newId, now } = require('../lib/ids');
 const { requireAuth } = require('../middleware/auth');
 const { resolvePlant } = require('../middleware/plant');
-const { computeWarnings } = require('../lib/warnings');
+const { computeWarnings, parseSizeMaxKg } = require('../lib/warnings');
 const { readSettings } = require('./settings');
 
 const router = express.Router();
@@ -17,7 +17,8 @@ async function activeWarnings(plant) {
     readTable('items', plant), readTable('raw_materials', plant), readTable('sub_materials', plant), readTable('canisters', plant), readSettings(plant),
   ]);
   const threshold = num(settings.safetyRatioPercent) || 100;
-  return computeWarnings({ items, raws, subs, canisters, threshold });
+  const canisterMax = parseSizeMaxKg(settings.canisterSizeMaxKg);
+  return computeWarnings({ items, raws, subs, canisters, threshold, canisterMax });
 }
 
 // 활성 경고 + 확인/삭제 상태
@@ -28,12 +29,23 @@ router.get(
     const [warnings, acks, dismissed, users] = await Promise.all([
       activeWarnings(req.plant), readTable('warning_acks', req.plant), readTable('warning_dismissed', req.plant), readTable('users'),
     ]);
-    const dismissedKeys = new Set(dismissed.map((d) => d.warningKey));
-    const approved = users.filter((u) => u.status === 'approved');
+    // 경고 숨김은 사용자별로 적용 — 내가 숨긴 것만 내 화면에서 제외(다른 사용자에겐 그대로 유지)
+    const myDismissed = dismissed.filter((d) => d.account === me);
+    const dismissedMap = new Map();
+    for (const d of myDismissed) {
+      const existing = dismissedMap.get(d.warningKey);
+      if (!existing || d.createdAt > existing.createdAt) dismissedMap.set(d.warningKey, d);
+    }
+    const plant = req.plant;
+    const approved = users.filter((u) => u.status === 'approved' && (u.plantScope === 'all' || u.plant === plant || u.plantScope === plant));
     const totalUsers = approved.length;
 
     const items = warnings
-      .filter((w) => !dismissedKeys.has(w.key))
+      .filter((w) => {
+        const d = dismissedMap.get(w.key);
+        if (!d) return true;
+        return d.content !== w.content;
+      })
       .map((w) => {
         const ackedBy = acks.filter((a) => a.warningKey === w.key).map((a) => a.account);
         const uniqueAcked = new Set(ackedBy);

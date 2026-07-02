@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api';
 import { useAuth } from '../auth/AuthContext';
-import { Loading, Field, TextInput, useToast } from '../components/ui';
+import { Loading, Field, TextInput, useToast, Select } from '../components/ui';
 
 export default function Settings() {
   const { isAdmin } = useAuth();
@@ -9,11 +9,40 @@ export default function Settings() {
   const [settings, setSettings] = useState(null);
   const [ratio, setRatio] = useState('');
   const [busy, setBusy] = useState(false);
+  const [rawBypass, setRawBypass] = useState(false);
+  const [subBypass, setSubBypass] = useState(true);
+  const [bpBusy, setBpBusy] = useState(false);
+
+  // Canister 관리 상태
+  const [cnDefSize, setCnDefSize] = useState('');
+  const [cnDefLoc, setCnDefLoc] = useState('');
+  const [cnDefStatus, setCnDefStatus] = useState('');
+  const [cnDefContent, setCnDefContent] = useState('');
+  const [cnSizes, setCnSizes] = useState('');
+  const [cnLocs, setCnLocs] = useState('');
+  const [cnStats, setCnStats] = useState('');
+  const [cnContents, setCnContents] = useState('');
+  const [newSize, setNewSize] = useState('');
+  const [newLoc, setNewLoc] = useState('');
+  const [newStat, setNewStat] = useState('');
+  const [newContent, setNewContent] = useState('');
+  const [cnBusy, setCnBusy] = useState(false);
 
   useEffect(() => {
     api.get('/settings').then((d) => {
-      setSettings(d.settings);
-      setRatio(d.settings.safetyRatioPercent);
+      const s = d.settings;
+      setSettings(s);
+      setRatio(s.safetyRatioPercent);
+      setRawBypass(String(s.rawBatchBypassDefault) === '1');
+      setSubBypass(String(s.subBatchBypassDefault) === '1');
+      setCnDefSize(s.canisterDefaultSize || '50L');
+      setCnDefLoc(s.canisterDefaultLocation || '2공장현장');
+      setCnDefStatus(s.canisterDefaultStatus || '수령');
+      setCnDefContent(s.canisterDefaultContent || '');
+      setCnSizes(s.canisterSizes || '5gal,50L,100L,200L');
+      setCnLocs(s.canisterLocations || '2공장현장,3류창고,4류창고');
+      setCnStats(s.canisterStatuses || '수령,사용중,사용완료,세정의뢰,사용금지');
+      setCnContents(s.canisterContents || '톨루엔,황산,활성탄,실링패드');
     });
   }, []);
 
@@ -30,21 +59,83 @@ export default function Settings() {
     }
   }
 
+  async function saveCn() {
+    setCnBusy(true);
+    try {
+      const d = await api.patch('/settings', {
+        canisterDefaultSize: cnDefSize,
+        canisterDefaultLocation: cnDefLoc,
+        canisterDefaultStatus: cnDefStatus,
+        canisterDefaultContent: cnDefContent,
+        canisterSizes: cnSizes,
+        canisterLocations: cnLocs,
+        canisterStatuses: cnStats,
+        canisterContents: cnContents,
+      });
+      const s = d.settings;
+      setSettings(s);
+      setCnSizes(s.canisterSizes);
+      setCnLocs(s.canisterLocations);
+      setCnStats(s.canisterStatuses);
+      setCnContents(s.canisterContents);
+      setCnDefSize(s.canisterDefaultSize);
+      setCnDefLoc(s.canisterDefaultLocation);
+      setCnDefStatus(s.canisterDefaultStatus);
+      setCnDefContent(s.canisterDefaultContent || '');
+      toast.ok('Canister 설정을 저장했습니다.');
+    } catch (e) {
+      toast.err(e.message);
+    } finally {
+      setCnBusy(false);
+    }
+  }
+
+  async function saveBypass() {
+    setBpBusy(true);
+    try {
+      const d = await api.patch('/settings', { rawBatchBypassDefault: rawBypass ? '1' : '0', subBatchBypassDefault: subBypass ? '1' : '0' });
+      setSettings(d.settings);
+      toast.ok('Batch 이력 기본값을 저장했습니다.');
+    } catch (e) {
+      toast.err(e.message);
+    } finally {
+      setBpBusy(false);
+    }
+  }
+
+  function addItem(current, newVal, setter, newSetter) {
+    const val = newVal.trim();
+    if (!val) return;
+    const arr = current.split(',').map(s => s.trim()).filter(Boolean);
+    if (arr.includes(val)) { toast.err('이미 존재하는 항목입니다.'); return; }
+    setter([...arr, val].join(','));
+    newSetter('');
+  }
+
+  function removeItem(current, item, setter) {
+    const arr = current.split(',').map(s => s.trim()).filter(s => s && s !== item);
+    setter(arr.join(','));
+  }
+
+  function toArr(str) {
+    return str.split(',').map(s => s.trim()).filter(Boolean);
+  }
+
   if (!settings) return <Loading />;
 
   return (
     <>
       <div className="page-head">
-        <div className="desc">대시보드 안전재고 경고 기준을 설정합니다.</div>
+        <div className="desc">안전재고 경고 기준 및 Canister 기준정보를 설정합니다.</div>
       </div>
 
-      <div className="card card-pad" style={{ maxWidth: 560 }}>
+      {/* 안전재고 경고 비율 */}
+      <div className="card card-pad" style={{ maxWidth: 560, marginBottom: 20 }}>
         <h3 style={{ marginBottom: 6 }}>안전재고 경고 비율</h3>
         <p className="hint" style={{ marginBottom: 18 }}>
-          품목별 <b>안전재고 목표값</b>은 <b>[품목·안전재고]</b> 메뉴에서 설정합니다(관리자). 여기서는 전체 공통 <b>경고 비율(%)</b>을 정합니다.
-          현재 재고가 <b>(목표값 × 비율%)</b> 미만이면 대시보드·현황에서 빨간색으로 경고합니다.
+          품목별 <b>안전재고 목표값</b>은 <b>[품목·안전재고]</b> 메뉴에서 설정합니다(관리자). 현재 재고가 <b>(목표값 × 비율%)</b> 미만이면 대시보드·현황에서 빨간색으로 경고합니다.
         </p>
-        <Field label="경고 비율 (%)" hint="예: 100 → 기준수량 미만일 때 경고 / 120 → 기준수량의 1.2배 미만일 때 경고">
+        <Field label="경고 비율 (%)" hint="예: 100 → 기준수량 미만 경고 / 120 → 기준수량의 1.2배 미만 경고">
           <div className="form-row" style={{ maxWidth: 220 }}>
             <TextInput type="number" value={ratio} onChange={(e) => setRatio(e.target.value)} disabled={!isAdmin} />
           </div>
@@ -53,6 +144,139 @@ export default function Settings() {
           <button className="btn" onClick={save} disabled={busy}>{busy ? '저장 중…' : '저장'}</button>
         ) : (
           <p className="hint">설정 변경은 관리자만 가능합니다. (현재 값: {settings.safetyRatioPercent}%)</p>
+        )}
+      </div>
+
+      {/* 합성 Batch 투입이력 기본 By-pass */}
+      <div className="card card-pad" style={{ maxWidth: 560, marginBottom: 20 }}>
+        <h3 style={{ marginBottom: 6 }}>합성 Batch 투입이력 기본값</h3>
+        <p className="hint" style={{ marginBottom: 18 }}>
+          사용(출고) 처리 시 표시되는 <b>합성 Batch(투입이력 기록)</b>의 By-pass(기록 생략) 여부 기본값입니다.
+          사용 처리 화면에서 매번 개별적으로도 변경할 수 있습니다.
+        </p>
+        <div style={{ display: 'flex', gap: 24, marginBottom: 16 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: isAdmin ? 'pointer' : 'default' }}>
+            <input type="checkbox" checked={rawBypass} disabled={!isAdmin} onChange={(e) => setRawBypass(e.target.checked)} />
+            원재료 기본 By-pass
+          </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: isAdmin ? 'pointer' : 'default' }}>
+            <input type="checkbox" checked={subBypass} disabled={!isAdmin} onChange={(e) => setSubBypass(e.target.checked)} />
+            부재료 기본 By-pass
+          </label>
+        </div>
+        {isAdmin ? (
+          <button className="btn" onClick={saveBypass} disabled={bpBusy}>{bpBusy ? '저장 중…' : '저장'}</button>
+        ) : (
+          <p className="hint">설정 변경은 관리자만 가능합니다.</p>
+        )}
+      </div>
+
+      {/* Canister 기준정보 */}
+      <div className="card card-pad" style={{ maxWidth: 960 }}>
+        <h3 style={{ marginBottom: 4 }}>Canister 기준정보 관리</h3>
+        <p className="hint" style={{ marginBottom: 20 }}>Canister 등록 시 사용할 사이즈·위치·상태 목록과 기본값을 관리합니다.</p>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 24, marginBottom: 24 }}>
+          {/* 사이즈 */}
+          <div>
+            <div style={{ fontWeight: 600, marginBottom: 10 }}>사이즈 목록</div>
+            <Field label="기본값" style={{ marginBottom: 10 }}>
+              <Select value={cnDefSize} onChange={e => setCnDefSize(e.target.value)} disabled={!isAdmin}>
+                {toArr(cnSizes).map(s => <option key={s} value={s}>{s}</option>)}
+              </Select>
+            </Field>
+            {isAdmin && (
+              <div className="form-row" style={{ marginBottom: 10 }}>
+                <TextInput placeholder="새 사이즈 (예: 500L)" value={newSize} onChange={e => setNewSize(e.target.value)} />
+                <button className="btn sm secondary" onClick={() => addItem(cnSizes, newSize, setCnSizes, setNewSize)}>추가</button>
+              </div>
+            )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {toArr(cnSizes).map(s => (
+                <div key={s} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg2)', borderRadius: 6, padding: '4px 10px' }}>
+                  <span style={{ fontSize: 14 }}>{s}</span>
+                  {isAdmin && <button className="btn ghost sm" style={{ padding: '2px 8px', fontSize: 12 }} onClick={() => removeItem(cnSizes, s, setCnSizes)}>×</button>}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 위치 */}
+          <div>
+            <div style={{ fontWeight: 600, marginBottom: 10 }}>위치 목록</div>
+            <Field label="기본값" style={{ marginBottom: 10 }}>
+              <Select value={cnDefLoc} onChange={e => setCnDefLoc(e.target.value)} disabled={!isAdmin}>
+                {toArr(cnLocs).map(s => <option key={s} value={s}>{s}</option>)}
+              </Select>
+            </Field>
+            {isAdmin && (
+              <div className="form-row" style={{ marginBottom: 10 }}>
+                <TextInput placeholder="새 위치 (예: 1공장현장)" value={newLoc} onChange={e => setNewLoc(e.target.value)} />
+                <button className="btn sm secondary" onClick={() => addItem(cnLocs, newLoc, setCnLocs, setNewLoc)}>추가</button>
+              </div>
+            )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {toArr(cnLocs).map(s => (
+                <div key={s} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg2)', borderRadius: 6, padding: '4px 10px' }}>
+                  <span style={{ fontSize: 14 }}>{s}</span>
+                  {isAdmin && <button className="btn ghost sm" style={{ padding: '2px 8px', fontSize: 12 }} onClick={() => removeItem(cnLocs, s, setCnLocs)}>×</button>}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 상태 */}
+          <div>
+            <div style={{ fontWeight: 600, marginBottom: 10 }}>상태 목록</div>
+            <Field label="기본값" style={{ marginBottom: 10 }}>
+              <Select value={cnDefStatus} onChange={e => setCnDefStatus(e.target.value)} disabled={!isAdmin}>
+                {toArr(cnStats).map(s => <option key={s} value={s}>{s}</option>)}
+              </Select>
+            </Field>
+            {isAdmin && (
+              <div className="form-row" style={{ marginBottom: 10 }}>
+                <TextInput placeholder="새 상태 (예: 검사중)" value={newStat} onChange={e => setNewStat(e.target.value)} />
+                <button className="btn sm secondary" onClick={() => addItem(cnStats, newStat, setCnStats, setNewStat)}>추가</button>
+              </div>
+            )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {toArr(cnStats).map(s => (
+                <div key={s} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg2)', borderRadius: 6, padding: '4px 10px' }}>
+                  <span style={{ fontSize: 14 }}>{s}</span>
+                  {isAdmin && <button className="btn ghost sm" style={{ padding: '2px 8px', fontSize: 12 }} onClick={() => removeItem(cnStats, s, setCnStats)}>×</button>}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 취급물질 */}
+          <div>
+            <div style={{ fontWeight: 600, marginBottom: 10 }}>취급물질 목록</div>
+            <Field label="기본값" style={{ marginBottom: 10 }}>
+              <Select value={cnDefContent} onChange={e => setCnDefContent(e.target.value)} disabled={!isAdmin}>
+                <option value="">선택 안 함</option>
+                {toArr(cnContents).map(s => <option key={s} value={s}>{s}</option>)}
+              </Select>
+            </Field>
+            {isAdmin && (
+              <div className="form-row" style={{ marginBottom: 10 }}>
+                <TextInput placeholder="새 취급물질 (예: 메탄올)" value={newContent} onChange={e => setNewContent(e.target.value)} />
+                <button className="btn sm secondary" onClick={() => addItem(cnContents, newContent, setCnContents, setNewContent)}>추가</button>
+              </div>
+            )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {toArr(cnContents).map(s => (
+                <div key={s} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg2)', borderRadius: 6, padding: '4px 10px' }}>
+                  <span style={{ fontSize: 14 }}>{s}</span>
+                  {isAdmin && <button className="btn ghost sm" style={{ padding: '2px 8px', fontSize: 12 }} onClick={() => removeItem(cnContents, s, setCnContents)}>×</button>}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {isAdmin && (
+          <button className="btn" onClick={saveCn} disabled={cnBusy}>{cnBusy ? '저장 중…' : 'Canister 설정 저장'}</button>
         )}
       </div>
     </>

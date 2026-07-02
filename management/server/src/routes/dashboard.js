@@ -16,7 +16,7 @@ function disp(value, etc) {
 }
 
 /** 품목별 현황(잔여 Lot 수/현재고/최소재고/안전%/상태) */
-function buildSummary(masters, rows, getName, getQty, threshold) {
+function buildSummary(masters, rows, getName, getQty, globalThreshold) {
   const names = new Set([...masters.map((m) => m.name), ...rows.map(getName)]);
   return Array.from(names).map((name) => {
     const master = masters.find((m) => m.name === name);
@@ -24,9 +24,11 @@ function buildSummary(masters, rows, getName, getQty, threshold) {
     const current = lots.reduce((s, r) => s + (num(getQty(r)) || 0), 0);
     const minStock = master ? num(master.safetyStock) || 0 : 0;
     const unit = master ? master.unit : (lots[0] && lots[0].unit) || '';
+    const threshold = (master && master.warningPct) ? num(master.warningPct) : globalThreshold;
     const st = safetyStatus(current, minStock, threshold);
     const product = master ? master.product || '' : '';
-    return { name, product, lots: lots.length, current, unit, minStock, level: st.level, state: st.state, below: st.below, isMaster: !!master };
+    const warningPct = master ? (master.warningPct || '') : '';
+    return { name, product, lots: lots.length, current, unit, minStock, level: st.level, state: st.state, below: st.below, isMaster: !!master, warningPct };
   }).sort((a, b) => {
     // 제품(사용처)별 묶음 → '공통'/미지정은 뒤로, 같은 제품 내 품목명순
     const pa = a.product || '~';

@@ -6,27 +6,49 @@ const { parseCsv, stringifyCsv } = require('./csv');
 const { DATA_DIR } = require('../config');
 
 // 공장 목록(멀티 사이트). 데이터는 공장별 하위 폴더로 분리 저장된다.
-const PLANTS = ['1공장', '2공장'];
+const PLANTS = ['1공장', '2공장', 'demo'];
 
 // 각 테이블(CSV 파일)의 컬럼 정의.
 const TABLES = {
   // users는 전역(공장 공통). plant=기본 공장, plantScope=접근 가능 범위(all|특정공장)
   users: ['id', 'passwordHash', 'name', 'role', 'status', 'plant', 'plantScope', 'createdAt', 'approvedAt', 'approvedBy'],
-  items: ['id', 'category', 'name', 'unit', 'safetyStock', 'vendor', 'product', 'defaultQty', 'lotPattern', 'note', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt'],
-  raw_materials: ['id', 'itemName', 'lotNo', 'quantity', 'unit', 'vendor', 'receivedDate', 'note', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt'],
-  sub_materials: ['id', 'name', 'receivedDate', 'lotNo', 'vendor', 'unit', 'initialWeight', 'weight', 'note', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt'],
-  canisters: ['id', 'canisterNo', 'size', 'sizeEtc', 'location', 'locationEtc', 'status', 'statusEtc', 'content', 'weight', 'note', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt'],
+  items: ['id', 'category', 'name', 'unit', 'safetyStock', 'warningPct', 'vendor', 'product', 'defaultQty', 'lotPattern', 'pkgType', 'pkgSize', 'pkgUnit', 'hazardous', 'itemGroup', 'groupDefault', 'hazardousMaxQty', 'hazardousWarnPct', 'note', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt'],
+  raw_materials: ['id', 'itemName', 'lotNo', 'quantity', 'unit', 'pkgCount', 'vendor', 'receivedDate', 'note', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt'],
+  sub_materials: ['id', 'name', 'receivedDate', 'lotNo', 'vendor', 'unit', 'pkgCount', 'initialWeight', 'weight', 'note', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt'],
+  canisters: ['id', 'canisterNo', 'size', 'sizeEtc', 'location', 'locationEtc', 'status', 'statusEtc', 'content', 'weight', 'unit', 'note', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt'],
   canister_history: ['id', 'canisterId', 'canisterNo', 'date', 'type', 'content', 'weight', 'location', 'status', 'note', 'createdBy', 'createdAt'],
-  transactions: ['id', 'materialType', 'materialId', 'materialName', 'lotNo', 'content', 'type', 'quantity', 'unit', 'balanceAfter', 'note', 'createdBy', 'createdAt'],
+  transactions: ['id', 'materialType', 'materialId', 'materialName', 'lotNo', 'content', 'type', 'quantity', 'unit', 'balanceAfter', 'batchNo', 'batchId', 'note', 'createdBy', 'createdAt'],
+  // 합성 Batch — 제품(사용처)+연도+번호로 식별, 합성시작일 공유
+  batches: ['id', 'product', 'year', 'no', 'startDate', 'createdBy', 'createdAt'],
   settings: ['key', 'value'],
   anomalies: ['id', 'type', 'itemName', 'lotInfo', 'account', 'note', 'createdAt'],
-  tasks: ['id', 'title', 'category', 'categoryEtc', 'priority', 'assignee', 'dueDate', 'status', 'note', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt'],
+  tasks: ['id', 'title', 'category', 'categoryEtc', 'priority', 'assignee', 'dueDate', 'status', 'note', 'recurringId', 'period', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt'],
+  // 정기(반복) 업무 템플릿 — 주기(일/주/월)마다 Task 자동 생성
+  recurring_tasks: ['id', 'title', 'category', 'categoryEtc', 'priority', 'assignee', 'note', 'cycle', 'weekday', 'monthday', 'active', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt'],
+  // 유해화학물질 일자별 관리대장 수동 입력/정정 (수불 자동집계를 덮어쓰는 임시입력)
+  hazardous_ledger: ['id', 'itemName', 'date', 'carryOver', 'inQty', 'outQty', 'balance', 'note', 'updatedBy', 'updatedAt'],
   warning_acks: ['id', 'warningKey', 'account', 'content', 'createdAt'],
   warning_dismissed: ['id', 'warningKey', 'account', 'content', 'createdAt'],
+  settings_log: ['id', 'key', 'oldValue', 'newValue', 'changedBy', 'createdAt'],
+  // 건의사항 게시판 — 작성자 수정/삭제, 관리자 완료처리
+  suggestions: ['id', 'title', 'category', 'categoryEtc', 'content', 'status', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt', 'completedBy', 'completedAt'],
+  // 제품(사용처) 마스터
+  products: ['id', 'name', 'note', 'createdBy', 'createdAt'],
+  // 제품별 BOM — Batch당 원·부재료 사용 기준량
+  boms: ['id', 'product', 'category', 'materialName', 'qtyPerBatch', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt'],
+  // Lot 변경이력 — 수정/삭제 시 자동 기록
+  raw_materials_changelog: ['id', 'lotId', 'itemName', 'lotNo', 'action', 'summary', 'changedBy', 'changedAt'],
+  sub_materials_changelog: ['id', 'lotId', 'itemName', 'lotNo', 'action', 'summary', 'changedBy', 'changedAt'],
+  // 로그인 이력 — 전역(공장 공통), 관리자 조회 가능
+  login_logs: ['id', 'userId', 'userName', 'ip', 'result', 'note', 'createdAt'],
+  // 생산 경고 이력 — 전역. 수율 미달·재고 부족을 일자별로 1회 기록
+  prod_alerts: ['id', 'plant', 'date', 'product', 'type', 'level', 'detail', 'createdAt'],
+  // 공장 활성/비활성 상태 — 전역. 모든 모듈(StockPilot/ManagePilot)에 공통 적용
+  plant_status: ['plant', 'enabled', 'updatedBy', 'updatedAt'],
 };
 
 // 전역(공장 공통) 테이블 — 공장 하위 폴더가 아닌 DATA_DIR 루트에 저장
-const GLOBAL = new Set(['users']);
+const GLOBAL = new Set(['users', 'login_logs', 'prod_alerts', 'plant_status']);
 
 function headersOf(name) {
   const h = TABLES[name];

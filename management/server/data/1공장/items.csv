@@ -1,0 +1,6 @@
+﻿id,category,name,unit,safetyStock,warningPct,vendor,product,defaultQty,lotPattern,pkgType,pkgSize,pkgUnit,hazardous,hazardousMaxQty,hazardousWarnPct,note,createdBy,createdAt,updatedBy,updatedAt
+it_r01,raw,톨루엔,kg,1000,,(주)한솔케미칼,A제품,800,T-{YYYY}-,,,,,,,,admin,2026-06-01T00:00:00.000Z,admin,2026-06-01T00:00:00.000Z
+it_r02,raw,촉매펠릿,ea,400,,동성하이켐,A제품,300,C-{YYYY}-,,,,,,,안전재고 미달 예시,admin,2026-06-01T00:00:00.000Z,admin,2026-06-01T00:00:00.000Z
+it_r03,raw,황산,L,300,,대정화학,B제품,500,S-{YYYY}-,,,,,,,,admin,2026-06-01T00:00:00.000Z,admin,2026-06-01T00:00:00.000Z
+it_s01,sub,실링패드,kg,40,,(주)한솔케미칼,공통,25,L-{YYYY}-,,,,,,,,admin,2026-06-01T00:00:00.000Z,admin,2026-06-01T00:00:00.000Z
+it_s02,sub,활성탄,kg,60,,대정화학,공통,50,L-{YYYY}-,,,,,,,,admin,2026-06-01T00:00:00.000Z,admin,2026-06-01T00:00:00.000Z

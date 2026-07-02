@@ -2,8 +2,22 @@
 
 const { num } = require('./http');
 
-// Canister 사이즈별 용량 기준(이 무게 이상이면 잔여공간 없음/초과 경고)
+// Canister 사이즈별 용량 기준(기본값 — 설정(canisterSizeMaxKg)에서 덮어씀)
 const CANISTER_CAP = { '5gal': 20, '50L': 50, '100L': 100, '200L': 200 };
+
+// 사이즈 한도 경고 비율 — 최대 사용가능 무게의 이 % 이상이면 경고
+const CANISTER_WARN_RATIO = 0.9;
+
+// "5gal:20,50L:50" 형태 문자열을 {size: kg} 맵으로 파싱
+function parseSizeMaxKg(str) {
+  const map = {};
+  for (const pair of String(str || '').split(',')) {
+    const [size, kg] = pair.split(':').map((v) => (v || '').trim());
+    const n = Number(kg);
+    if (size && !Number.isNaN(n) && n > 0) map[size] = n;
+  }
+  return map;
+}
 
 /** 현재고/최소재고/경고기준(%)으로 재고수준%와 상태(정상/임박/부족)를 계산. */
 function safetyStatus(current, min, threshold) {
@@ -26,13 +40,15 @@ function canisterCap(size) {
  * - Canister 용량 초과(무게 >= 사이즈 기준)
  * 각 경고는 안정적인 key를 가진다.
  */
-function computeWarnings({ items, raws, subs, canisters, threshold }) {
+function computeWarnings({ items, raws, subs, canisters, threshold, canisterMax }) {
   const out = [];
+  const maxMap = canisterMax || CANISTER_CAP;
 
   const buildSafety = (cat, masters, rows, getName, getQty, label) => {
     for (const m of masters) {
       const total = rows.filter((r) => getName(r) === m.name).reduce((s, r) => s + (num(getQty(r)) || 0), 0);
-      const st = safetyStatus(total, m.safetyStock, threshold);
+      const itemThreshold = (m.warningPct && num(m.warningPct) > 0) ? num(m.warningPct) : threshold;
+      const st = safetyStatus(total, m.safetyStock, itemThreshold);
       if (st.below) {
         out.push({
           key: `safety:${cat}:${m.name}`,
@@ -46,19 +62,40 @@ function computeWarnings({ items, raws, subs, canisters, threshold }) {
   buildSafety('raw', items.filter((i) => i.category === 'raw'), raws, (r) => r.itemName, (r) => r.quantity, '원재료');
   buildSafety('sub', items.filter((i) => i.category === 'sub'), subs, (r) => r.name, (r) => r.weight, '부재료');
 
+  // 유해화학물질 보관가능수량 초과 경고
+  const hazItems = items.filter((i) => i.hazardous === '1' && i.hazardousMaxQty && Number(i.hazardousMaxQty) > 0);
+  for (const m of hazItems) {
+    const maxQty = num(m.hazardousMaxQty);
+    const warnPct = (m.hazardousWarnPct && num(m.hazardousWarnPct) > 0) ? num(m.hazardousWarnPct) : 80;
+    const total = [
+      ...raws.filter((r) => r.itemName === m.name).map((r) => num(r.quantity) || 0),
+      ...subs.filter((s) => s.name === m.name).map((s) => num(s.weight) || 0),
+    ].reduce((a, b) => a + b, 0);
+    const pct = Math.round((total / maxQty) * 100);
+    if (pct >= warnPct) {
+      out.push({
+        key: `hazardous:${m.name}`,
+        kind: 'hazardous',
+        level: pct >= 100 ? 'danger' : 'warn',
+        content: `유해화학물질 '${m.name}' 보관량 초과 위험 — 현재 ${total.toLocaleString()}${m.unit} / 보관가능 ${maxQty.toLocaleString()}${m.unit} (${pct}%)`,
+      });
+    }
+  }
+
   for (const c of canisters) {
-    const cap = canisterCap(c.size);
+    const max = maxMap[c.size];
     const w = num(c.weight) || 0;
-    if (cap != null && w >= cap) {
+    if (max != null && max > 0 && w >= max * CANISTER_WARN_RATIO) {
+      const pct = Math.round((w / max) * 100);
       out.push({
         key: `canister:${c.id}`,
         kind: 'canister',
-        level: 'warn',
-        content: `Canister ${c.canisterNo}(${c.size}) 용량 초과 — 무게 ${w.toLocaleString()} (기준 ${cap} 이상). 수불 필요`,
+        level: w >= max ? 'danger' : 'warn',
+        content: `Canister ${c.canisterNo}(${c.size}) 사용가능량 임박 — 무게 ${w.toLocaleString()}kg / 최대 ${max.toLocaleString()}kg (${pct}%). 수불 필요`,
       });
     }
   }
   return out;
 }
 
-module.exports = { computeWarnings, safetyStatus, canisterCap, CANISTER_CAP };
+module.exports = { computeWarnings, safetyStatus, canisterCap, CANISTER_CAP, parseSizeMaxKg, CANISTER_WARN_RATIO };

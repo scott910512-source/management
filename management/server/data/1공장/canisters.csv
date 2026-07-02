@@ -1,0 +1,4 @@
+﻿id,canisterNo,size,sizeEtc,location,locationEtc,status,statusEtc,content,weight,unit,note,createdBy,createdAt,updatedBy,updatedAt
+cn_0001,CN-001,200L,,2공장현장,,사용중,,톨루엔,180,,,admin,2026-06-01T00:00:00.000Z,admin,2026-06-01T00:00:00.000Z
+cn_0002,CN-002,50L,,3류창고,,세정의뢰,,,0,,비어있음,admin,2026-06-01T00:00:00.000Z,admin,2026-06-01T00:00:00.000Z
+cn_0003,CN-003,5gal,,4류창고,,수령,,황산,15,,,admin,2026-06-01T00:00:00.000Z,admin,2026-06-01T00:00:00.000Z

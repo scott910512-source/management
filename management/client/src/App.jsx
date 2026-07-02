@@ -1,9 +1,12 @@
-import { Routes, Route, Navigate, NavLink, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Routes, Route, Navigate, NavLink, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from './auth/AuthContext';
 import { Loading } from './components/ui';
 import { Icon } from './components/icons';
+import { api } from './api';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
+import Hub from './pages/Hub';
 import Dashboard from './pages/Dashboard';
 import RawMaterials from './pages/RawMaterials';
 import SubMaterials from './pages/SubMaterials';
@@ -16,31 +19,97 @@ import Admin from './pages/Admin';
 import Items from './pages/Items';
 import Search from './pages/Search';
 import Manual from './pages/Manual';
+import Hazardous from './pages/Hazardous';
+import Suggestions from './pages/Suggestions';
+import Reports from './pages/Reports';
+import BatchBulk from './pages/BatchBulk';
+import ProdSearch from './pages/production/ProdSearch';
+import ProdDashboard from './pages/production/ProdDashboard';
+import ProdManufacturing from './pages/production/ProdManufacturing';
+import ProdSettings from './pages/production/ProdSettings';
+import ProdCellMap from './pages/production/ProdCellMap';
+import ProdCompare from './pages/production/ProdCompare';
+import ProdAlerts from './pages/production/ProdAlerts';
 
-const NAV = [
-  { to: '/', label: '종합현황', ico: 'grid', end: true },
-  { to: '/search', label: 'AI 검색', ico: 'search' },
-  { section: '재고 관리' },
-  { to: '/raw', label: '원재료', ico: 'canister' },
-  { to: '/sub', label: '부재료', ico: 'drum' },
-  { to: '/canisters', label: 'Canister', ico: 'star' },
-  { section: '내역 · 업무' },
-  { to: '/transactions', label: '수불 이력', ico: 'swap' },
-  { to: '/anomalies', label: '이상발생 목록', ico: 'alert' },
-  { to: '/tasks', label: 'Task 관리', ico: 'task' },
+// 큰 묶음 단위로 그룹화 — 그룹마다 테두리로 구분
+const NAV_GROUPS = [
+  { items: [
+    { to: '/search', label: 'AI 검색', ico: 'search' },
+    { to: '/', label: '종합현황', ico: 'grid', end: true },
+  ] },
+  { title: '재고 관리', items: [
+    { to: '/raw', label: '원재료', ico: 'canister' },
+    { to: '/sub', label: '부재료', ico: 'drum' },
+    { to: '/canisters', label: 'Canister', ico: 'star' },
+  ] },
+  { title: '내역 · 업무', items: [
+    { to: '/batch-bulk', label: '배치 일괄 처리 · 투입이력', ico: 'task' },
+    { to: '/transactions', label: '수불 이력', ico: 'swap' },
+    { to: '/anomalies', label: '이상발생 목록', ico: 'alert' },
+    { to: '/tasks', label: 'Task 관리', ico: 'task' },
+    { to: '/hazardous', label: '유해화학물질', ico: 'alert' },
+  ] },
+  { title: '설정', adminOnly: true, items: [
+    { to: '/items', label: '기준정보', ico: 'db' },
+    { to: '/reports', label: '월간 보고서', ico: 'grid' },
+    { to: '/admin', label: '관리자 설정', ico: 'shield', badge: 'pending' },
+  ] },
+  { title: '도움말', items: [
+    { to: '/manual', label: '사용자 메뉴얼', ico: 'book' },
+    { to: '/suggestions', label: '건의사항', ico: 'task' },
+  ] },
 ];
+
+function NavItem({ n, pendingCount }) {
+  return (
+    <NavLink to={n.to} end={n.end} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} title={n.label}>
+      <span className="ico"><Icon name={n.ico} /></span>
+      <span className="nav-label">{n.label}</span>
+      {n.badge === 'pending' && pendingCount > 0 && <span className="nav-badge">{pendingCount}</span>}
+    </NavLink>
+  );
+}
 
 function Sidebar() {
   const { user, isAdmin, plants, plant, changePlant, roleLabel } = useAuth();
+  const [pendingCount, setPendingCount] = useState(0);
+  const [mini, setMini] = useState(() => localStorage.getItem('sidebarMini') === '1');
+  useEffect(() => { localStorage.setItem('sidebarMini', mini ? '1' : '0'); }, [mini]);
+  useEffect(() => {
+    if (!isAdmin) return;
+    const fetchPending = () => api.get('/users').then((d) => setPendingCount((d.items || []).filter((u) => u.status === 'pending').length)).catch(() => {});
+    fetchPending();
+    const id = setInterval(fetchPending, 60000);
+    return () => clearInterval(id);
+  }, [isAdmin]);
+
+  const groups = NAV_GROUPS.filter((g) => !g.adminOnly || isAdmin);
+
   return (
-    <aside className="sidebar">
-      <div className="brand">
-        <div className="brand-logo">化</div>
-        <div>
-          <div className="brand-title">수불관리</div>
-          <div className="brand-sub">화학공장 운영관리</div>
+    <aside className={`sidebar ${mini ? 'mini' : ''}`}>
+      <div className="brand-row">
+        <div className="brand">
+          <Link to="/production" className="brand-logo" title="ManagePilot으로 전환" style={{ position: 'relative' }}>
+            <svg viewBox="0 0 34 34" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: '100%', height: '100%' }}>
+              <polygon points="3,14 17,5 31,14" fill="rgba(255,255,255,0.25)" stroke="#fff" strokeWidth="1.8" strokeLinejoin="round" />
+              <rect x="3" y="14" width="28" height="16" rx="1" stroke="#fff" strokeWidth="1.8" />
+              <rect x="13" y="20" width="8" height="10" rx="1" fill="#fff" />
+              <rect x="4" y="18" width="7" height="6" rx="0.5" fill="rgba(255,255,255,0.7)" />
+              <rect x="23" y="18" width="7" height="6" rx="0.5" fill="rgba(255,255,255,0.7)" />
+            </svg>
+            <span className="brand-switch-badge">⇄</span>
+          </Link>
+          <Link to="/" className="brand-text" title="StockPilot 종합현황" style={{ textDecoration: 'none', color: 'inherit' }}>
+            <div className="brand-title">StockPilot</div>
+            <div className="brand-sub">생산/공장 운영관리</div>
+          </Link>
         </div>
+        <button className="sidebar-toggle" onClick={() => setMini((v) => !v)} title={mini ? '메뉴 펼치기' : '메뉴 최소화'} aria-label="메뉴 최소화">
+          {mini ? '»' : '«'}
+        </button>
       </div>
+      <ModuleSwitcher current="StockPilot" />
+
       <div className="plant-pick">
         <span className="plant-label">공장</span>
         {plants && plants.length > 1 ? (
@@ -51,52 +120,42 @@ function Sidebar() {
           <span className="plant-single">{plant || (plants && plants[0]) || '-'}</span>
         )}
       </div>
+
       <nav className="nav">
-        {NAV.map((n, i) =>
-          n.section ? (
-            <div className="nav-section" key={i}>{n.section}</div>
-          ) : (
-            <NavLink key={n.to} to={n.to} end={n.end} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-              <span className="ico"><Icon name={n.ico} /></span>
-              {n.label}
-            </NavLink>
-          ),
-        )}
-        <div className="nav-section">설정</div>
-        {isAdmin && (
-          <NavLink to="/items" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-            <span className="ico"><Icon name="db" /></span>기준정보
-          </NavLink>
-        )}
-        {isAdmin && (
-          <NavLink to="/admin" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-            <span className="ico"><Icon name="shield" /></span>관리자 설정
-          </NavLink>
-        )}
-        <div className="nav-section">도움말</div>
-        <NavLink to="/manual" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-          <span className="ico"><Icon name="book" /></span>사용자 메뉴얼
-        </NavLink>
+        {groups.map((g, i) => (
+          <div className="nav-group" key={i}>
+            {g.title && <div className="nav-section">{g.title}</div>}
+            {g.items.map((n) => <NavItem key={n.to} n={n} pendingCount={pendingCount} />)}
+          </div>
+        ))}
       </nav>
-      <div style={{ marginTop: 24, padding: '0 12px', fontSize: 12, color: 'var(--text-3)' }}>
-        {user?.name} 님<br />· {roleLabel}
-      </div>
+
+      <div className="sidebar-user">{user?.name} 님<span> · {roleLabel}</span></div>
     </aside>
   );
+}
+
+// 이 탭에서 모듈에 진입했음을 표시 — 세션이 남아있어도 "/" 직접 접근 시
+// Hub를 건너뛰지 않도록 RootEntry가 이 값을 확인한다.
+function markEnteredApp() {
+  try { sessionStorage.setItem('mp_entered_app', '1'); } catch { /* ignore */ }
 }
 
 function Shell({ children, title }) {
   const { user, logout, isViewer, plant } = useAuth();
   const navigate = useNavigate();
+  useEffect(() => { markEnteredApp(); }, []);
   return (
     <div className="app-shell">
       <Sidebar />
       <div className="main">
         <div className="topbar">
           <h1>{title}{plant && <span className="topbar-plant">{plant}</span>}</h1>
+          <div className="topbar-slot" id="topbar-slot" />
           <div className="user">
             {isViewer && <span className="badge orange">조회 전용</span>}
             <span>{user?.name} ({user?.id})</span>
+            <button className="btn secondary sm" onClick={() => navigate('/hub')}>🏠 홈</button>
             <button className="btn secondary sm" onClick={async () => { await logout(); navigate('/login'); }}>로그아웃</button>
           </div>
         </div>
@@ -114,16 +173,206 @@ function Protected({ children, title, adminOnly }) {
   return <Shell title={title}>{children}</Shell>;
 }
 
+const PROD_NAV = [
+  { to: '/production/search', label: 'AI 검색', ico: 'search' },
+  { to: '/production', label: '종합현황', ico: 'grid', end: true },
+  { to: '/production/compare', label: '통합뷰', ico: 'grid', superOnly: true },
+  { title: '생산관리', items: [
+    { to: '/production/manufacturing', label: '생산현황', ico: 'task' },
+  ] },
+  { title: '설정', adminOnly: true, items: [
+    { to: '/production/settings', label: '관리자 설정', ico: 'shield' },
+    { to: '/production/cellmap', label: '셀 매핑', ico: 'grid' },
+    { to: '/production/alerts', label: '경고 이력', ico: 'shield' },
+  ] },
+];
+
+const MODULES = [
+  { label: 'ManagePilot', to: '/production', icon: '🏭' },
+  { label: 'StockPilot', to: '/', icon: '📦' },
+];
+
+function ModuleSwitcher({ current }) {
+  const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
+  const cur = MODULES.find((m) => m.label === current) || MODULES[0];
+  return (
+    <div style={{ position: 'relative', margin: '0 10px 6px' }}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          width: '100%', display: 'flex', alignItems: 'center', gap: 6,
+          padding: '5px 10px', borderRadius: 8, border: 'none', cursor: 'pointer',
+          background: 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.9)', fontSize: 12,
+        }}
+      >
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+          <rect x="1" y="1" width="6" height="6" rx="1.2" fill="rgba(255,255,255,0.8)"/>
+          <rect x="9" y="1" width="6" height="6" rx="1.2" fill="rgba(255,255,255,0.8)"/>
+          <rect x="1" y="9" width="6" height="6" rx="1.2" fill="rgba(255,255,255,0.8)"/>
+          <rect x="9" y="9" width="6" height="6" rx="1.2" fill="rgba(255,255,255,0.5)"/>
+        </svg>
+        <span style={{ flex: 1, textAlign: 'left' }}>모듈 전환</span>
+        <span>{open ? '▲' : '▼'}</span>
+      </button>
+      {open && (
+        <div style={{
+          position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 999,
+          background: '#fff', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.18)',
+          marginTop: 4, overflow: 'hidden',
+        }}>
+          {MODULES.map((m) => (
+            <button key={m.label} onClick={() => { setOpen(false); navigate(m.to); }}
+              style={{
+                width: '100%', display: 'flex', alignItems: 'center', gap: 8,
+                padding: '9px 12px', border: 'none', cursor: 'pointer', fontSize: 13,
+                background: m.label === current ? '#f0f4ff' : '#fff',
+                color: m.label === current ? '#0071e3' : '#1d1d1f',
+                fontWeight: m.label === current ? 700 : 400,
+              }}
+            >
+              <span>{m.icon}</span>
+              <span>{m.label}</span>
+              {m.label === current && <span style={{ marginLeft: 'auto', fontSize: 11 }}>현재</span>}
+            </button>
+          ))}
+          <div style={{ borderTop: '1px solid #f0f0f0' }}>
+            <button onClick={() => { setOpen(false); navigate('/hub'); }}
+              style={{
+                width: '100%', display: 'flex', alignItems: 'center', gap: 8,
+                padding: '8px 12px', border: 'none', cursor: 'pointer', fontSize: 12,
+                background: '#fff', color: '#86868b',
+              }}
+            >
+              <span>⊞</span><span>전체 모듈 보기</span>
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProdSidebar() {
+  const { user, plant, roleLabel, isAdmin, isSuper } = useAuth();
+  const [mini, setMini] = useState(() => localStorage.getItem('prodSidebarMini') === '1');
+  useEffect(() => { localStorage.setItem('prodSidebarMini', mini ? '1' : '0'); }, [mini]);
+
+  return (
+    <aside className={`sidebar ${mini ? 'mini' : ''}`}>
+      <div className="brand-row">
+        <div className="brand">
+          <Link to="/" className="brand-logo" title="StockPilot으로 전환" style={{ position: 'relative' }}>
+            <svg viewBox="0 0 34 34" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: '100%', height: '100%' }}>
+              <polygon points="3,14 17,5 31,14" fill="rgba(255,255,255,0.25)" stroke="#fff" strokeWidth="1.8" strokeLinejoin="round" />
+              <rect x="3" y="14" width="28" height="16" rx="1" stroke="#fff" strokeWidth="1.8" />
+              <rect x="13" y="20" width="8" height="10" rx="1" fill="#fff" />
+              <rect x="4" y="18" width="7" height="6" rx="0.5" fill="rgba(255,255,255,0.7)" />
+              <rect x="23" y="18" width="7" height="6" rx="0.5" fill="rgba(255,255,255,0.7)" />
+            </svg>
+            <span className="brand-switch-badge">⇄</span>
+          </Link>
+          <Link to="/production" className="brand-text" title="ManagePilot 종합현황" style={{ textDecoration: 'none', color: 'inherit' }}>
+            <div className="brand-title">ManagePilot</div>
+            <div className="brand-sub">생산/공장 운영관리</div>
+          </Link>
+        </div>
+        <button className="sidebar-toggle" onClick={() => setMini((v) => !v)} title={mini ? '메뉴 펼치기' : '메뉴 최소화'} aria-label="메뉴 최소화">
+          {mini ? '»' : '«'}
+        </button>
+      </div>
+      <ModuleSwitcher current="ManagePilot" />
+
+      <nav className="nav">
+        {PROD_NAV.filter((g) => (!g.adminOnly || isAdmin) && (!g.superOnly || isSuper)).map((n, i) =>
+          n.items ? (
+            <div className="nav-group" key={i}>
+              <div className="nav-section">{n.title}</div>
+              {n.items.map((item) => (
+                <NavLink key={item.to} to={item.to} end={item.end} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} title={item.label}>
+                  <span className="ico"><Icon name={item.ico} /></span>
+                  <span className="nav-label">{item.label}</span>
+                </NavLink>
+              ))}
+            </div>
+          ) : (
+            <div className="nav-group" key={i}>
+              <NavLink to={n.to} end={n.end} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} title={n.label}>
+                <span className="ico"><Icon name={n.ico} /></span>
+                <span className="nav-label">{n.label}</span>
+              </NavLink>
+            </div>
+          )
+        )}
+      </nav>
+
+      <div className="sidebar-user">{user?.name} 님<span> · {roleLabel}</span></div>
+    </aside>
+  );
+}
+
+function ProdShell({ children, title }) {
+  const { user, logout, isViewer } = useAuth();
+  const navigate = useNavigate();
+  useEffect(() => { markEnteredApp(); }, []);
+  return (
+    <div className="app-shell">
+      <ProdSidebar />
+      <div className="main">
+        <div className="topbar">
+          <h1>{title}</h1>
+          <div className="topbar-slot" id="topbar-slot" />
+          <div className="user">
+            {isViewer && <span className="badge orange">조회 전용</span>}
+            <span>{user?.name} ({user?.id})</span>
+            <button className="btn secondary sm" onClick={() => navigate('/hub')}>🏠 홈</button>
+            <button className="btn secondary sm" onClick={async () => { await logout(); navigate('/login'); }}>로그아웃</button>
+          </div>
+        </div>
+        <div className="content">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function ProtectedProd({ children, title }) {
+  const { user, loading } = useAuth();
+  if (loading) return <Loading />;
+  if (!user) return <Navigate to="/login" replace />;
+  return <ProdShell title={title}>{children}</ProdShell>;
+}
+
+function ProtectedHub({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) return <Loading />;
+  if (!user) return <Navigate to="/login" replace />;
+  return children;
+}
+
+// "/" 진입 게이트: 로그인 세션이 남아있어도, 이 브라우저 탭에서 아직
+// 모듈에 들어간 적이 없으면 StockPilot으로 바로 가지 않고 Hub를 먼저 보여준다.
+function RootEntry() {
+  const { user, loading } = useAuth();
+  if (loading) return <Loading />;
+  if (!user) return <Navigate to="/login" replace />;
+  let entered = false;
+  try { entered = sessionStorage.getItem('mp_entered_app') === '1'; } catch { entered = false; }
+  if (!entered) return <Navigate to="/hub" replace />;
+  return <Shell title="종합현황"><Dashboard /></Shell>;
+}
+
 export default function App() {
   const { user, loading } = useAuth();
   if (loading) return <Loading />;
   return (
     <Routes>
-      <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
-      <Route path="/signup" element={user ? <Navigate to="/" replace /> : <Signup />} />
-      <Route path="/" element={<Protected title="종합현황"><Dashboard /></Protected>} />
+      <Route path="/login" element={user ? <Navigate to="/hub" replace /> : <Login />} />
+      <Route path="/signup" element={user ? <Navigate to="/hub" replace /> : <Signup />} />
+      <Route path="/hub" element={<ProtectedHub><Hub /></ProtectedHub>} />
+      <Route path="/" element={<RootEntry />} />
       <Route path="/search" element={<Protected title="AI 검색"><Search /></Protected>} />
       <Route path="/manual" element={<Protected title="사용자 메뉴얼"><Manual /></Protected>} />
+      <Route path="/suggestions" element={<Protected title="건의사항"><Suggestions /></Protected>} />
       <Route path="/raw" element={<Protected title="원재료 관리"><RawMaterials /></Protected>} />
       <Route path="/sub" element={<Protected title="부재료 관리"><SubMaterials /></Protected>} />
       <Route path="/canisters" element={<Protected title="Canister 관리"><Canisters /></Protected>} />
@@ -131,10 +380,21 @@ export default function App() {
       <Route path="/transactions" element={<Protected title="수불 이력"><Transactions /></Protected>} />
       <Route path="/anomalies" element={<Protected title="이상발생 목록"><Anomalies /></Protected>} />
       <Route path="/tasks" element={<Protected title="Task 관리"><Tasks /></Protected>} />
+      <Route path="/hazardous" element={<Protected title="유해화학물질 관리대장"><Hazardous /></Protected>} />
+      <Route path="/input-history" element={<Navigate to="/batch-bulk" replace />} />
+      <Route path="/batch-bulk" element={<Protected title="배치 일괄 처리 · 투입이력"><BatchBulk /></Protected>} />
+      <Route path="/reports" element={<Protected title="월간 보고서" adminOnly><Reports /></Protected>} />
       <Route path="/items" element={<Protected title="기준정보 (품목·안전재고)" adminOnly><Items /></Protected>} />
       <Route path="/admin" element={<Protected title="관리자 설정" adminOnly><Admin /></Protected>} />
       <Route path="/settings" element={<Navigate to="/admin" replace />} />
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="/production" element={<ProtectedProd title="종합현황"><ProdDashboard /></ProtectedProd>} />
+      <Route path="/production/search" element={<ProtectedProd title="AI 검색"><ProdSearch /></ProtectedProd>} />
+      <Route path="/production/manufacturing" element={<ProtectedProd title="생산현황"><ProdManufacturing /></ProtectedProd>} />
+      <Route path="/production/settings" element={<ProtectedProd title="관리자 설정"><ProdSettings /></ProtectedProd>} />
+      <Route path="/production/cellmap" element={<ProtectedProd title="셀 매핑"><ProdCellMap /></ProtectedProd>} />
+      <Route path="/production/compare" element={<ProtectedProd title="통합뷰"><ProdCompare /></ProtectedProd>} />
+      <Route path="/production/alerts" element={<ProtectedProd title="경고 이력"><ProdAlerts /></ProtectedProd>} />
+      <Route path="*" element={<Navigate to="/hub" replace />} />
     </Routes>
   );
 }

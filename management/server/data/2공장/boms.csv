@@ -1,0 +1,4 @@
+﻿id,product,category,materialName,qtyPerBatch,createdBy,createdAt,updatedBy,updatedAt
+bm_13e676c5dd84,A제품,raw,톨루엔,30,admin,2026-06-28T12:05:07.330Z,admin,2026-06-28T12:05:07.334Z
+bm_75cb6f910d47,A제품,raw,촉매펠릿,4,admin,2026-06-28T12:05:07.332Z,admin,2026-06-28T12:05:07.332Z
+bm_3cdff15d7d89,A제품,raw,아세톤,12,admin,2026-06-28T12:21:49.256Z,admin,2026-06-28T12:21:49.256Z
