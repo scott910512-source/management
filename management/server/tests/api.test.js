@@ -35,8 +35,8 @@ describe('인증/품목', () => {
     await request(app).get('/api/raw-materials').expect(401);
   });
   test('관리자 품목 등록 / 사용자 불가', async () => {
-    await admin.post('/api/items').send({ category: 'raw', name: '아세톤', unit: 'L', safetyStock: 100, vendor: 'A상사' }).expect(201);
-    await user.post('/api/items').send({ category: 'raw', name: '메탄올', unit: 'L' }).expect(403);
+    await admin.post('/api/items').send({ category: 'raw', name: '아세톤', unit: 'L', safetyStock: 100, vendor: 'A상사', itemGroup: 'A상사' }).expect(201);
+    await user.post('/api/items').send({ category: 'raw', name: '메탄올', unit: 'L', itemGroup: 'A상사' }).expect(403);
   });
 });
 
@@ -182,7 +182,7 @@ describe('멀티 공장(1·2공장) 격리/권한', () => {
     await admin1.post('/api/auth/login').send({ id: 'admin1', password: 'admin1234' }).expect(200);
   });
   test('2공장에 등록한 품목은 1공장에서 보이지 않는다', async () => {
-    await admin.post('/api/items').set('X-Plant', encodeURIComponent('2공장')).send({ category: 'raw', name: '격리테스트', unit: 'kg', safetyStock: 1 }).expect(201);
+    await admin.post('/api/items').set('X-Plant', encodeURIComponent('2공장')).send({ category: 'raw', name: '격리테스트', unit: 'kg', safetyStock: 1, itemGroup: '테스트그룹' }).expect(201);
     const p2 = await admin.get('/api/items?category=raw').set('X-Plant', encodeURIComponent('2공장')).expect(200);
     const p1 = await admin.get('/api/items?category=raw').set('X-Plant', encodeURIComponent('1공장')).expect(200);
     expect(p2.body.items.some((i) => i.name === '격리테스트')).toBe(true);

@@ -97,7 +97,8 @@ function plantRows() {
     raw_materials: [
       { id: 'rm_0001', itemName: '톨루엔', lotNo: 'T-2026-001', quantity: '800', unit: 'kg', vendor: '(주)한솔케미칼', receivedDate: '2026-06-01', note: '', createdBy: 'admin', createdAt: T, updatedBy: 'admin', updatedAt: T },
       { id: 'rm_0002', itemName: '톨루엔', lotNo: 'T-2026-002', quantity: '400', unit: 'kg', vendor: '대정화학', receivedDate: '2026-06-15', note: '동일 품목 다른 Lot', createdBy: 'admin', createdAt: T, updatedBy: 'admin', updatedAt: T },
-      { id: 'rm_0003', itemName: '촉매펠릿', lotNo: 'C-2026-001', quantity: '300', unit: 'ea', vendor: '동성하이켐', receivedDate: '2026-06-10', note: '', createdBy: 'admin', createdAt: T, updatedBy: 'admin', updatedAt: T },
+      // 안전재고(400) 미달 예시: 이력 잔량(220) + 현재 Lot(150) = 370 < 400
+      { id: 'rm_0003', itemName: '촉매펠릿', lotNo: 'C-2026-001', quantity: '150', unit: 'ea', vendor: '동성하이켐', receivedDate: '2026-06-10', note: '', createdBy: 'admin', createdAt: T, updatedBy: 'admin', updatedAt: T },
       ...rmHistory,
     ],
     sub_materials: [
