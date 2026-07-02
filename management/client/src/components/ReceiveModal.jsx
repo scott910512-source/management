@@ -33,6 +33,7 @@ export function ReceiveModal({ base, onClose, onSaved, onError }) {
 
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(null);
+  const [fifo, setFifo] = useState(null); // { data, list, resumeIndex, success, failed } — 입고 순서 확인 대기 중
 
   function handleItemChange(name, m) {
     setItemName(name);
@@ -90,6 +91,45 @@ export function ReceiveModal({ base, onClose, onSaved, onError }) {
     setShowBulk(false);
   }
 
+  function buildPayload(r) {
+    const qNum = Number(r.qty);
+    return isSub
+      ? { name: itemName.trim(), lotNo: r.lotNo.trim(), unit: r.unit, vendor: r.vendor, receivedDate, note: r.note, weight: qNum, initialWeight: qNum }
+      : { itemName: itemName.trim(), lotNo: r.lotNo.trim(), unit: r.unit, vendor: r.vendor, receivedDate, note: r.note, quantity: qNum };
+  }
+
+  // Lot을 순서대로 등록. 입고 순서(Lot 번호) 위반(409)이 뜨면 멈추고 확인창을 띄운 뒤,
+  // 사용자가 "그대로 입고"를 눌러야 그 Lot부터 이어서 진행한다(자동으로 넘어가지 않음).
+  async function runQueue(list, startIndex, successInit, failedInit, forceFirst) {
+    setBusy(true);
+    let success = successInit;
+    const failed = [...failedInit];
+    for (let i = startIndex; i < list.length; i++) {
+      const r = list[i];
+      const payload = buildPayload(r);
+      if (i === startIndex && forceFirst) payload.force = true;
+      try {
+        await api.post(`/${base}`, payload);
+        success++;
+      } catch (e) {
+        if (e.status === 409 && e.data && e.data.fifoWarning) {
+          setBusy(false);
+          setProgress(null);
+          setFifo({ data: e.data, list, resumeIndex: i, success, failed });
+          return;
+        }
+        failed.push(`${r.lotNo}: ${e.message}`);
+      }
+      setProgress({ done: i + 1, total: list.length });
+    }
+    setBusy(false);
+    setProgress(null);
+    setFifo(null);
+    if (failed.length === 0) onSaved(`${success}개 Lot 입고 등록 완료 (${itemName})`);
+    else if (failed.length < list.length) onSaved(`${success}개 완료, ${failed.length}개 실패:\n${failed.join('\n')}`);
+    else onError(`전체 실패:\n${failed.join('\n')}`);
+  }
+
   // 제출
   async function submit() {
     if (isDemo) return onError('데모 계정은 데이터를 변경할 수 없습니다.');
@@ -97,37 +137,33 @@ export function ReceiveModal({ base, onClose, onSaved, onError }) {
     if (!receivedDate) return onError('입고일을 입력하세요.');
     const valid = rows.filter((r) => r.lotNo.trim() && Number(r.qty) > 0);
     if (valid.length === 0) return onError('Lot No와 수량을 입력하세요.');
+    runQueue(valid, 0, 0, [], false);
+  }
 
-    setBusy(true);
-    setProgress({ done: 0, total: valid.length });
-    const failed = [];
+  // 확인창에서 "그대로 입고" — 걸린 Lot부터 강제로 이어서 진행
+  function fifoForce() {
+    const { list, resumeIndex, success, failed } = fifo;
+    setFifo(null);
+    runQueue(list, resumeIndex, success, failed, true);
+  }
 
-    for (let i = 0; i < valid.length; i++) {
-      const r = valid[i];
-      const qNum = Number(r.qty);
-      try {
-        const payload = isSub
-          ? { name: itemName.trim(), lotNo: r.lotNo.trim(), unit: r.unit, vendor: r.vendor, receivedDate, note: r.note, weight: qNum, initialWeight: qNum }
-          : { itemName: itemName.trim(), lotNo: r.lotNo.trim(), unit: r.unit, vendor: r.vendor, receivedDate, note: r.note, quantity: qNum };
-        await api.post(`/${base}`, payload);
-        setProgress({ done: i + 1, total: valid.length });
-      } catch (e) {
-        failed.push(`${r.lotNo}: ${e.message}`);
-      }
-    }
-
-    setBusy(false);
-    setProgress(null);
-    if (failed.length === 0) onSaved(`${valid.length}개 Lot 입고 등록 완료 (${itemName})`);
-    else if (failed.length < valid.length) onSaved(`${valid.length - failed.length}개 완료, ${failed.length}개 실패:\n${failed.join('\n')}`);
-    else onError(`전체 실패:\n${failed.join('\n')}`);
+  // 확인창에서 "취소" — 남은 Lot은 등록하지 않고 여기서 중단
+  function fifoStop() {
+    const { list, resumeIndex, success, failed } = fifo;
+    setFifo(null);
+    const remaining = list.length - resumeIndex;
+    const msg = `${success}개 완료, ${failed.length}개 실패, ${remaining}개는 등록하지 않고 중단했습니다.`;
+    if (failed.length === 0 && success === 0) onError('등록을 취소했습니다.');
+    else if (failed.length > 0) onSaved(`${msg}\n${failed.join('\n')}`);
+    else onSaved(msg);
   }
 
   const validCount = rows.filter((r) => r.lotNo.trim() && Number(r.qty) > 0).length;
   const totalQty = rows.filter((r) => r.lotNo.trim() && Number(r.qty) > 0).reduce((s, r) => s + Number(r.qty), 0);
-  const canSubmit = !busy && !!itemName.trim() && !!receivedDate && validCount > 0;
+  const canSubmit = !busy && !fifo && !!itemName.trim() && !!receivedDate && validCount > 0;
 
   return (
+    <>
     <Modal
       title={isSub ? '부재료 입고' : '원재료 입고'}
       size="lg"
@@ -275,5 +311,25 @@ export function ReceiveModal({ base, onClose, onSaved, onError }) {
         </div>
       )}
     </Modal>
+
+    {fifo && (
+      <Modal
+        title="⚠ 입고 순서 확인"
+        onClose={fifoStop}
+        footer={<>
+          <button className="btn secondary" onClick={fifoStop}>취소(여기서 중단)</button>
+          <button className="btn danger" onClick={fifoForce}>그대로 입고</button>
+        </>}
+      >
+        <p style={{ margin: 0, color: 'var(--text-2)' }}>
+          Lot <b>{fifo.list[fifo.resumeIndex]?.lotNo}</b> — {fifo.data.message}<br />
+          기존 Lot: <b>{fifo.data.later?.lotNo}</b> (입고 {fifo.data.later?.receivedDate})
+          <br /><br />
+          그대로 입고 시 <b>이상발생 목록에 자동 기록</b>됩니다. 계속하시겠습니까?
+          {fifo.success > 0 && <><br /><br />(현재까지 {fifo.success}개 완료)</>}
+        </p>
+      </Modal>
+    )}
+    </>
   );
 }
