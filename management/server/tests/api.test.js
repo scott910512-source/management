@@ -60,21 +60,61 @@ describe('원재료 필수값/완료숨김', () => {
   });
 });
 
-describe('선입선출(FIFO) 경고/이상발생', () => {
-  let lateId;
+// 선입선출(FIFO) 검증은 seed 데이터(과거 이력 Lot 등)와 무관하게 동작해야 하므로,
+// 매 테스트마다 격리된 전용 품목명으로 Lot을 새로 생성해 검사한다.
+describe('선입선출(FIFO) 경고/이상발생 — 원재료', () => {
+  let earlyId, lateId;
   beforeAll(async () => {
-    const list = await admin.get('/api/raw-materials?all=1').expect(200);
-    lateId = list.body.items.find((r) => r.lotNo === 'T-2026-002').id; // 06-15 (더 늦은 Lot)
+    const early = await admin.post('/api/raw-materials')
+      .send({ itemName: '자일렌', lotNo: 'XY-EARLY', quantity: 100, unit: 'kg', receivedDate: '2026-01-01' }).expect(201);
+    earlyId = early.body.item.id;
+    const late = await admin.post('/api/raw-materials')
+      .send({ itemName: '자일렌', lotNo: 'XY-LATE', quantity: 100, unit: 'kg', receivedDate: '2026-06-01' }).expect(201);
+    lateId = late.body.item.id;
   });
-  test('더 빠른 Lot 존재 시 출고는 409 경고', async () => {
+  test('더 오래된 Lot(재고 有) 존재 시, 늦은 Lot 출고는 409 경고', async () => {
     const res = await admin.post(`/api/raw-materials/${lateId}/transaction`).send({ type: '출고', quantity: 10 }).expect(409);
     expect(res.body.fifoWarning).toBe(true);
-    expect(res.body.earliest.lotNo).toBe('T-2026-001');
+    expect(res.body.earliest.lotNo).toBe('XY-EARLY');
+  });
+  test('가장 오래된 Lot부터 출고하면 경고 없이 처리된다', async () => {
+    await admin.post(`/api/raw-materials/${earlyId}/transaction`).send({ type: '출고', quantity: 10 }).expect(201);
   });
   test('force=true 강제사용 시 처리 + 이상발생 기록', async () => {
     await admin.post(`/api/raw-materials/${lateId}/transaction`).send({ type: '출고', quantity: 10, force: true }).expect(201);
     const an = await admin.get('/api/anomalies').expect(200);
-    expect(an.body.items.some((a) => a.type === '선입선출 오류' && a.itemName === '톨루엔')).toBe(true);
+    expect(an.body.items.some((a) => a.type === '선입선출 오류' && a.itemName === '자일렌')).toBe(true);
+  });
+  test('가장 오래된 Lot 재고가 소진되면(0), 다음으로 오래된 Lot 기준으로 재판정된다', async () => {
+    // earlyId 잔량: 100 - 10 = 90. 완전히 소진시켜 0으로 만든다.
+    await admin.post(`/api/raw-materials/${earlyId}/transaction`).send({ type: '출고', quantity: 90 }).expect(201);
+    // 이제 자일렌 중 재고가 남은 Lot은 lateId 뿐이므로, 정상 출고되어야 한다.
+    await admin.post(`/api/raw-materials/${lateId}/transaction`).send({ type: '출고', quantity: 5 }).expect(201);
+  });
+});
+
+describe('선입선출(FIFO) 경고/이상발생 — 부재료', () => {
+  let earlyId, lateId;
+  beforeAll(async () => {
+    const early = await admin.post('/api/sub-materials')
+      .send({ name: '테스트패드', lotNo: 'PD-EARLY', weight: 50, unit: 'kg', receivedDate: '2026-01-01' }).expect(201);
+    earlyId = early.body.item.id;
+    const late = await admin.post('/api/sub-materials')
+      .send({ name: '테스트패드', lotNo: 'PD-LATE', weight: 50, unit: 'kg', receivedDate: '2026-06-01' }).expect(201);
+    lateId = late.body.item.id;
+  });
+  test('더 오래된 Lot(재고 有) 존재 시, 늦은 Lot 출고는 409 경고', async () => {
+    const res = await admin.post(`/api/sub-materials/${lateId}/transaction`).send({ type: '출고', quantity: 5 }).expect(409);
+    expect(res.body.fifoWarning).toBe(true);
+    expect(res.body.earliest.lotNo).toBe('PD-EARLY');
+  });
+  test('가장 오래된 Lot부터 출고하면 경고 없이 처리된다', async () => {
+    await admin.post(`/api/sub-materials/${earlyId}/transaction`).send({ type: '출고', quantity: 5 }).expect(201);
+  });
+  test('force=true 강제사용 시 처리 + 이상발생 기록', async () => {
+    await admin.post(`/api/sub-materials/${lateId}/transaction`).send({ type: '출고', quantity: 5, force: true }).expect(201);
+    const an = await admin.get('/api/anomalies').expect(200);
+    expect(an.body.items.some((a) => a.type === '선입선출 오류' && a.itemName === '테스트패드')).toBe(true);
   });
 });
 

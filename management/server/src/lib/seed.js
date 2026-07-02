@@ -56,7 +56,7 @@ function plantRows() {
     const dateOut = `${d.month}-20`;
     const tsIn = `${dateIn}T00:00:00.000Z`;
     const tsOut = `${dateOut}T00:00:00.000Z`;
-    rmHistory.push({ id: d.rmNo, itemName: d.itemName, lotNo: d.lotNo, quantity: String(d.inQty), unit: d.itemName === '황산' ? 'L' : d.itemName === '촉매펠릿' ? 'ea' : 'kg', vendor: '(주)한솔케미칼', receivedDate: dateIn, note: '이력 데이터', createdBy: 'admin', createdAt: tsIn, updatedBy: 'admin', updatedAt: tsIn });
+    rmHistory.push({ id: d.rmNo, itemName: d.itemName, lotNo: d.lotNo, quantity: String(d.inQty - d.outQty), unit: d.itemName === '황산' ? 'L' : d.itemName === '촉매펠릿' ? 'ea' : 'kg', vendor: '(주)한솔케미칼', receivedDate: dateIn, note: '이력 데이터', createdBy: 'admin', createdAt: tsIn, updatedBy: 'admin', updatedAt: tsIn });
     txHistory.push({ id: `tx_h${String(txId++).padStart(3,'0')}`, materialType: 'raw', materialId: d.rmNo, materialName: d.itemName, lotNo: d.lotNo, content: '', type: '입고', quantity: String(d.inQty), unit: d.itemName === '황산' ? 'L' : d.itemName === '촉매펠릿' ? 'ea' : 'kg', balanceAfter: String(d.inQty), note: '이력 데이터', createdBy: 'admin', createdAt: tsIn });
     txHistory.push({ id: `tx_h${String(txId++).padStart(3,'0')}`, materialType: 'raw', materialId: d.rmNo, materialName: d.itemName, lotNo: d.lotNo, content: '', type: '출고', quantity: String(d.outQty), unit: d.itemName === '황산' ? 'L' : d.itemName === '촉매펠릿' ? 'ea' : 'kg', balanceAfter: String(d.inQty - d.outQty), note: '이력 데이터', createdBy: 'admin', createdAt: tsOut });
   }
