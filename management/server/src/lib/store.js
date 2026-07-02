@@ -43,10 +43,12 @@ const TABLES = {
   login_logs: ['id', 'userId', 'userName', 'ip', 'result', 'note', 'createdAt'],
   // 생산 경고 이력 — 전역. 수율 미달·재고 부족을 일자별로 1회 기록
   prod_alerts: ['id', 'plant', 'date', 'product', 'type', 'level', 'detail', 'createdAt'],
+  // 공장 활성/비활성 상태 — 전역. 모든 모듈(StockPilot/ManagePilot)에 공통 적용
+  plant_status: ['plant', 'enabled', 'updatedBy', 'updatedAt'],
 };
 
 // 전역(공장 공통) 테이블 — 공장 하위 폴더가 아닌 DATA_DIR 루트에 저장
-const GLOBAL = new Set(['users', 'login_logs', 'prod_alerts']);
+const GLOBAL = new Set(['users', 'login_logs', 'prod_alerts', 'plant_status']);
 
 function headersOf(name) {
   const h = TABLES[name];

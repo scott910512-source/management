@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { api } from '../api';
 import { useAuth } from '../auth/AuthContext';
 import { Loading, Empty, Badge, useToast, ConfirmDialog, Select, Field, TextInput, Modal } from '../components/ui';
+import PlantManagement from '../components/PlantManagement';
 
 const statusBadge = { pending: { c: 'orange', t: '승인대기' }, approved: { c: 'green', t: '승인됨' }, rejected: { c: 'red', t: '거절/금지' } };
 
@@ -41,6 +42,7 @@ export default function Admin() {
         <div className="desc">가입 승인·권한 관리와 안전재고 경고 비율을 설정합니다.</div>
       </div>
 
+      <PlantManagement />
       <ProductionFileCard toast={toast} />
       <SafetyRatioCard toast={toast} />
       <StockCheckCard />
@@ -242,8 +244,10 @@ function PlantFileSettings({ plant, toast }) {
 }
 
 function ProductionFileCard({ toast }) {
-  const { isSuper } = useAuth();
-  const [activePlant, setActivePlant] = useState('2공장');
+  const { isSuper, plants: allowedPlants } = useAuth();
+  // 비활성화된 공장은 자동 제외됨 (allowedPlants = useAuth().plants)
+  const plants = (allowedPlants || []).filter((p) => p !== 'demo');
+  const [activePlant, setActivePlant] = useState(plants[0] || '2공장');
 
   return (
     <div className="card card-pad" style={{ marginBottom: 16, maxWidth: 680 }}>
@@ -254,15 +258,15 @@ function ProductionFileCard({ toast }) {
       {isSuper ? (
         <>
           <div className="btn-row" style={{ marginBottom: 4 }}>
-            {['1공장', '2공장'].map((p) => (
+            {plants.map((p) => (
               <button key={p} className={`btn sm${activePlant === p ? '' : ' ghost'}`}
                 onClick={() => setActivePlant(p)}>{p}</button>
             ))}
           </div>
-          <PlantFileSettings key={activePlant} plant={activePlant} toast={toast} />
+          {activePlant && <PlantFileSettings key={activePlant} plant={activePlant} toast={toast} />}
         </>
       ) : (
-        <PlantFileSettings plant="2공장" toast={toast} />
+        plants[0] && <PlantFileSettings plant={plants[0]} toast={toast} />
       )}
     </div>
   );

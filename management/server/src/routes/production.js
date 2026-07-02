@@ -9,6 +9,7 @@ const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { readTable, mutate } = require('../lib/store');
 const { parseCsvGrid } = require('../lib/csv');
 const { newId, now } = require('../lib/ids');
+const { getDisabledPlants } = require('../lib/plantStatus');
 
 const router = express.Router();
 
@@ -218,6 +219,16 @@ function dNum(v) {
   return Number.isFinite(n) ? n : null;
 }
 function dPct(v) { const n = dNum(v); return n == null ? null : Math.round(n * 1000) / 10; } // 0.88→88.0
+
+// 값 검증: 음수(전반) / 수율 150% 초과는 오류로 간주해 null 처리.
+// 엑셀 #DIV/0! 등 오류값은 COM에서 거대한 음수(예: -2146826281)로 넘어오므로
+// "음수는 오류" 규칙만으로 자연스럽게 함께 걸러진다.
+// 반환: 유효하면 원값, 오류면 null (+ errOut 배열에 필드명 기록)
+function checkValid(n, field, errOut, max) {
+  if (n == null) return null;
+  if (n < 0 || (max != null && n > max)) { if (errOut) errOut.push(field); return null; }
+  return n;
+}
 function dFindRow(grid, col, label) {
   const want = dNorm(label);
   for (let r = 0; r < grid.length; r++) if (dNorm(dCell(grid, r, col)) === want) return r;
@@ -265,32 +276,36 @@ function parseDailyCsv(text, cellMapStr) {
       return dNum(g(pr, col));
     };
 
+    const err = []; // 오류로 판정된 필드명 목록 (음수, 수율 150% 초과 등)
+    const invErr = [];
     byProduct[p] = {
       color: CARD_COLORS[p] || FALLBACK_COLORS[pi % FALLBACK_COLORS.length],
-      todayQty: dNum(g(pr, idx.today)),
+      todayQty: checkValid(dNum(g(pr, idx.today)), 'todayQty', err),
       prevDayQty: null,
-      monthPlan: dNum(g(pr, idx.mPlan)),
-      monthActual: dNum(g(pr, idx.mAct)),
-      monthRate: dPct(g(pr, idx.mRate)),
-      yearPlan: dNum(g(pr, idx.yPlan)),
-      yearActual: dNum(g(pr, idx.yAct)),
-      yearRate: dPct(g(pr, idx.yRate)),
-      yield: dPct(g(yr, idx.mAct)),
-      yieldTarget: dPct(g(yr, idx.mPlan)),
+      monthPlan: checkValid(dNum(g(pr, idx.mPlan)), 'monthPlan', err),
+      monthActual: checkValid(dNum(g(pr, idx.mAct)), 'monthActual', err),
+      monthRate: checkValid(dPct(g(pr, idx.mRate)), 'monthRate', err, 150),
+      yearPlan: checkValid(dNum(g(pr, idx.yPlan)), 'yearPlan', err),
+      yearActual: checkValid(dNum(g(pr, idx.yAct)), 'yearActual', err),
+      yearRate: checkValid(dPct(g(pr, idx.yRate)), 'yearRate', err, 150),
+      yield: checkValid(dPct(g(yr, idx.mAct)), 'yield', err, 150),
+      yieldTarget: checkValid(dPct(g(yr, idx.mPlan)), 'yieldTarget', err, 150),
       yieldPrev: null,
-      yearYield: dPct(g(yr, idx.yAct)),
-      yearYieldTarget: dPct(g(yr, idx.yPlan)),
+      yearYield: checkValid(dPct(g(yr, idx.yAct)), 'yearYield', err, 150),
+      yearYieldTarget: checkValid(dPct(g(yr, idx.yPlan)), 'yearYieldTarget', err, 150),
       monthBatch: null,
       yearBatch: null,
       inventory: {
-        carryOver: invVal(ov.carryOver, idx.invCarry),
-        filled: invVal(ov.filled, idx.invFilled),
-        shipped: invVal(ov.shipped, idx.invShipped),
-        total: invVal(ov.total, idx.invTotal),
+        carryOver: checkValid(invVal(ov.carryOver, idx.invCarry), 'carryOver', invErr),
+        filled: checkValid(invVal(ov.filled, idx.invFilled), 'filled', invErr),
+        shipped: checkValid(invVal(ov.shipped, idx.invShipped), 'shipped', invErr),
+        total: checkValid(invVal(ov.total, idx.invTotal), 'total', invErr),
         remainingMonths: null,
+        _errorFields: invErr,
       },
       dailyData: [],
       monthlyData: [],
+      _errorFields: err,
     };
   });
 
@@ -336,10 +351,12 @@ function mergeBatchYield(data, text, cellMapStr, currentMonth) {
       dbg.subtotalRows += 1;
       if (curMonth) {
         for (const p of names) {
+          const monthErr = [];
           out[p][curMonth] = {
-            actual: dNum(dCell(grid, r, colToIdx(prods[p].prod))),
-            yield: dPct(dCell(grid, r, colToIdx(prods[p].yield))),
+            actual: checkValid(dNum(dCell(grid, r, colToIdx(prods[p].prod))), 'actual', monthErr),
+            yield: checkValid(dPct(dCell(grid, r, colToIdx(prods[p].yield))), 'yield', monthErr, 150),
             batchCount: counts[p] || 0,
+            error: monthErr.length > 0,
           };
         }
         if (!dbg.firstSub) {
@@ -368,7 +385,7 @@ function mergeBatchYield(data, text, cellMapStr, currentMonth) {
     const months = out[p];
     data.byProduct[p].monthlyData = Array.from({ length: 12 }, (_, i) => {
       const m = months[i + 1];
-      return m ? { month: i + 1, actual: m.actual ?? 0, plan: null, rate: null, yield: m.yield } : { month: i + 1, actual: 0, plan: 0 };
+      return m ? { month: i + 1, actual: m.actual ?? 0, plan: null, rate: null, yield: m.yield, error: !!m.error } : { month: i + 1, actual: 0, plan: 0 };
     });
     data.byProduct[p].monthBatch = (currentMonth && months[currentMonth]) ? months[currentMonth].batchCount : null;
     data.byProduct[p].yearBatch = Object.values(months).reduce((s, m) => s + (m.batchCount || 0), 0);
@@ -474,6 +491,11 @@ router.get(
       plant = ['1공장', '2공장'].includes(requested) ? requested : '1공장';
     } else {
       plant = user.plantScope || user.plant || '2공장';
+    }
+
+    const disabledPlants = await getDisabledPlants();
+    if (disabledPlants.has(plant)) {
+      return res.status(403).json({ error: `[${plant}] 비활성화된 공장입니다. 관리자에게 문의하세요.` });
     }
 
     const { filePath, invConfig, cellMap, tableCols } = await readProductionSettings(plant);

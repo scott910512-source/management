@@ -3,6 +3,7 @@ import { api } from '../../api';
 import { useAuth } from '../../auth/AuthContext';
 import { Field, TextInput, useToast } from '../../components/ui';
 import { PROD_TABLE_COLS, colLabel } from './ProdDashboard';
+import PlantManagement from '../../components/PlantManagement';
 
 function PlantFileSettings({ plant, toast }) {
   const [path, setPath] = useState('');
@@ -236,7 +237,7 @@ function TableColsConfig({ plant, toast }) {
 }
 
 export default function ProdSettings() {
-  const { isAdmin, isSuper } = useAuth();
+  const { isAdmin, isSuper, plants: allowedPlants } = useAuth();
   const toast = useToast();
 
   if (!isAdmin) {
@@ -247,13 +248,16 @@ export default function ProdSettings() {
     );
   }
 
-  const plants = isSuper ? ['1공장', '2공장'] : ['2공장'];
+  // 비활성화된 공장은 목록에서 자동 제외됨 (allowedPlants = useAuth().plants)
+  const plants = (allowedPlants || []).filter((p) => p !== 'demo');
 
   return (
     <>
       <div className="page-head">
         <div className="desc">ManagePilot — Daily Report 파일 경로 및 연동 설정</div>
       </div>
+
+      <PlantManagement />
 
       <div className="card card-pad" style={{ marginBottom: 16, maxWidth: 680 }}>
         <h3 style={{ marginBottom: 4 }}>🏭 Daily Report 파일 경로 설정</h3>

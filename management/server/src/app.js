@@ -27,6 +27,7 @@ const { router: suggestionRoutes } = require('./routes/suggestions');
 const { router: productRoutes } = require('./routes/products');
 const { router: reportRoutes } = require('./routes/reports');
 const productionRoutes = require('./routes/production');
+const plantsRoutes = require('./routes/plants');
 
 function createApp() {
   const app = express();
@@ -86,6 +87,7 @@ function createApp() {
   app.use('/api/products', productRoutes);
   app.use('/api/reports', reportRoutes);
   app.use('/api/production', productionRoutes);
+  app.use('/api/plants', plantsRoutes);
 
   // 프로덕션: 빌드된 React 정적 파일 서빙 + SPA 폴백
   const clientDist = path.join(__dirname, '..', '..', 'client', 'dist');

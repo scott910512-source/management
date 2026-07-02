@@ -93,13 +93,15 @@ function plantSection(plant, data, mtime) {
   const ws = warnings(data);
   const badge = (r) => (r == null ? '' : r >= 100 ? '<span class="badge" style="background:#34c759">달성</span>' : r >= 85 ? '<span class="badge" style="background:#ff9500">진행</span>' : '<span class="badge" style="background:#ff3b30">미달</span>');
   const ydelta = (a, t) => (a == null ? '–' : `${a.toFixed(1)}% ${t != null ? `<span class="${a >= t ? 'green' : 'red'}">(${a - t >= 0 ? '+' : ''}${(a - t).toFixed(1)}%p)</span>` : ''}`);
+  const ERR = '<span class="red" style="font-weight:700">⚠ 오류</span>'; // 음수·150% 초과·#DIV/0! 등
+  const isErr = (obj, field) => Array.isArray(obj?._errorFields) && obj._errorFields.includes(field);
 
   const achRows = products.map((p) => {
     const d = byProduct[p] || {};
     return `<tr><td class="l"><span class="dot" style="background:${d.color || '#ccc'}"></span><b>${esc(p)}</b>${d.monthBatch != null ? ` <span style="font-size:10px;color:#888">${d.monthBatch}</span>` : ''}</td>`
-      + `<td>${fmt1(d.monthPlan)}</td><td class="b">${fmt1(d.monthActual)}</td>`
-      + `<td><b>${pct1(d.monthRate)}</b> ${badge(d.monthRate)}</td>`
-      + `<td>${pct1(d.yearRate)}</td><td>${ydelta(d.yield, d.yieldTarget)}</td></tr>`;
+      + `<td>${isErr(d, 'monthPlan') ? ERR : fmt1(d.monthPlan)}</td><td class="b">${isErr(d, 'monthActual') ? ERR : fmt1(d.monthActual)}</td>`
+      + `<td>${isErr(d, 'monthRate') ? ERR : `<b>${pct1(d.monthRate)}</b> ${badge(d.monthRate)}`}</td>`
+      + `<td>${isErr(d, 'yearRate') ? ERR : pct1(d.yearRate)}</td><td>${(isErr(d, 'yield') || isErr(d, 'yieldTarget')) ? ERR : ydelta(d.yield, d.yieldTarget)}</td></tr>`;
   }).join('');
   const totA = products.reduce((s, p) => s + (byProduct[p]?.monthActual || 0), 0);
   const totP = products.reduce((s, p) => s + (byProduct[p]?.monthPlan || 0), 0);
@@ -110,7 +112,7 @@ function plantSection(plant, data, mtime) {
     const inv = byProduct[p]?.inventory || {}; const c = byProduct[p]?.color || '#ccc';
     const rm = inv.remainingMonths, smm = inv.safetyMonths != null ? inv.safetyMonths : 2;
     const cls = rm == null ? '' : rm < smm ? 'red' : rm < smm * 1.5 ? 'amber' : 'green';
-    return `<tr><td class="l"><span class="dot" style="background:${c}"></span>${esc(p)}</td><td>${fmtInt(inv.filled)}</td><td>${fmtInt(inv.shipped)}</td><td class="b">${fmtInt(inv.total)}</td><td class="${cls}">${rm == null ? '–' : rm.toFixed(1) + '개월'}</td><td>${smm}개월</td></tr>`;
+    return `<tr><td class="l"><span class="dot" style="background:${c}"></span>${esc(p)}</td><td>${isErr(inv, 'filled') ? ERR : fmtInt(inv.filled)}</td><td>${isErr(inv, 'shipped') ? ERR : fmtInt(inv.shipped)}</td><td class="b">${isErr(inv, 'total') ? ERR : fmtInt(inv.total)}</td><td class="${cls}">${rm == null ? '–' : rm.toFixed(1) + '개월'}</td><td>${smm}개월</td></tr>`;
   }).join('');
 
   return `

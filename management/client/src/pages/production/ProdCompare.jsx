@@ -68,25 +68,26 @@ function PlantColumn({ plant, entry }) {
 }
 
 export default function ProdCompare() {
-  const { isSuper } = useAuth();
+  const { isSuper, plants: allowedPlants } = useAuth();
   const [entries, setEntries] = useState(null);
+  // 비활성화된 공장은 자동 제외됨 (allowedPlants = useAuth().plants)
+  const plants = (allowedPlants || []).filter((p) => p !== 'demo');
 
   useEffect(() => {
-    if (!isSuper) return;
+    if (!isSuper || !plants.length) return;
     (async () => {
       const out = {};
-      for (const pl of ['1공장', '2공장']) {
+      for (const pl of plants) {
         try { const r = await api.get(`/production/data?plant=${encodeURIComponent(pl)}`); out[pl] = { data: r.data }; }
         catch (e) { out[pl] = { error: e.message }; }
       }
       setEntries(out);
     })();
-  }, [isSuper]);
+  }, [isSuper, plants.join(',')]);
 
   if (!isSuper) return <div className="card card-pad" style={{ textAlign: 'center', padding: 40, color: '#86868b' }}>총괄관리자만 접근할 수 있습니다.</div>;
   if (entries == null) return <Loading />;
 
-  const plants = ['1공장', '2공장'];
   const valid = plants.filter((p) => entries[p] && !entries[p].error);
   const combinedActual = valid.reduce((s, p) => s + summarize(entries[p].data).totalMonthActual, 0);
   const combinedWarn = valid.reduce((s, p) => s + summarize(entries[p].data).warn, 0);
@@ -101,7 +102,7 @@ export default function ProdCompare() {
         <div><div style={{ fontSize: 11, color: '#86868b' }}>경고 합계</div><div style={{ fontSize: 22, fontWeight: 800, color: combinedWarn ? '#ff9500' : '#34c759' }}>{combinedWarn}건</div></div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.max(1, plants.length)}, 1fr)`, gap: 12 }}>
         {plants.map((p) => <PlantColumn key={p} plant={p} entry={entries[p]} />)}
       </div>
     </>

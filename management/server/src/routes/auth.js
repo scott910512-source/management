@@ -89,7 +89,7 @@ router.post(
 
     req.session.user = { id: user.id, name: user.name, role: user.role, plant: user.plant, plantScope: user.plantScope };
     await writeLoginLog(id, user.name, ip, 'success', '');
-    res.json({ user: publicUser(user), plants: allowedPlants(user) });
+    res.json({ user: publicUser(user), plants: await allowedPlants(user) });
   }),
 );
 
@@ -121,7 +121,7 @@ router.get(
   '/me',
   requireAuth,
   asyncHandler(async (req, res) => {
-    res.json({ user: req.session.user, plants: allowedPlants(req.session.user) });
+    res.json({ user: req.session.user, plants: await allowedPlants(req.session.user) });
   }),
 );
 

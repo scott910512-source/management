@@ -31,6 +31,11 @@ export function monthLabel(reportDate) {
   return m ? `${parseInt(m[1], 10)}월` : '당월';
 }
 export function colLabel(label, mon) { return String(label).replace('${MON}', mon); }
+// 표시 컬럼 키 → 서버가 검증한 원본 필드명 (오류 판정: 음수 / 수율 150% 초과)
+const FIELD_FOR_COL = { today: 'todayQty', mPlan: 'monthPlan', mAct: 'monthActual', mRate: 'monthRate', cumRate: 'yearRate', yieldM: 'yield', yieldY: 'yearYield' };
+function fieldErr(d, field) { return !!field && Array.isArray(d._errorFields) && d._errorFields.includes(field); }
+// 값이 유효하지 않을 때(음수·#DIV/0! 등) 표에 표시할 오류 배지
+function ErrBadge() { return <span style={{ color: '#ff3b30', fontWeight: 700, fontSize: 12.5 }}>⚠ 오류</span>; }
 function colValue(key, d) {
   switch (key) {
     case 'today': return fmt(d.todayQty);
@@ -45,8 +50,10 @@ function colValue(key, d) {
 }
 
 // 수율 셀: "74.2% (-2.2%p)" 표기, 클릭 시 "목표 78.7% 미달" 노출
-function YieldCell({ actual, target }) {
+// error=true면 (음수·150% 초과·#DIV/0! 등) 값 대신 오류 배지를 표시한다.
+function YieldCell({ actual, target, error }) {
   const [open, setOpen] = useState(false);
+  if (error) return <ErrBadge />;
   if (actual == null) return <span style={{ color: '#c7c7cc' }}>–</span>;
   const delta = target != null ? actual - target : null;
   const ok = delta == null || delta >= 0;
@@ -175,9 +182,11 @@ function MonthlyMatrixModal({ byProduct, products, mode, onClose }) {
   }, [onClose]);
   const cell = (p, m) => {
     const md = byProduct[p]?.monthlyData?.[m - 1];
+    if (md && md.error) return { text: '⚠ 오류', err: true };
     const v = md ? (mode === 'yield' ? md.yield : md.actual) : null;
-    if (v == null || v < 10) return '–';
-    return mode === 'yield' ? `${Number(v).toFixed(1)}%` : Number(v).toLocaleString(undefined, { maximumFractionDigits: 1 });
+    if (v == null || v < 10) return { text: '–', err: false };
+    const text = mode === 'yield' ? `${Number(v).toFixed(1)}%` : Number(v).toLocaleString(undefined, { maximumFractionDigits: 1 });
+    return { text, err: false };
   };
   return (
     <div onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
@@ -203,9 +212,12 @@ function MonthlyMatrixModal({ byProduct, products, mode, onClose }) {
                   <td style={{ position: 'sticky', left: 0, background: '#fff', padding: '7px 10px', fontWeight: 700, borderBottom: '1px solid #f5f5f7', whiteSpace: 'nowrap' }}>
                     <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: byProduct[p]?.color || '#ccc', marginRight: 6 }} />{p}
                   </td>
-                  {Array.from({ length: 12 }, (_, i) => (
-                    <td key={i} style={{ padding: '7px 8px', textAlign: 'right', borderBottom: '1px solid #f5f5f7', color: '#1d1d1f' }}>{cell(p, i + 1)}</td>
-                  ))}
+                  {Array.from({ length: 12 }, (_, i) => {
+                    const c = cell(p, i + 1);
+                    return (
+                      <td key={i} style={{ padding: '7px 8px', textAlign: 'right', borderBottom: '1px solid #f5f5f7', color: c.err ? '#ff3b30' : '#1d1d1f', fontWeight: c.err ? 700 : 400 }}>{c.text}</td>
+                    );
+                  })}
                 </tr>
               ))}
             </tbody>
@@ -597,10 +609,12 @@ function MonthlyExpandModal({ data, onClose }) {
 
 // ── 메인 페이지 ───────────────────────────────────────────────────
 export default function ProdDashboard() {
-  const { isAdmin, user } = useAuth();
+  const { isAdmin, user, plants: allowedPlants } = useAuth();
   const isAll = user?.plantScope === 'all';
+  // 비활성화된 공장은 자동 제외됨 (allowedPlants = useAuth().plants)
+  const managedPlants = (allowedPlants || []).filter((p) => p !== 'demo');
   const toast = useToast();
-  const [plant, setPlant] = useState(isAll ? '1공장' : (user?.plantScope || user?.plant || '2공장'));
+  const [plant, setPlant] = useState(isAll ? (managedPlants[0] || '1공장') : (user?.plantScope || user?.plant || '2공장'));
   const [data, setData] = useState(null);
   const [source, setSource] = useState('');
   const [mtime, setMtime] = useState('');
@@ -725,7 +739,7 @@ export default function ProdDashboard() {
             <button className="btn secondary sm" onClick={async () => {
               try {
                 const got = [];
-                for (const pl of ['1공장', '2공장']) {
+                for (const pl of managedPlants) {
                   try { const r = await api.get(`/production/data?plant=${encodeURIComponent(pl)}`); got.push({ plant: pl, data: r.data, mtime: r.mtime }); } catch { /* 해당 공장 데이터 없음 → 건너뜀 */ }
                 }
                 if (!got.length) { toast.err('통합 보고서를 만들 데이터가 없습니다.'); return; }
@@ -741,7 +755,7 @@ export default function ProdDashboard() {
       {/* ── 공장 탭 (총괄관리자만) ── */}
       {isAll && (
         <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
-          {['1공장', '2공장'].map((p) => (
+          {managedPlants.map((p) => (
             <button
               key={p}
               onClick={() => switchPlant(p)}
@@ -854,39 +868,55 @@ export default function ProdDashboard() {
                               </span>
                             )}
                           </td>
-                          {enabled.map((c) => c.key === 'mRate' ? (
-                            <td key={c.key} style={{ padding: '9px 10px', borderBottom: '1px solid #f5f5f7', textAlign: 'center', minWidth: 120 }}>
-                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                                <span style={{ fontWeight: 700, fontSize: 14, color: rateColor(r) }}>{pct(r)}</span>
-                                {badge && <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: badge.c, borderRadius: 10, padding: '1px 7px' }}>{badge.t}</span>}
-                              </div>
-                              <div style={{ height: 4, background: '#f0f0f5', borderRadius: 3, marginTop: 4 }}>
-                                <div style={{ height: 4, borderRadius: 3, background: d.color, width: `${Math.min(100, r || 0)}%` }} />
-                              </div>
-                            </td>
-                          ) : (c.key === 'yieldM' || c.key === 'yieldY') ? (
-                            <td key={c.key} style={{ padding: '9px 10px', borderBottom: '1px solid #f5f5f7', textAlign: 'center' }}>
-                              <YieldCell actual={c.key === 'yieldM' ? d.yield : d.yearYield} target={c.key === 'yieldM' ? d.yieldTarget : d.yearYieldTarget} />
-                            </td>
-                          ) : c.key === 'mAct' ? (
-                            (() => {
-                              const mom = momDelta(p);
+                          {enabled.map((c) => {
+                            const isErr = fieldErr(d, FIELD_FOR_COL[c.key]);
+                            if (c.key === 'mRate') {
                               return (
-                                <td key={c.key} style={{ padding: '9px 10px', borderBottom: '1px solid #f5f5f7', textAlign: 'center' }}>
-                                  <div style={{ fontSize: 14, fontWeight: 600 }}>{fmt(d.monthActual)}</div>
-                                  {mom != null && (
-                                    <div style={{ fontSize: 9.5, fontWeight: 700, color: mom >= 0 ? '#34c759' : '#ff3b30' }}>
-                                      전월 {mom >= 0 ? '▲' : '▼'}{Math.abs(mom).toFixed(1)}%
-                                    </div>
+                                <td key={c.key} style={{ padding: '9px 10px', borderBottom: '1px solid #f5f5f7', textAlign: 'center', minWidth: 120 }}>
+                                  {isErr ? <ErrBadge /> : (
+                                    <>
+                                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                                        <span style={{ fontWeight: 700, fontSize: 14, color: rateColor(r) }}>{pct(r)}</span>
+                                        {badge && <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: badge.c, borderRadius: 10, padding: '1px 7px' }}>{badge.t}</span>}
+                                      </div>
+                                      <div style={{ height: 4, background: '#f0f0f5', borderRadius: 3, marginTop: 4 }}>
+                                        <div style={{ height: 4, borderRadius: 3, background: d.color, width: `${Math.min(100, r || 0)}%` }} />
+                                      </div>
+                                    </>
                                   )}
                                 </td>
                               );
-                            })()
-                          ) : (
-                            <td key={c.key} style={{ padding: '9px 10px', borderBottom: '1px solid #f5f5f7', textAlign: 'center', fontSize: 14, fontWeight: c.key === 'mAct' ? 600 : 400, color: c.key === 'batch' ? '#6e6e73' : '#1d1d1f' }}>
-                              {colValue(c.key, d)}
-                            </td>
-                          ))}
+                            }
+                            if (c.key === 'yieldM' || c.key === 'yieldY') {
+                              return (
+                                <td key={c.key} style={{ padding: '9px 10px', borderBottom: '1px solid #f5f5f7', textAlign: 'center' }}>
+                                  <YieldCell actual={c.key === 'yieldM' ? d.yield : d.yearYield} target={c.key === 'yieldM' ? d.yieldTarget : d.yearYieldTarget} error={isErr} />
+                                </td>
+                              );
+                            }
+                            if (c.key === 'mAct') {
+                              const mom = momDelta(p);
+                              return (
+                                <td key={c.key} style={{ padding: '9px 10px', borderBottom: '1px solid #f5f5f7', textAlign: 'center' }}>
+                                  {isErr ? <ErrBadge /> : (
+                                    <>
+                                      <div style={{ fontSize: 14, fontWeight: 600 }}>{fmt(d.monthActual)}</div>
+                                      {mom != null && (
+                                        <div style={{ fontSize: 9.5, fontWeight: 700, color: mom >= 0 ? '#34c759' : '#ff3b30' }}>
+                                          전월 {mom >= 0 ? '▲' : '▼'}{Math.abs(mom).toFixed(1)}%
+                                        </div>
+                                      )}
+                                    </>
+                                  )}
+                                </td>
+                              );
+                            }
+                            return (
+                              <td key={c.key} style={{ padding: '9px 10px', borderBottom: '1px solid #f5f5f7', textAlign: 'center', fontSize: 14, fontWeight: c.key === 'mAct' ? 600 : 400, color: c.key === 'batch' ? '#6e6e73' : '#1d1d1f' }}>
+                                {isErr ? <ErrBadge /> : colValue(c.key, d)}
+                              </td>
+                            );
+                          })}
                         </tr>
                       );
                     })}
@@ -924,9 +954,9 @@ export default function ProdDashboard() {
                   <div style={{ width: 88, display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: 12, color: '#1d1d1f', whiteSpace: 'nowrap' }}>
                     <span style={{ width: 8, height: 8, background: c, borderRadius: '50%', display: 'inline-block', flexShrink: 0 }} />{p}
                   </div>
-                  <div style={{ flex: 1, textAlign: 'center', fontSize: 12, color: '#1d1d1f' }}>{fmtInt(inv.filled)}</div>
-                  <div style={{ flex: 1, textAlign: 'center', fontSize: 12, color: '#1d1d1f' }}>{fmtInt(inv.shipped)}</div>
-                  <div style={{ flex: 1, textAlign: 'center', fontSize: 12, fontWeight: 700, color: '#1d1d1f' }}>{fmtInt(inv.total)}</div>
+                  <div style={{ flex: 1, textAlign: 'center', fontSize: 12, color: '#1d1d1f' }}>{fieldErr(inv, 'filled') ? <ErrBadge /> : fmtInt(inv.filled)}</div>
+                  <div style={{ flex: 1, textAlign: 'center', fontSize: 12, color: '#1d1d1f' }}>{fieldErr(inv, 'shipped') ? <ErrBadge /> : fmtInt(inv.shipped)}</div>
+                  <div style={{ flex: 1, textAlign: 'center', fontSize: 12, fontWeight: 700, color: '#1d1d1f' }}>{fieldErr(inv, 'total') ? <ErrBadge /> : fmtInt(inv.total)}</div>
                   <div style={{ flex: 1, textAlign: 'center', fontSize: 12, fontWeight: 700, color: rmColor }}>
                     {rm == null ? '–' : `${rm.toFixed(1)}개월`}
                   </div>
