@@ -9,6 +9,9 @@ export default function Settings() {
   const [settings, setSettings] = useState(null);
   const [ratio, setRatio] = useState('');
   const [busy, setBusy] = useState(false);
+  const [rawBypass, setRawBypass] = useState(false);
+  const [subBypass, setSubBypass] = useState(true);
+  const [bpBusy, setBpBusy] = useState(false);
 
   // Canister 관리 상태
   const [cnDefSize, setCnDefSize] = useState('');
@@ -30,6 +33,8 @@ export default function Settings() {
       const s = d.settings;
       setSettings(s);
       setRatio(s.safetyRatioPercent);
+      setRawBypass(String(s.rawBatchBypassDefault) === '1');
+      setSubBypass(String(s.subBatchBypassDefault) === '1');
       setCnDefSize(s.canisterDefaultSize || '50L');
       setCnDefLoc(s.canisterDefaultLocation || '2공장현장');
       setCnDefStatus(s.canisterDefaultStatus || '수령');
@@ -85,6 +90,19 @@ export default function Settings() {
     }
   }
 
+  async function saveBypass() {
+    setBpBusy(true);
+    try {
+      const d = await api.patch('/settings', { rawBatchBypassDefault: rawBypass ? '1' : '0', subBatchBypassDefault: subBypass ? '1' : '0' });
+      setSettings(d.settings);
+      toast.ok('Batch 이력 기본값을 저장했습니다.');
+    } catch (e) {
+      toast.err(e.message);
+    } finally {
+      setBpBusy(false);
+    }
+  }
+
   function addItem(current, newVal, setter, newSetter) {
     const val = newVal.trim();
     if (!val) return;
@@ -126,6 +144,30 @@ export default function Settings() {
           <button className="btn" onClick={save} disabled={busy}>{busy ? '저장 중…' : '저장'}</button>
         ) : (
           <p className="hint">설정 변경은 관리자만 가능합니다. (현재 값: {settings.safetyRatioPercent}%)</p>
+        )}
+      </div>
+
+      {/* 합성 Batch 투입이력 기본 By-pass */}
+      <div className="card card-pad" style={{ maxWidth: 560, marginBottom: 20 }}>
+        <h3 style={{ marginBottom: 6 }}>합성 Batch 투입이력 기본값</h3>
+        <p className="hint" style={{ marginBottom: 18 }}>
+          사용(출고) 처리 시 표시되는 <b>합성 Batch(투입이력 기록)</b>의 By-pass(기록 생략) 여부 기본값입니다.
+          사용 처리 화면에서 매번 개별적으로도 변경할 수 있습니다.
+        </p>
+        <div style={{ display: 'flex', gap: 24, marginBottom: 16 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: isAdmin ? 'pointer' : 'default' }}>
+            <input type="checkbox" checked={rawBypass} disabled={!isAdmin} onChange={(e) => setRawBypass(e.target.checked)} />
+            원재료 기본 By-pass
+          </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: isAdmin ? 'pointer' : 'default' }}>
+            <input type="checkbox" checked={subBypass} disabled={!isAdmin} onChange={(e) => setSubBypass(e.target.checked)} />
+            부재료 기본 By-pass
+          </label>
+        </div>
+        {isAdmin ? (
+          <button className="btn" onClick={saveBypass} disabled={bpBusy}>{bpBusy ? '저장 중…' : '저장'}</button>
+        ) : (
+          <p className="hint">설정 변경은 관리자만 가능합니다.</p>
         )}
       </div>
 

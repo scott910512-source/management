@@ -32,11 +32,15 @@ const DEFAULTS = {
   prodCellMap: '',
   // 계획달성 표에 표시할 컬럼 키 (JSON 배열). 비우면 전체 표시.
   prodTableCols: '',
+  // 합성 Batch 투입이력 기록 기본 By-pass 여부('1'=기본 생략). 원재료는 기본 기록, 부재료는 기본 By-pass.
+  rawBatchBypassDefault: '0',
+  subBatchBypassDefault: '1',
 };
 const STRING_KEYS = [
   'canisterDefaultSize', 'canisterDefaultLocation', 'canisterDefaultStatus', 'canisterDefaultContent',
   'canisterSizes', 'canisterLocations', 'canisterStatuses', 'canisterContents', 'canisterSizeMaxKg',
   'productionFilePath', 'productionFileKeywords', 'prodInvConfig', 'prodCellMap', 'prodTableCols',
+  'rawBatchBypassDefault', 'subBatchBypassDefault',
 ];
 
 async function readSettings(plant) {

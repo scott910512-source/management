@@ -9,6 +9,8 @@ const UNIT_PRESET = ['kg', 'ea', 'L'];
  * - Batch No.는 품목별 다음 번호로 자동 채워지며 수정 가능(#N 표기).
  * - (제품, 번호)가 이미 존재하면 합성시작일을 자동으로 가져와 공유(읽기전용).
  * - 신규 배치면 합성시작일을 입력(기본: 수불 날짜).
+ * - "By-pass" 체크 시 투입이력을 기록하지 않는다(batchNo를 비워 서버에 전달 → ensureBatch 미호출).
+ *   기본 By-pass 여부는 [설정] 메뉴의 원/부재료별 기본값을 따른다(부재료는 기본 By-pass).
  * onChange({ batchNo, product, batchStartDate })로 상위 폼에 전파.
  */
 export function BatchFields({ category, materialName, date, onChange, onAutofillQty }) {
@@ -18,6 +20,18 @@ export function BatchFields({ category, materialName, date, onChange, onAutofill
   const [exists, setExists] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [standardQty, setStandardQty] = useState(0);
+  const [bypass, setBypass] = useState(null); // null = 설정 로드 전
+
+  // 설정에서 원/부재료별 기본 By-pass 여부를 가져온다.
+  useEffect(() => {
+    let alive = true;
+    api.get('/settings').then((d) => {
+      if (!alive) return;
+      const key = category === 'sub' ? 'subBatchBypassDefault' : 'rawBatchBypassDefault';
+      setBypass(String(d.settings?.[key]) === '1');
+    }).catch(() => { if (alive) setBypass(category === 'sub'); });
+    return () => { alive = false; };
+  }, [category]);
 
   // 초기 컨텍스트: 다음 번호 + 제품(사용처)
   useEffect(() => {
@@ -61,34 +75,46 @@ export function BatchFields({ category, materialName, date, onChange, onAutofill
     return () => { alive = false; };
   }, [product, materialName, category]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 상위 폼으로 전파
+  // 상위 폼으로 전파 — By-pass 시 batchNo를 비워 서버가 투입이력을 기록하지 않게 한다.
   useEffect(() => {
-    if (onChange) onChange({ batchNo: no, product, batchStartDate: startDate });
-  }, [no, product, startDate]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (onChange) onChange(bypass ? { batchNo: '', product: '', batchStartDate: '' } : { batchNo: no, product, batchStartDate: startDate });
+  }, [no, product, startDate, bypass]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (bypass === null) return null; // 설정 로드 전
 
   return (
     <div style={{ background: 'var(--bg2)', borderRadius: 8, padding: '12px 14px', margin: '4px 0 14px' }}>
-      <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 10 }}>합성 Batch (투입이력 기록)</div>
-      <div className="form-row">
-        <Field label="제품명">
-          <TextInput value={product} onChange={(e) => setProduct(e.target.value)} placeholder="예: A제품" />
-        </Field>
-        <Field label="Batch No.">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ fontWeight: 700, color: 'var(--accent)' }}>#</span>
-            <TextInput type="number" value={no} onChange={(e) => setNo(e.target.value)} placeholder="1" />
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: bypass ? 0 : 10 }}>
+        <div style={{ fontWeight: 600, fontSize: 13 }}>합성 Batch (투입이력 기록)</div>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-2)', cursor: 'pointer' }}>
+          <input type="checkbox" checked={bypass} onChange={(e) => setBypass(e.target.checked)} />
+          By-pass (기록 생략)
+        </label>
+      </div>
+      {!bypass && (
+        <>
+          <div className="form-row">
+            <Field label="제품명">
+              <TextInput value={product} onChange={(e) => setProduct(e.target.value)} placeholder="예: A제품" />
+            </Field>
+            <Field label="Batch No.">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ fontWeight: 700, color: 'var(--accent)' }}>#</span>
+                <TextInput type="number" value={no} onChange={(e) => setNo(e.target.value)} placeholder="1" />
+              </div>
+            </Field>
+            <Field label="합성 시작일">
+              <TextInput type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} disabled={exists} />
+            </Field>
           </div>
-        </Field>
-        <Field label="합성 시작일">
-          <TextInput type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} disabled={exists} />
-        </Field>
-      </div>
-      <div className="hint" style={{ marginTop: 2, color: exists ? 'var(--accent)' : 'var(--text-3)' }}>
-        {!no ? 'Batch 번호를 입력하면 투입이력에 기록됩니다.'
-          : exists ? `기존 배치 #${no} — 합성시작일을 공유합니다.`
-          : `신규 배치 #${no} — 합성시작일을 입력하세요.`}
-        {standardQty > 0 && <span style={{ color: 'var(--green)', marginLeft: 6 }}>· 기준량 {standardQty.toLocaleString()} 자동입력됨</span>}
-      </div>
+          <div className="hint" style={{ marginTop: 2, color: exists ? 'var(--accent)' : 'var(--text-3)' }}>
+            {!no ? 'Batch 번호를 입력하면 투입이력에 기록됩니다.'
+              : exists ? `기존 배치 #${no} — 합성시작일을 공유합니다.`
+              : `신규 배치 #${no} — 합성시작일을 입력하세요.`}
+            {standardQty > 0 && <span style={{ color: 'var(--green)', marginLeft: 6 }}>· 기준량 {standardQty.toLocaleString()} 자동입력됨</span>}
+          </div>
+        </>
+      )}
     </div>
   );
 }
