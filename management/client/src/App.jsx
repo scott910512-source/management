@@ -43,7 +43,7 @@ const NAV_GROUPS = [
     { to: '/canisters', label: 'Canister', ico: 'star' },
   ] },
   { title: '내역 · 업무', items: [
-    { to: '/batch-bulk', label: '배치 일괄 처리 · 투입이력', ico: 'task' },
+    { to: '/batch-bulk', label: '배치별 관리', ico: 'task' },
     { to: '/transactions', label: '수불 이력', ico: 'swap' },
     { to: '/anomalies', label: '이상발생 목록', ico: 'alert' },
     { to: '/tasks', label: 'Task 관리', ico: 'task' },
@@ -382,7 +382,7 @@ export default function App() {
       <Route path="/tasks" element={<Protected title="Task 관리"><Tasks /></Protected>} />
       <Route path="/hazardous" element={<Protected title="유해화학물질 관리대장"><Hazardous /></Protected>} />
       <Route path="/input-history" element={<Navigate to="/batch-bulk" replace />} />
-      <Route path="/batch-bulk" element={<Protected title="배치 일괄 처리 · 투입이력"><BatchBulk /></Protected>} />
+      <Route path="/batch-bulk" element={<Protected title="배치별 관리"><BatchBulk /></Protected>} />
       <Route path="/reports" element={<Protected title="월간 보고서" adminOnly><Reports /></Protected>} />
       <Route path="/items" element={<Protected title="기준정보 (품목·안전재고)" adminOnly><Items /></Protected>} />
       <Route path="/admin" element={<Protected title="관리자 설정" adminOnly><Admin /></Protected>} />

@@ -301,6 +301,7 @@ export default function BatchBulk() {
   const [sel, setSel] = useState(() => new Set());
   const [delBulk, setDelBulk] = useState(false);
   const [sp, setSp] = useSearchParams();
+  const [tab, setTab] = useState('');
 
   // 종합현황 퀵메뉴(?new=1)로 진입 시 새 배치 처리 모달 자동 오픈
   useEffect(() => {
@@ -320,12 +321,18 @@ export default function BatchBulk() {
     catch (e) { toast.err(e.message); }
   }
 
-  // 제품별 그룹핑
+  // 제품별 그룹핑 → 탭
   const grouped = useMemo(() => {
     const g = {};
     (inputs || []).forEach((b) => { (g[b.product || '(미지정)'] = g[b.product || '(미지정)'] || []).push(b); });
     return g;
   }, [inputs]);
+  const products_ = Object.keys(grouped);
+  useEffect(() => {
+    if (products_.length && !products_.includes(tab)) setTab(products_[0]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inputs]);
+  const tabBatches = grouped[tab] || [];
 
   const totalOf = (b) => {
     const byUnit = {};
@@ -336,9 +343,9 @@ export default function BatchBulk() {
   return (
     <div>
       <div className="page-head" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div className="desc" style={{ flex: 1 }}>제품(사용처)별 BOM 자재를 배치로 출고 처리하고, <b>투입이력</b>을 함께 확인합니다. 출고는 오래된 Lot부터 FIFO 자동 분배됩니다.</div>
+        <div className="desc" style={{ flex: 1 }}>제품(사용처)별 BOM 자재를 배치로 출고 처리하고, <b>배치별 투입이력</b>을 제품 탭으로 확인합니다. 출고는 오래된 Lot부터 FIFO 자동 분배됩니다.</div>
         {isAdmin && sel.size > 0 && <button className="btn danger sm" onClick={() => setDelBulk(true)}>선택 삭제 ({sel.size}배치)</button>}
-        <button className="btn secondary sm" onClick={() => downloadCsv('/batches/inputs/export')}>CSV 내보내기</button>
+        <button className="btn secondary sm" onClick={() => downloadCsv('/batches/inputs/export')}>⬇ CSV 내보내기 (제품별 zip)</button>
         {canWrite && <button className="btn" onClick={() => setOpen(true)}>+ 새 배치 처리</button>}
       </div>
 
@@ -346,47 +353,48 @@ export default function BatchBulk() {
       {inputs && inputs.length === 0 && <Empty>아직 처리된 배치가 없습니다. [+ 새 배치 처리]로 시작하세요.</Empty>}
 
       {inputs && inputs.length > 0 && (
-        <div className="card card-pad">
-          <table className="tbl">
-            <thead>
-              <tr>{isAdmin && <th style={{ width: 1 }}></th>}<th>제품(사용처)</th><th>배치 No.</th><th>합성 시작일</th><th style={{ textAlign: 'right' }}>투입 자재</th><th style={{ textAlign: 'right' }}>총 사용량</th><th></th></tr>
-            </thead>
-            <tbody>
-              {Object.entries(grouped).map(([prod, list]) => (
-                <Fragment key={prod}>
-                  <tr><td colSpan={isAdmin ? 7 : 6} style={{ fontWeight: 700, background: 'var(--accent-soft, #f3f6fb)' }}>{prod}</td></tr>
-                  {list.map((b) => (
-                    <Fragment key={b.batchId}>
-                      <tr style={{ cursor: 'pointer', ...(sel.has(b.batchId) ? { background: 'var(--accent-soft,#eaf3fe)' } : {}) }} onClick={() => setExpand(expand === b.batchId ? null : b.batchId)}>
-                        {isAdmin && <td onClick={(e) => e.stopPropagation()}><input type="checkbox" checked={sel.has(b.batchId)} onChange={() => toggle(b.batchId)} /></td>}
-                        <td>{b.product || '(미지정)'}</td>
-                        <td><b>#{b.batchNo}</b></td>
-                        <td>{b.startDate || '-'}</td>
-                        <td style={{ textAlign: 'right' }}>{b.materials.length}종</td>
-                        <td style={{ textAlign: 'right' }}>{totalOf(b)}</td>
-                        <td style={{ textAlign: 'right', color: 'var(--blue,#0071e3)' }}>{expand === b.batchId ? '▲' : '▼'}</td>
+        <>
+          <div className="sheet-tabs">
+            {products_.map((p) => (
+              <button key={p} className={`sheet-tab ${tab === p ? 'active' : ''}`} onClick={() => setTab(p)}>{p}</button>
+            ))}
+          </div>
+          <div className="card card-pad" style={{ borderTopLeftRadius: 0 }}>
+            <table className="tbl">
+              <thead>
+                <tr>{isAdmin && <th style={{ width: 1 }}></th>}<th>배치 No.</th><th>합성 시작일</th><th style={{ textAlign: 'right' }}>투입 자재</th><th style={{ textAlign: 'right' }}>총 사용량</th><th></th></tr>
+              </thead>
+              <tbody>
+                {tabBatches.map((b) => (
+                  <Fragment key={b.batchId}>
+                    <tr style={{ cursor: 'pointer', ...(sel.has(b.batchId) ? { background: 'var(--accent-soft,#eaf3fe)' } : {}) }} onClick={() => setExpand(expand === b.batchId ? null : b.batchId)}>
+                      {isAdmin && <td onClick={(e) => e.stopPropagation()}><input type="checkbox" checked={sel.has(b.batchId)} onChange={() => toggle(b.batchId)} /></td>}
+                      <td><b>#{b.batchNo}</b></td>
+                      <td>{b.startDate || '-'}</td>
+                      <td style={{ textAlign: 'right' }}>{b.materials.length}종</td>
+                      <td style={{ textAlign: 'right' }}>{totalOf(b)}</td>
+                      <td style={{ textAlign: 'right', color: 'var(--blue,#0071e3)' }}>{expand === b.batchId ? '▲' : '▼'}</td>
+                    </tr>
+                    {expand === b.batchId && (
+                      <tr key={b.batchId + '_d'}>
+                        <td colSpan={isAdmin ? 6 : 5} style={{ background: '#fafbff' }}>
+                          <table className="tbl compact">
+                            <thead><tr><th>구분</th><th>품목</th><th style={{ textAlign: 'right' }}>투입량</th><th>투입 Lot</th></tr></thead>
+                            <tbody>
+                              {b.materials.map((m, i) => (
+                                <tr key={i}><td>{catLabel(m.category)}</td><td>{m.name}</td><td style={{ textAlign: 'right' }}>{Number(m.quantity).toLocaleString()} {m.unit}</td><td>{m.lotNo}</td></tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </td>
                       </tr>
-                      {expand === b.batchId && (
-                        <tr key={b.batchId + '_d'}>
-                          <td colSpan={isAdmin ? 7 : 6} style={{ background: '#fafbff' }}>
-                            <table className="tbl compact">
-                              <thead><tr><th>구분</th><th>품목</th><th style={{ textAlign: 'right' }}>투입량</th><th>투입 Lot</th></tr></thead>
-                              <tbody>
-                                {b.materials.map((m, i) => (
-                                  <tr key={i}><td>{catLabel(m.category)}</td><td>{m.name}</td><td style={{ textAlign: 'right' }}>{Number(m.quantity).toLocaleString()} {m.unit}</td><td>{m.lotNo}</td></tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </td>
-                        </tr>
-                      )}
-                    </Fragment>
-                  ))}
-                </Fragment>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                    )}
+                  </Fragment>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       {open && <BulkModal products={products} onClose={() => setOpen(false)} onDone={() => { setOpen(false); load(); }} />}

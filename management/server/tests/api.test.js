@@ -257,6 +257,33 @@ describe('Task 관리', () => {
   });
 });
 
+// 배치별 관리 — 투입이력 CSV 내보내기는 제품별 zip(파일 여러 개)으로 내려온다.
+describe('배치별 관리 — 투입이력 zip 내보내기', () => {
+  beforeAll(async () => {
+    await admin.post('/api/items').send({ category: 'raw', name: '아세톤E', unit: 'kg', safetyStock: 10, itemGroup: '아세톤E' }).expect(201);
+    await admin.post('/api/products').send({ name: 'ZIP제품' }).expect(201);
+    await admin.post('/api/products/bom').send({ product: 'ZIP제품', category: 'raw', materialName: '아세톤E', qtyPerBatch: 5 }).expect(201);
+    await admin.post('/api/raw-materials').send({ itemName: '아세톤E', lotNo: 'ZE01', quantity: 50, unit: 'kg', receivedDate: '2026-05-01' }).expect(201);
+    await admin.post('/api/batches/bulk').send({
+      product: 'ZIP제품', startDate: '2026-05-02',
+      batches: [{ no: '1', lines: [{ category: 'raw', name: '아세톤E', quantity: 5 }] }],
+    }).expect(201);
+  });
+  test('zip 파일 시그니처와 파일명이 올바르다', async () => {
+    const res = await admin.get('/api/batches/inputs/export').buffer(true).parse((r, cb) => {
+      const chunks = [];
+      r.on('data', (c) => chunks.push(c));
+      r.on('end', () => cb(null, Buffer.concat(chunks)));
+    }).expect(200);
+    expect(res.headers['content-type']).toContain('application/zip');
+    expect(res.headers['content-disposition']).toContain('.zip');
+    // ZIP local file header 시그니처(PK\x03\x04)로 시작해야 한다.
+    expect(res.body.slice(0, 4).toString('hex')).toBe('504b0304');
+    // 제품명(ZIP제품)이 zip 내부 파일명으로 인코딩되어 포함돼야 한다(단순 바이너리 포함 검사).
+    expect(res.body.includes(Buffer.from('ZIP제품_투입이력.csv', 'utf8'))).toBe(true);
+  });
+});
+
 describe('트렌드', () => {
   test('품목별 입출고 집계', async () => {
     const res = await admin.get('/api/trends?category=raw&period=month').expect(200);

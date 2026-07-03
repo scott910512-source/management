@@ -2,7 +2,9 @@
 
 const express = require('express');
 const { readTable, mutate } = require('../lib/store');
-const { asyncHandler, str, num, badRequest, sendCsv } = require('../lib/http');
+const { asyncHandler, str, num, badRequest } = require('../lib/http');
+const { stringifyCsv } = require('../lib/csv');
+const { buildZip } = require('../lib/zip');
 const { requireAuth, requireWrite } = require('../middleware/auth');
 const { resolvePlant } = require('../middleware/plant');
 const { appendTransaction } = require('../lib/tx');
@@ -114,29 +116,53 @@ router.get(
   }),
 );
 
-// CSV — 배치×품목 1행으로 평면화(동적: 품목 수 제한 없음)
+// CSV — 제품(사용처)별로 파일을 나눠 zip으로 내려준다(화면 탭과 1:1 대응).
+// 각 파일은 배치를 행으로, 품목을 "품목명 Lot"/"품목명 kg" 컬럼 쌍으로 가로 배치한다.
+// 같은 배치에서 같은 품목을 여러 Lot으로 나눠 썼으면, Lot 칸과 kg 칸에 줄바꿈으로
+// 같은 순서로 나열해(1번째 줄끼리, 2번째 줄끼리) 한 셀 안에서 짝이 맞도록 한다.
 router.get(
   '/inputs/export',
   asyncHandler(async (req, res) => {
     const list = await buildInputs(req.plant);
-    const headers = ['BatchNo', '제품', '합성시작일', '구분', '품목', '투입량', '단위', '투입Lot'];
-    const rows = [];
-    for (const g of list) {
-      if (g.materials.length === 0) continue;
-      for (const m of g.materials) {
-        rows.push({
-          BatchNo: `#${g.batchNo}`,
-          제품: g.product,
-          합성시작일: g.startDate,
-          구분: m.category === 'raw' ? '원재료' : m.category === 'sub' ? '부재료' : m.category,
-          품목: m.name,
-          투입량: m.quantity,
-          단위: m.unit,
-          투입Lot: m.lotNo,
-        });
-      }
+
+    const byProduct = new Map();
+    for (const b of list) {
+      const key = b.product || '(제품 미지정)';
+      if (!byProduct.has(key)) byProduct.set(key, []);
+      byProduct.get(key).push(b);
     }
-    sendCsv(res, headers, rows, '원부재료투입이력');
+
+    const files = [];
+    for (const [product, batches] of byProduct) {
+      const names = Array.from(new Set(batches.flatMap((b) => b.materials.map((m) => m.name)))).sort((a, c) => a.localeCompare(c, 'ko'));
+      const headers = ['BatchNo', '합성시작일'];
+      for (const n of names) headers.push(`${n} Lot`, `${n} kg`);
+
+      const sorted = batches.slice().sort((a, b) => (a.year !== b.year ? Number(a.year) - Number(b.year) : Number(a.batchNo) - Number(b.batchNo)));
+      const rows = sorted.map((b) => {
+        const row = { BatchNo: `#${b.batchNo}`, 합성시작일: b.startDate || '' };
+        for (const n of names) {
+          const lots = b.materials.filter((m) => m.name === n);
+          row[`${n} Lot`] = lots.map((l) => l.lotNo || '').join('\n');
+          row[`${n} kg`] = lots.map((l) => l.quantity).join('\n');
+        }
+        return row;
+      });
+
+      const csv = stringifyCsv(headers, rows, { bom: true });
+      const safeName = product.replace(/[\\/:*?"<>|]/g, '_');
+      files.push({ name: `${safeName}_투입이력.csv`, content: csv });
+    }
+    if (files.length === 0) {
+      files.push({ name: '투입이력_없음.csv', content: stringifyCsv(['안내'], [{ 안내: '투입이력이 없습니다.' }], { bom: true }) });
+    }
+
+    const zipBuf = buildZip(files);
+    const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const filename = `배치별관리_투입이력_${stamp}.zip`;
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="export.zip"; filename*=UTF-8''${encodeURIComponent(filename)}`);
+    res.send(zipBuf);
   }),
 );
 
