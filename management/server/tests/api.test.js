@@ -364,3 +364,112 @@ describe('권한(삭제=관리자)', () => {
     await admin.delete(`/api/raw-materials/${res.body.item.id}`).expect(200);
   });
 });
+
+// ===== 종합 점검: 수불(입력/수정/삭제·재고원복) + 이상발생/경고(기록/확인/삭제/권한) =====
+
+describe('수불 종합 — 수정/삭제/재고원복', () => {
+  let lotId, inTxId, outTxId;
+  beforeAll(async () => {
+    const lot = await admin.post('/api/raw-materials')
+      .send({ itemName: '점검원료', lotNo: 'AUD-01', quantity: 100, unit: 'kg', receivedDate: '2026-06-01' }).expect(201);
+    lotId = lot.body.item.id;
+    // 입고 이력(신규 입고)의 tx id 확보
+    const txs = await admin.get(`/api/raw-materials/${lotId}/transactions`).expect(200);
+    inTxId = txs.body.items.find((t) => t.type === '입고').id;
+    const out = await admin.post(`/api/raw-materials/${lotId}/transaction`).send({ type: '출고', quantity: 40 }).expect(201);
+    outTxId = out.body.transaction.id;
+  });
+
+  test('수불 수정: 비고 정정은 가능, 재고는 변하지 않는다', async () => {
+    await admin.patch(`/api/transactions/${outTxId}`).send({ note: '점검-정정' }).expect(200);
+    const list = await admin.get('/api/raw-materials?item=점검원료&all=1').expect(200);
+    expect(Number(list.body.items.find((r) => r.id === lotId).quantity)).toBe(60);
+  });
+
+  test('수불 수정: 조회 전용(viewer) 계정은 403', async () => {
+    const team = request.agent(app);
+    await team.post('/api/auth/login').send({ id: 'team1', password: 'team1234' }).expect(200);
+    await team.patch(`/api/transactions/${outTxId}`).send({ note: 'x' }).expect(403);
+  });
+
+  test('출고 수불 삭제 → 재고 가산 원복', async () => {
+    await admin.delete(`/api/transactions/${outTxId}`).expect(200);
+    const list = await admin.get('/api/raw-materials?item=점검원료&all=1').expect(200);
+    expect(Number(list.body.items.find((r) => r.id === lotId).quantity)).toBe(100);
+  });
+
+  test('입고 수불 삭제 → 재고 차감 원복', async () => {
+    await admin.delete(`/api/transactions/${inTxId}`).expect(200);
+    const list = await admin.get('/api/raw-materials?item=점검원료&all=1').expect(200);
+    expect(Number(list.body.items.find((r) => r.id === lotId).quantity)).toBe(0);
+  });
+
+  test('없는 수불 삭제는 404, 일괄 삭제에 빈 선택은 400', async () => {
+    await admin.delete('/api/transactions/tx_none').expect(404);
+    await admin.post('/api/transactions/bulk-delete').send({ ids: [] }).expect(400);
+  });
+});
+
+describe('수불 종합 — Canister 반입/반출 삭제 시 무게 원복', () => {
+  let cnId, outTxId, inTxId;
+  beforeAll(async () => {
+    const cn = await admin.post('/api/canisters')
+      .send({ canisterNo: 'CN-AUD1', size: '50L', location: '2공장현장', status: '수령', content: '톨루엔', weight: 100 }).expect(201);
+    cnId = cn.body.item.id;
+    await admin.post(`/api/canisters/${cnId}/move`).send({ type: '반출', weight: 30 }).expect(201);
+    const txs = await admin.get('/api/transactions?materialType=canister&q=CN-AUD1').expect(200);
+    outTxId = txs.body.items.find((t) => t.type === '반출').id;
+    inTxId = txs.body.items.find((t) => t.type === '반입').id;
+  });
+
+  test('반출 수불 삭제 → 용기 무게 가산 원복', async () => {
+    await admin.delete(`/api/transactions/${outTxId}`).expect(200);
+    const cn = await admin.get(`/api/canisters/${cnId}`).expect(200);
+    expect(Number(cn.body.item.weight)).toBe(100);
+  });
+
+  test('반입 수불 일괄 삭제 → 용기 무게 차감 원복', async () => {
+    await admin.post('/api/transactions/bulk-delete').send({ ids: [inTxId], restock: true }).expect(200);
+    const cn = await admin.get(`/api/canisters/${cnId}`).expect(200);
+    expect(Number(cn.body.item.weight)).toBe(0);
+  });
+});
+
+describe('이상발생 종합 — 기록/조회/삭제/권한', () => {
+  let anomalyId;
+  beforeAll(async () => {
+    // 강제 출고로 이상발생 1건 생성 (동일 품목 A/B Lot, B가 Lot 번호상 늦은데 먼저 출고)
+    await admin.post('/api/raw-materials').send({ itemName: '점검원료B', lotNo: 'B01', quantity: 10, unit: 'kg', receivedDate: '2026-06-01' }).expect(201);
+    const b2 = await admin.post('/api/raw-materials').send({ itemName: '점검원료B', lotNo: 'B02', quantity: 10, unit: 'kg', receivedDate: '2026-06-01', force: true }).expect(201);
+    await admin.post(`/api/raw-materials/${b2.body.item.id}/transaction`).send({ type: '출고', quantity: 5, force: true }).expect(201);
+    const an = await admin.get('/api/anomalies?q=점검원료B').expect(200);
+    expect(an.body.items.length).toBeGreaterThan(0);
+    anomalyId = an.body.items[0].id;
+  });
+
+  test('검색 필터가 동작한다', async () => {
+    const an = await admin.get('/api/anomalies?q=존재하지않는검색어').expect(200);
+    expect(an.body.items.length).toBe(0);
+  });
+
+  test('일반 사용자는 이상발생 삭제 불가(403), 관리자는 가능', async () => {
+    await user.delete(`/api/anomalies/${anomalyId}`).expect(403);
+    await admin.delete(`/api/anomalies/${anomalyId}`).expect(200);
+    await admin.delete(`/api/anomalies/${anomalyId}`).expect(404); // 재삭제는 404
+  });
+});
+
+describe('경고 종합 — 확인(ack)/숨김(dismiss)/로그', () => {
+  const KEY = 'audit-warn-key';
+  test('숨김(dismiss)은 요청 사용자에게만 적용되고 로그에 남는다', async () => {
+    await admin.post('/api/warnings/dismiss').send({ key: KEY, content: '점검용' }).expect(200);
+    const logs = await admin.get('/api/warnings/logs').expect(200);
+    expect(logs.body.items.some((l) => l.warningKey === KEY && l.action === '삭제')).toBe(true);
+  });
+  test('ack는 중복 확인해도 1건만 기록된다', async () => {
+    await admin.post('/api/warnings/ack').send({ key: KEY, content: '점검용' }).expect(200);
+    await admin.post('/api/warnings/ack').send({ key: KEY, content: '점검용' }).expect(200);
+    const logs = await admin.get('/api/warnings/logs').expect(200);
+    expect(logs.body.items.filter((l) => l.warningKey === KEY && l.action === '확인').length).toBe(1);
+  });
+});

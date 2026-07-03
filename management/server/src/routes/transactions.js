@@ -4,7 +4,7 @@ const express = require('express');
 const { readTable, mutate, headersOf } = require('../lib/store');
 const { asyncHandler, str, num, badRequest, notFound, sendCsv } = require('../lib/http');
 const { now } = require('../lib/ids');
-const { requireAuth, requireAdmin } = require('../middleware/auth');
+const { requireAuth, requireAdmin, requireWrite } = require('../middleware/auth');
 const { resolvePlant } = require('../middleware/plant');
 
 // 수불 취소(삭제) 시 재고를 원복할 Lot을 찾는다. 이미 '소진 Lot 정리' 등으로
@@ -83,6 +83,7 @@ router.get(
 // 수불 내역 수정(비고·구분·수량 등 기록 정정). 재고는 재계산하지 않는 단순 기록 정정.
 router.patch(
   '/:id',
+  requireWrite,
   asyncHandler(async (req, res) => {
     const item = await mutate('transactions', req.plant, (rows) => {
       const r = rows.find((x) => x.id === req.params.id);
@@ -123,12 +124,21 @@ router.post(
 
     // 재고 원복: 삭제되는 출고/반출은 재고를 더하고, 입고/반입은 빼서 되돌린다(raw/sub Lot)
     if (restock) {
-      const adj = { raw: new Map(), sub: new Map() };
+      const adj = { raw: new Map(), sub: new Map(), canister: new Map() };
       for (const t of toDel) {
-        if (t.materialType !== 'raw' && t.materialType !== 'sub') continue;
+        if (!adj[t.materialType]) continue;
         const q = num(t.quantity) || 0;
         const delta = (t.type === '출고' || t.type === '반출') ? q : -q;
         adj[t.materialType].set(t.materialId, (adj[t.materialType].get(t.materialId) || 0) + delta);
+      }
+      // Canister: 용기가 남아있는 경우에만 무게 원복(용기 삭제 = 의도적 폐기)
+      if (adj.canister.size > 0) {
+        await mutate('canisters', req.plant, (rows) => {
+          for (const [mid, delta] of adj.canister) {
+            const r = rows.find((x) => x.id === mid);
+            if (r) r.weight = String(Math.max(0, (num(r.weight) || 0) + delta));
+          }
+        });
       }
       const firstTxByMaterial = new Map(); // materialId → 대표 수불 내역(복원용 정보 확보)
       for (const t of toDel) if (!firstTxByMaterial.has(t.materialId)) firstTxByMaterial.set(t.materialId, t);
@@ -180,6 +190,15 @@ router.delete(
       await mutate(table, req.plant, (rows) => {
         const r = findOrRestoreLot(rows, t, nameKey);
         r[qtyKey] = String(Math.max(0, (num(r[qtyKey]) || 0) + delta));
+      });
+    }
+    // Canister 수불 삭제 시에도 용기 내용물 무게를 원복(반출 삭제→가산, 반입 삭제→차감).
+    // 용기 자체가 이미 삭제된 경우에는 복원 대상이 없으므로 건너뛴다(용기 삭제 = 의도적 폐기).
+    if (restock && t.materialType === 'canister') {
+      const delta = (t.type === '출고' || t.type === '반출') ? (num(t.quantity) || 0) : -(num(t.quantity) || 0);
+      await mutate('canisters', req.plant, (rows) => {
+        const r = rows.find((x) => x.id === t.materialId);
+        if (r) r.weight = String(Math.max(0, (num(r.weight) || 0) + delta));
       });
     }
     await mutate('transactions', req.plant, (rows) => {
