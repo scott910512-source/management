@@ -660,15 +660,50 @@ export default function ProdDashboard() {
     setSelProd('');
   }
 
-  if (loading) return <Loading />;
-  if (error) return (
-    <div className="card card-pad" style={{ textAlign: 'center', padding: 40 }}>
-      <div style={{ fontSize: 36, marginBottom: 12 }}>⚠️</div>
-      <div style={{ fontWeight: 700, marginBottom: 8 }}>{error}</div>
-      <button className="btn secondary" onClick={() => load()}>다시 시도</button>
+  // 공장 탭 (총괄관리자만) — 로딩/오류/데이터 없음 상태에서도 항상 표시해,
+  // 문제가 있는 공장을 클릭했을 때 다른 공장으로 되돌아갈 수 있어야 한다.
+  const plantTabs = isAll ? (
+    <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+      {managedPlants.map((p) => (
+        <button
+          key={p}
+          onClick={() => switchPlant(p)}
+          style={{
+            padding: '5px 18px', borderRadius: 20, border: '1.5px solid',
+            borderColor: plant === p ? '#0071e3' : '#d1d1d6',
+            background: plant === p ? '#0071e3' : '#fff',
+            color: plant === p ? '#fff' : '#3c3c43',
+            fontWeight: plant === p ? 700 : 400,
+            fontSize: 13, cursor: 'pointer',
+          }}
+        >{p}</button>
+      ))}
+      {loading && <span style={{ fontSize: 12, color: '#86868b', alignSelf: 'center' }}>로딩 중…</span>}
     </div>
+  ) : null;
+
+  if (loading) return <>{plantTabs}<Loading /></>;
+  if (error) return (
+    <>
+      {plantTabs}
+      <div className="card card-pad" style={{ textAlign: 'center', padding: 40 }}>
+        <div style={{ fontSize: 36, marginBottom: 12 }}>⚠️</div>
+        <div style={{ fontWeight: 700, marginBottom: 8 }}>{error}</div>
+        <button className="btn secondary" onClick={() => load()}>다시 시도</button>
+      </div>
+    </>
   );
-  if (!data) return null;
+  if (!data) return (
+    <>
+      {plantTabs}
+      <div className="card card-pad" style={{ textAlign: 'center', padding: 40, color: '#86868b' }}>
+        <div style={{ fontSize: 36, marginBottom: 12 }}>📭</div>
+        <div style={{ fontWeight: 700, marginBottom: 8 }}>[{plant}] 표시할 생산 데이터가 없습니다.</div>
+        <div style={{ fontSize: 12.5, marginBottom: 14 }}>관리자 설정에서 생산관리 폴더 경로와 CSV 추출을 확인해 주세요.</div>
+        <button className="btn secondary" onClick={() => load()}>다시 시도</button>
+      </div>
+    </>
+  );
 
   const { products, byProduct, batches, stepLabels, alerts } = data;
   const activeProd = selProd && products.includes(selProd) ? selProd : products[0] || '';
@@ -753,25 +788,7 @@ export default function ProdDashboard() {
       </div>
 
       {/* ── 공장 탭 (총괄관리자만) ── */}
-      {isAll && (
-        <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
-          {managedPlants.map((p) => (
-            <button
-              key={p}
-              onClick={() => switchPlant(p)}
-              style={{
-                padding: '5px 18px', borderRadius: 20, border: '1.5px solid',
-                borderColor: plant === p ? '#0071e3' : '#d1d1d6',
-                background: plant === p ? '#0071e3' : '#fff',
-                color: plant === p ? '#fff' : '#3c3c43',
-                fontWeight: plant === p ? 700 : 400,
-                fontSize: 13, cursor: 'pointer',
-              }}
-            >{p}</button>
-          ))}
-          {loading && <span style={{ fontSize: 12, color: '#86868b', alignSelf: 'center' }}>로딩 중…</span>}
-        </div>
-      )}
+      {plantTabs}
 
       {/* ── 관리자 불일치 경고 ── */}
       {isAdmin && mismatches.length > 0 && (
