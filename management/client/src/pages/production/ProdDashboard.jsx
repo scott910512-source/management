@@ -10,8 +10,30 @@ const ALERT_ICO = { error: '🔴', warn: '🟡', ok: '🟢' };
 // ── 유틸 ──────────────────────────────────────────────────────────
 // 숫자는 소수점 1자리 (Can 수량 등 정수는 별도 fmtInt 사용)
 const fmt = (v) => (v == null ? '–' : Number(v).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 }));
-const fmtInt = (v) => (v == null ? '–' : Number(v).toLocaleString());
+// 재고(can 수) 등: 정수는 그대로, 소수는 1자리까지만 (기본 toLocaleString은 소수점 3자리까지 보여줌)
+const fmtInt = (v) => (v == null ? '–' : Number(v).toLocaleString(undefined, { maximumFractionDigits: 1 }));
 const pct = (v) => (v == null ? '–' : `${Number(v).toFixed(1)}%`);
+
+// 기준일("7월2일") → 월 경과율. 예: 계획 300kg·7/10이면 (10/31)≈32.3% 지점이 "달성 기준선".
+// 이 기준선 이상이면 페이스상 달성 예정(진행), 미만이면 미달로 판정한다.
+export function monthPace(reportDate) {
+  const m = String(reportDate || '').match(/(\d{1,2})\s*월\s*(\d{1,2})\s*일/);
+  if (!m) return null;
+  const month = parseInt(m[1], 10);
+  const day = parseInt(m[2], 10);
+  const days = new Date(new Date().getFullYear(), month, 0).getDate();
+  if (!month || !day || !days) return null;
+  const frac = Math.min(1, day / days);
+  return { month, day, days, frac, expectedPct: frac * 100 };
+}
+// 날짜 기준 달성 판정 배지: 달성(계획 100% 이상) / 진행(오늘 기준선 이상=달성예정) / 미달(기준선 미만)
+function paceBadge(rate, pace) {
+  if (rate == null) return null;
+  if (rate >= 100) return { t: '달성', c: '#34c759' };
+  if (pace && rate >= pace.expectedPct) return { t: '진행', c: '#0071e3' };
+  if (!pace && rate >= 85) return { t: '진행', c: '#ff9500' }; // 기준일 미상 시 기존 고정 기준
+  return { t: '미달', c: '#ff3b30' };
+}
 
 // 계획달성 표에 표시 가능한 컬럼 (관리자 설정에서 선택). mRate는 특수 렌더.
 // 라벨의 ${MON} 은 데이터 기준월(예: 7월)로 치환된다.
@@ -232,7 +254,7 @@ function MonthlyMatrixModal({ byProduct, products, mode, onClose }) {
 // mode='prod': 품목별 + 총생산량 선, Y max = 총합×1.1
 // mode='yield': 품목별 수율 선(%), Y max = max(100, 최대수율×1.1)
 // 0/빈값은 점/선을 그리지 않고 공백으로 끊는다. 미래월은 회색 처리.
-function MonthlyLineChart({ byProduct, products, currentMonth, mode }) {
+function MonthlyLineChart({ byProduct, products, currentMonth, mode, planByMonth, paceFrac }) {
   const W = 560, H = 250, PL = 46, PR = 64, PT = 16, PB = 26;
   const iW = W - PL - PR, iH = H - PT - PB;
   const M = 12;
@@ -250,12 +272,23 @@ function MonthlyLineChart({ byProduct, products, currentMonth, mode }) {
     for (const p of products) { const v = val(p, i + 1); if (v != null) { s += v; has = true; } }
     return has ? s : null;
   });
+  // 달성 기준선(생산량 모드): 각 월의 총 계획. 당월은 날짜 경과율만큼 비례한 값
+  // (예: 계획 300kg·7/10 → 300×10/31 ≈ 97kg 지점이 오늘의 달성 기준).
+  const paceVals = mode === 'prod' && Array.isArray(planByMonth)
+    ? Array.from({ length: M }, (_, i) => {
+        const m = i + 1;
+        if (m > cur) return null; // 미래월 제외
+        const plan = planByMonth[i];
+        if (plan == null || plan <= 0) return null;
+        return m === cur && paceFrac != null ? plan * paceFrac : plan;
+      })
+    : null;
   let maxV;
   if (mode === 'yield') {
     const mx = Math.max(0, ...products.flatMap((p) => Array.from({ length: M }, (_, i) => val(p, i + 1) || 0)));
     maxV = Math.max(100, Math.ceil(mx * 1.1));
   } else {
-    maxV = Math.max(1, ...totals.map((t) => t || 0)) * 1.1;
+    maxV = Math.max(1, ...totals.map((t) => t || 0), ...(paceVals || []).map((v) => v || 0)) * 1.1;
   }
   const toX = (m) => PL + ((m - 1) / (M - 1)) * iW;
   const toY = (v) => PT + (1 - v / maxV) * iH;
@@ -273,6 +306,7 @@ function MonthlyLineChart({ byProduct, products, currentMonth, mode }) {
 
   const series = products.map((p) => ({ key: p, color: byProduct[p]?.color || '#888', segs: segsOf((m) => val(p, m)) }));
   if (mode === 'prod') series.push({ key: '총 생산량', color: '#3c3c43', total: true, segs: segsOf((m) => totals[m - 1]) });
+  const paceSegs = paceVals ? segsOf((m) => paceVals[m - 1]) : [];
 
   const yTicks = [0, 0.25, 0.5, 0.75, 1].map((f) => Math.round(maxV * f));
   const futureX = cur < M ? toX(cur) + (iW / (M - 1)) / 2 : null;
@@ -301,6 +335,23 @@ function MonthlyLineChart({ byProduct, products, currentMonth, mode }) {
       {Array.from({ length: M }, (_, i) => (
         <text key={i} x={toX(i + 1)} y={H - 8} fontSize="8" fill="#86868b" textAnchor="middle">{i + 1}월</text>
       ))}
+      {/* 달성 기준선 (계획 페이스, 점선) — 당월은 날짜 경과율 반영 */}
+      {paceSegs.map((seg, si) => (
+        <g key={`pace-${si}`}>
+          {seg.length >= 2 && <polyline points={seg.map((pt) => `${pt[0]},${pt[1]}`).join(' ')} fill="none" stroke="#8e8e93" strokeWidth="1.6" strokeDasharray="5,4" strokeLinejoin="round" />}
+          {seg.map((pt, pi) => <circle key={pi} cx={pt[0]} cy={pt[1]} r="2" fill="#fff" stroke="#8e8e93" strokeWidth="1.2" />)}
+        </g>
+      ))}
+      {paceSegs.length > 0 && (() => {
+        const lastSeg = paceSegs[paceSegs.length - 1];
+        const last = lastSeg[lastSeg.length - 1];
+        return (
+          <g>
+            <rect x={last[0] + 5} y={last[1] - 18} width={52} height={14} rx={3} fill="#8e8e93" opacity="0.9" />
+            <text x={last[0] + 31} y={last[1] - 7.5} fontSize="8" fontWeight="700" fill="#fff" textAnchor="middle">달성기준</text>
+          </g>
+        );
+      })()}
       {/* 선 + 점 */}
       {series.map((s) => (
         <g key={s.key}>
@@ -435,11 +486,13 @@ function AllProductsModal({ data, onClose }) {
           {products.map((p) => {
             const d = byProduct[p];
             if (!d) return null;
-            const isWarn = d.monthRate != null && d.monthRate < 85;
+            const pace = monthPace(data.reportDate);
+            const paceLine = pace ? pace.expectedPct : 85; // 오늘 기준 달성선(기준일 미상 시 기존 85%)
+            const isWarn = d.monthRate != null && d.monthRate < paceLine && d.monthRate < 100;
             const cols = [
               { label: '오늘 생산량', val: fmt(d.todayQty), unit: 'kg', sub: d.prevDayQty != null ? (d.todayQty >= d.prevDayQty ? `▲ 전일 +${Math.round((d.todayQty - d.prevDayQty) / d.prevDayQty * 100)}%` : `▼ 전일 ${Math.round((d.todayQty - d.prevDayQty) / d.prevDayQty * 100)}%`) : '–', subColor: deltaColor(d.todayQty, d.prevDayQty) },
               { label: `${mon} 실적`, val: fmt(d.monthActual), unit: `kg · 계획 ${fmt(d.monthPlan)}` },
-              { label: `${mon} 달성율`, val: pct(d.monthRate), subColor: rateColor(d.monthRate), valColor: rateColor(d.monthRate), sub: d.monthRate >= 100 ? '▲ 달성' : d.monthRate >= 85 ? '△ 진행중' : '▼ 미달' },
+              { label: `${mon} 달성율`, val: pct(d.monthRate), subColor: isWarn ? '#ff3b30' : '#34c759', valColor: isWarn ? '#ff3b30' : d.monthRate >= 100 ? '#34c759' : '#0071e3', sub: d.monthRate >= 100 ? '▲ 달성' : !isWarn ? `△ 진행 (기준 ${paceLine.toFixed(0)}%)` : `▼ 미달 (기준 ${paceLine.toFixed(0)}%)` },
               { label: '연간 달성율', val: pct(d.yearRate), valColor: '#0071e3', sub: '연 계획 진행중' },
               { label: '수율', val: pct(d.yield), unit: `목표 ${pct(d.yieldTarget)}`, sub: d.yieldPrev != null ? (d.yield >= d.yieldPrev ? `▲ +${(d.yield - d.yieldPrev).toFixed(1)}%p` : `▼ ${(d.yield - d.yieldPrev).toFixed(1)}%p`) : '', subColor: deltaColor(d.yield, d.yieldPrev) },
             ];
@@ -872,7 +925,8 @@ export default function ProdDashboard() {
                     {products.map((p) => {
                       const d = byProduct[p] || {};
                       const r = d.monthRate;
-                      const badge = r == null ? null : r >= 100 ? { t: '달성', c: '#34c759' } : r >= 85 ? { t: '진행', c: '#ff9500' } : { t: '미달', c: '#ff3b30' };
+                      const pace = monthPace(data.reportDate);
+                      const badge = paceBadge(r, pace);
                       return (
                         <tr key={p}>
                           <td style={{ padding: '9px 12px', borderBottom: '1px solid #f5f5f7', whiteSpace: 'nowrap' }}>
@@ -892,12 +946,18 @@ export default function ProdDashboard() {
                                 <td key={c.key} style={{ padding: '9px 10px', borderBottom: '1px solid #f5f5f7', textAlign: 'center', minWidth: 120 }}>
                                   {isErr ? <ErrBadge /> : (
                                     <>
-                                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                                        <span style={{ fontWeight: 700, fontSize: 14, color: rateColor(r) }}>{pct(r)}</span>
+                                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                                        title={pace ? `오늘(${pace.month}/${pace.day}) 기준 달성선 ${pace.expectedPct.toFixed(1)}% — 이상이면 달성 예정` : undefined}>
+                                        <span style={{ fontWeight: 700, fontSize: 14, color: badge ? badge.c : rateColor(r) }}>{pct(r)}</span>
                                         {badge && <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: badge.c, borderRadius: 10, padding: '1px 7px' }}>{badge.t}</span>}
                                       </div>
-                                      <div style={{ height: 4, background: '#f0f0f5', borderRadius: 3, marginTop: 4 }}>
+                                      <div style={{ position: 'relative', height: 4, background: '#f0f0f5', borderRadius: 3, marginTop: 4 }}>
                                         <div style={{ height: 4, borderRadius: 3, background: d.color, width: `${Math.min(100, r || 0)}%` }} />
+                                        {/* 오늘 기준 달성선 마커 */}
+                                        {pace && (
+                                          <div title={`오늘 기준 달성선 ${pace.expectedPct.toFixed(1)}%`}
+                                            style={{ position: 'absolute', top: -2, bottom: -2, left: `${Math.min(100, pace.expectedPct)}%`, width: 2, background: '#1d1d1f', borderRadius: 1, opacity: 0.55 }} />
+                                        )}
                                       </div>
                                     </>
                                   )}
@@ -988,12 +1048,24 @@ export default function ProdDashboard() {
       {(() => {
         const cm = (String(data.reportDate || '').match(/(\d{1,2})\s*월/) || [])[1];
         const curMonth = cm ? parseInt(cm, 10) : 12;
+        // 달성 기준선용: 월별 총 계획(배치 추이 데이터의 plan 합) + 당월은 daily 계획으로 보완
+        const pace = monthPace(data.reportDate);
+        const planTotals = Array.from({ length: 12 }, (_, i) => {
+          let s = 0, has = false;
+          for (const p of products) {
+            const v = byProduct[p]?.monthlyData?.[i]?.plan;
+            if (v != null && v > 0) { s += v; has = true; }
+          }
+          return has ? s : null;
+        });
+        if (curMonth >= 1 && planTotals[curMonth - 1] == null && totalMonthPlan > 0) planTotals[curMonth - 1] = totalMonthPlan;
         const legend = (withTotal) => (
           <div style={{ display: 'flex', gap: 10, fontSize: 10, alignItems: 'center', flexWrap: 'wrap' }}>
             {products.map((p) => (
               <span key={p}><span style={{ display: 'inline-block', width: 12, height: 2, background: byProduct[p]?.color, verticalAlign: 'middle', marginRight: 3, borderRadius: 2 }} />{p}</span>
             ))}
             {withTotal && <span><span style={{ display: 'inline-block', width: 12, height: 3, background: '#3c3c43', verticalAlign: 'middle', marginRight: 3, borderRadius: 2 }} />총 생산량</span>}
+            {withTotal && <span><span style={{ display: 'inline-block', width: 12, height: 0, borderTop: '2px dashed #8e8e93', verticalAlign: 'middle', marginRight: 3 }} />달성기준(계획)</span>}
           </div>
         );
         return (
@@ -1001,8 +1073,8 @@ export default function ProdDashboard() {
             <div className="card" style={{ cursor: 'pointer' }} onClick={() => setMatrixMode('prod')} title="클릭하면 품목/월 내역 표 보기">
               <div className="card-head"><h3>📈 월별 생산량 (kg)</h3>{legend(true)}</div>
               <div style={{ padding: '6px 12px 10px' }}>
-                <MonthlyLineChart byProduct={byProduct} products={products} currentMonth={curMonth} mode="prod" />
-                <div style={{ fontSize: 9, color: '#86868b', marginTop: 2 }}>클릭 → 품목/월 내역 · 미래월은 데이터 없음</div>
+                <MonthlyLineChart byProduct={byProduct} products={products} currentMonth={curMonth} mode="prod" planByMonth={planTotals} paceFrac={pace ? pace.frac : null} />
+                <div style={{ fontSize: 9, color: '#86868b', marginTop: 2 }}>클릭 → 품목/월 내역 · 점선 = 달성기준(당월은 {pace ? `${pace.month}/${pace.day} 경과분` : '계획'} 반영) · 미래월은 데이터 없음</div>
               </div>
             </div>
             <div className="card" style={{ cursor: 'pointer' }} onClick={() => setMatrixMode('yield')} title="클릭하면 품목/월 내역 표 보기">
