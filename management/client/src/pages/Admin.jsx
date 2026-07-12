@@ -45,6 +45,7 @@ export default function Admin() {
       <PlantManagement />
       <ProductionFileCard toast={toast} />
       <SafetyRatioCard toast={toast} />
+      <BatchBypassCard toast={toast} />
       <StockCheckCard />
       <LoginLogCard />
       <SettingsLogCard />
@@ -300,6 +301,47 @@ function SafetyRatioCard({ toast }) {
           <button className="btn" onClick={save} disabled={busy || !loaded}>{busy ? '저장 중…' : '저장'}</button>
         </div>
       </Field>
+    </div>
+  );
+}
+
+// 합성 Batch 투입이력 기록 By-pass 기본값 (원/부재료 각각)
+function BatchBypassCard({ toast }) {
+  const [rawBp, setRawBp] = useState(false);
+  const [subBp, setSubBp] = useState(true);
+  const [loaded, setLoaded] = useState(false);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    api.get('/settings').then((d) => {
+      setRawBp(String(d.settings.rawBatchBypassDefault) === '1');
+      setSubBp(String(d.settings.subBatchBypassDefault) === '1');
+      setLoaded(true);
+    });
+  }, []);
+  async function save() {
+    setBusy(true);
+    try {
+      await api.patch('/settings', { rawBatchBypassDefault: rawBp ? '1' : '0', subBatchBypassDefault: subBp ? '1' : '0' });
+      toast.ok('Batch 이력 기본값을 저장했습니다.');
+    } catch (e) { toast.err(e.message); } finally { setBusy(false); }
+  }
+  return (
+    <div className="card card-pad" style={{ marginBottom: 16, maxWidth: 560 }}>
+      <h3 style={{ marginBottom: 6 }}>합성 Batch 투입이력 기본값</h3>
+      <p className="hint" style={{ marginBottom: 14 }}>
+        사용(출고) 처리 화면의 <b>합성 Batch(투입이력 기록)</b> By-pass(기록 생략) 기본값입니다. 화면에서 건별로 변경할 수도 있습니다.
+      </p>
+      <div style={{ display: 'flex', gap: 24, marginBottom: 14 }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+          <input type="checkbox" checked={rawBp} disabled={!loaded} onChange={(e) => setRawBp(e.target.checked)} />
+          원재료 기본 By-pass
+        </label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+          <input type="checkbox" checked={subBp} disabled={!loaded} onChange={(e) => setSubBp(e.target.checked)} />
+          부재료 기본 By-pass
+        </label>
+      </div>
+      <button className="btn" onClick={save} disabled={busy || !loaded}>{busy ? '저장 중…' : '저장'}</button>
     </div>
   );
 }
