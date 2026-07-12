@@ -140,6 +140,16 @@ router.get(
       return res.json({ query: q, answer: `${mat} · ${periodTxt}${wantIn ? '입고' : '사용'}량: ${sum.toLocaleString()}${unitOf(mat)} (${list.length}건)`, table: { headers: ['일시', 'Lot/내용물', '수량', '작성자'], rows } });
     }
 
+    // 4b) 기간 입고/출고 전체 (품목 미지정) — 예: "이번달 입고"
+    if ((wantIn || wantOut) && !mat && !wantTx) {
+      const type = wantIn ? '입고' : '출고';
+      const list = txns.filter((t) => t.type === type && inRange(t.createdAt, period))
+        .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)).slice(0, 100);
+      const sum = list.reduce((a, t) => a + (num(t.quantity) || 0), 0);
+      const rows = list.map((t) => [(t.createdAt || '').slice(0, 16).replace('T', ' '), t.materialName, t.lotNo || t.content || '', `${Number(t.quantity || 0).toLocaleString()}${t.unit || ''}`, t.createdBy]);
+      return res.json({ query: q, answer: `${periodTxt}${type} 내역: ${list.length}건 (합계 ${sum.toLocaleString()})`, table: { headers: ['일시', '품목', 'Lot/내용물', '수량', '작성자'], rows } });
+    }
+
     // 5) 현재고
     if (mat && (wantStock || (!wantTx && !wantOut && !wantIn))) {
       const rl = raws.filter((r) => r.itemName === mat && num(r.quantity) > 0);

@@ -11,7 +11,11 @@ process.env.DATA_DIR = TMP;
 const { backupData } = require('../src/lib/backup');
 
 afterAll(() => {
-  fs.rmSync(path.join(TMP, '..'), { recursive: true, force: true });
+  // backupData()는 DATA_DIR(=TMP)의 형제 폴더인 "<TMP>/../backups"에 스냅샷을 쓴다.
+  // 주의: 여기서 절대 path.join(TMP, '..') 자체(=os.tmpdir())를 지우면 안 된다 —
+  // 시스템 임시폴더 전체가 삭제되는 사고로 이어진다. TMP와 그 backups 형제 폴더만 정리한다.
+  fs.rmSync(TMP, { recursive: true, force: true });
+  fs.rmSync(path.join(TMP, '..', 'backups'), { recursive: true, force: true });
 });
 
 describe('데이터 백업', () => {

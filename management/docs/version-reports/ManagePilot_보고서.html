@@ -1,0 +1,170 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>ManagePilot 개발 보고서</title><style>
+  :root{--ink:#1d1d1f;--sub:#6e6e73;--line:#e5e5ea;--bg:#f5f5f7;--blue:#0071e3;--card:#fff;--green:#34a853;--amber:#ff9f0a;--red:#ff3b30;--purple:#7d5fff;}
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic","Segoe UI",sans-serif;line-height:1.55;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:900px;margin:0 auto;padding:48px 24px 96px;}
+  .hero{text-align:center;padding:40px 24px 36px;}
+  .badge{display:inline-block;font-size:13px;font-weight:600;letter-spacing:.04em;color:var(--blue);background:rgba(0,113,227,.1);padding:6px 14px;border-radius:980px;}
+  .hero h1{font-size:46px;line-height:1.08;letter-spacing:-.02em;font-weight:700;margin:20px 0 8px;}
+  .hero .ver{color:var(--blue);}
+  .hero p{font-size:18px;color:var(--sub);margin:0;font-weight:400;}
+  .nav{display:flex;justify-content:center;flex-wrap:wrap;gap:6px;margin:22px 0 0;}
+  .nav a{font-size:12px;font-weight:600;color:var(--sub);text-decoration:none;padding:5px 11px;border-radius:980px;border:1px solid var(--line);background:#fff;}
+  .nav a.cur{background:var(--blue);color:#fff;border-color:var(--blue);}
+  .sec{background:var(--card);border-radius:20px;padding:30px 36px 34px;margin:18px 0;box-shadow:0 1px 3px rgba(0,0,0,.04),0 8px 30px rgba(0,0,0,.03);}
+  .sec-head{display:flex;align-items:center;gap:13px;margin-bottom:8px;}
+  .sec-num{flex:0 0 auto;width:34px;height:34px;border-radius:10px;background:var(--blue);color:#fff;font-weight:700;font-size:16px;display:flex;align-items:center;justify-content:center;}
+  .sec h2{font-size:22px;letter-spacing:-.01em;margin:0;font-weight:700;}
+  .sec .lead{font-size:15px;color:var(--sub);margin:4px 0 14px;}
+  .sec h3{font-size:16px;margin:22px 0 8px;font-weight:700;}
+  pre{background:#1e1e2e;color:#cdd6f4;border-radius:12px;padding:18px 20px;font-family:"SFMono-Regular","Courier New",monospace;font-size:13px;line-height:1.6;overflow-x:auto;margin:14px 0;}
+  pre .c{color:#6c7086;}pre .k{color:#cba6f7;}pre .s{color:#a6e3a1;}pre .n{color:#fab387;}pre .fn{color:#89dceb;}
+  .arch-box{border:1.5px solid var(--line);border-radius:14px;padding:16px 18px;margin:14px 0;background:#fbfbfd;}
+  .arch-box .ab-title{font-size:13px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;}
+  .arch-row{display:flex;align-items:flex-start;gap:10px;font-size:14px;padding:7px 0;border-top:1px solid var(--line);}
+  .arch-row:first-of-type{border-top:none;}
+  .arch-row .ar-tag{flex:0 0 auto;font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;background:rgba(0,113,227,.1);color:var(--blue);white-space:nowrap;}
+  .arch-row .ar-tag.green{background:rgba(52,168,83,.1);color:var(--green);}
+  .arch-row .ar-tag.red{background:rgba(255,59,48,.1);color:var(--red);}
+  .arch-row .ar-tag.purple{background:rgba(125,95,255,.1);color:var(--purple);}
+  .arch-row .ar-tag.amber{background:rgba(255,159,10,.12);color:var(--amber);}
+  .arch-row .ar-body{font-size:14px;color:var(--ink);}
+  .arch-row .ar-body code,.v code,.flow code{font-family:"SFMono-Regular","Courier New",monospace;font-size:12.5px;background:#f0f4ff;color:#3a3fff;padding:1px 5px;border-radius:4px;}
+  .rows{margin-top:8px;}
+  .row{display:flex;align-items:baseline;gap:12px;padding:12px 0;border-top:1px solid var(--line);}
+  .row .k{flex:0 0 auto;min-width:150px;font-size:15px;font-weight:600;color:var(--blue);}
+  .row .v{font-size:15px;color:var(--ink);}
+  .flow{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:14px 0;font-size:13px;}
+  .flow .node{background:#fbfbfd;border:1.5px solid var(--line);border-radius:10px;padding:8px 12px;font-weight:600;}
+  .flow .node.blue{border-color:var(--blue);color:var(--blue);}
+  .flow .arr{color:var(--sub);font-weight:700;}
+  .pills{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0;}
+  .pill{font-size:12.5px;font-weight:600;padding:5px 11px;border-radius:980px;border:1px solid var(--line);background:#fff;color:var(--sub);}
+  .pill.on{background:var(--blue);color:#fff;border-color:var(--blue);}
+  .note{font-size:13.5px;color:var(--sub);background:#fbfbfd;border:1px solid var(--line);border-left:3px solid var(--amber);border-radius:8px;padding:11px 14px;margin:14px 0;}
+  .foot{text-align:center;color:var(--sub);font-size:13px;margin-top:36px;}
+  @media print{body{background:#fff;}.sec{box-shadow:none;border:1px solid var(--line);break-inside:avoid;}.hero{padding-top:0;}.nav{display:none;}pre{background:#f5f5f7;color:#1d1d1f;}}
+</style></head><body><div class="wrap">
+
+<div class="hero">
+  <span class="badge">ManagePilot 개발 보고서</span>
+  <h1><span class="ver">생산 통합관리</span></h1>
+  <p>보안 엑셀 자동연동 · 공장별 생산현황 대시보드 · 월별 추이 시각화</p>
+  <div class="nav"><a href="#s1" class="cur">1단계 기반</a><a href="#s2">2단계 대시보드</a><a href="#s3">3단계 추이</a></div>
+</div>
+
+<!-- ───────────────────────── 1단계 ───────────────────────── -->
+<section class="sec" id="s1">
+  <div class="sec-head"><div class="sec-num">1</div><h2>모듈 분리 · 보안 데이터 연동 기반</h2></div>
+  <p class="lead">TotalPilot 허브에서 ManagePilot(생산)·StockPilot(재고) 모듈을 분리하고, 회사 보안(IRM)으로 잠긴 Daily Report 엑셀을 자동으로 평문화하여 서버가 읽을 수 있게 만드는 데이터 파이프라인을 구축했다.</p>
+
+  <h3>핵심 컴포넌트</h3>
+  <div class="arch-box"><div class="ab-title">1단계 주요 기술 컴포넌트</div>
+    <div class="arch-row"><span class="ar-tag blue">허브/모듈</span><span class="ar-body">로그인 → <code>/hub</code>(TotalPilot)에서 모듈 선택. 사이드바 로고 클릭으로 ManagePilot ↔ StockPilot 즉시 전환.</span></div>
+    <div class="arch-row"><span class="ar-tag purple">멀티 공장</span><span class="ar-body">데이터는 <code>server/data/1공장</code>·<code>2공장</code> 폴더로 분리. 총괄관리자(<code>plantScope=all</code>)는 대시보드 탭으로 공장 전환.</span></div>
+    <div class="arch-row"><span class="ar-tag green">로그인 이력</span><span class="ar-body">전역 <code>login_logs</code> CSV에 성공/실패/차단 기록, 관리자 조회.</span></div>
+    <div class="arch-row"><span class="ar-tag red">IRM 우회</span><span class="ar-body">보안 라벨 엑셀은 SheetJS로 직접 못 읽으므로, 권한 계정 PC의 Excel(COM)로 평문 CSV를 추출.</span></div>
+  </div>
+
+  <h3>IRM 보안 엑셀 → 평문 CSV 파이프라인</h3>
+  <p>회사 정보보호(IRM/AIP) 라벨이 적용된 Daily Report는 서버 프로세스가 복호화할 수 없다. "복사 금지" 권한 때문에 시트 복사조차 막혀, 최종적으로 <b>셀 값을 직접 읽어 UTF-8 CSV로 내보내는</b> PowerShell 스크립트로 해결했다. CSV는 구조상 보안 라벨을 가질 수 없어 항상 평문이다.</p>
+  <div class="flow">
+    <span class="node">보안 xlsx</span><span class="arr">→</span>
+    <span class="node blue">Excel COM (권한계정)</span><span class="arr">→</span>
+    <span class="node">UsedRange 값 읽기</span><span class="arr">→</span>
+    <span class="node blue">daily-latest.csv<br>batch-yield.csv</span><span class="arr">→</span>
+    <span class="node">서버 파싱</span>
+  </div>
+  <pre><span class="c"># export-daily-report-csv.ps1 — 스마트 자동 선택 (ASCII 전용 소스)</span>
+<span class="c"># 최신 날짜시트 → daily-latest.csv / 배치별수율 시트 → batch-yield.csv</span>
+<span class="k">foreach</span> ($ws <span class="k">in</span> $wb.Worksheets) {
+  $n = ($ws.Name -replace $FWSP_RE, <span class="s">' '</span>).Trim()
+  <span class="k">if</span> ($n -match $DATE_RE) {           <span class="c"># "N월 N일" 중 최신</span>
+    $key = [int]$matches[1]*100 + [int]$matches[2]
+    <span class="k">if</span> ($key -gt $latestKey) { $latestKey=$key; $latestWs=$ws }
+  } <span class="k">elseif</span> ($n -match $BATCH_RE) { $batchWs = $ws }
+}</pre>
+  <div class="note">한글 정규식이 ANSI(CP949) 인코딩에서 깨지는 문제 → 월/일·배치별·수율 패턴을 <code>[char]0xC6D4</code> 같은 유니코드 코드포인트로 구성해 소스를 ASCII 전용으로 만들어 인코딩 독립성을 확보했다. 작업 스케줄러로 매일 자동 추출.</div>
+
+  <h3>공장별 셀 매핑 (관리자 설정)</h3>
+  <p>공장마다 양식의 열 위치가 다르므로, 코드 수정 없이 <b>엑셀 열 문자(B·K·AF…)를 관리자가 지정</b>하도록 구성했다. 행은 제품명으로 자동 탐색하고, 특수 양식(BTBAS 합계 재고 등)은 <code>AN10</code> 같은 절대 셀 오버라이드를 지원한다.</p>
+</section>
+
+<!-- ───────────────────────── 2단계 ───────────────────────── -->
+<section class="sec" id="s2">
+  <div class="sec-head"><div class="sec-num">2</div><h2>종합현황 대시보드 · 데이터 파싱</h2></div>
+  <p class="lead">평문 CSV를 셀 좌표 기반으로 파싱하여, 공장별 생산현황·재고·달성율을 한 화면에 집계하는 종합현황 대시보드를 구성했다.</p>
+
+  <h3>일일 종합현황 파싱 (daily-latest.csv)</h3>
+  <div class="arch-box"><div class="ab-title">제품 행 앵커링 + 열 매핑</div>
+    <div class="arch-row"><span class="ar-tag blue">행 탐색</span><span class="ar-body">제품명(예: CpHf)을 <code>productCol</code>에서 찾아 해당 행을 앵커 → 행이 밀려도 안전.</span></div>
+    <div class="arch-row"><span class="ar-tag green">생산 KPI</span><span class="ar-body">오늘 생산량·6월 계획/실적/달성율·연간 계획/실적/달성율·수율(월/년)을 지정 열에서 추출.</span></div>
+    <div class="arch-row"><span class="ar-tag amber">재고</span><span class="ar-body">충전완료·출하·잔여수량(can) + 절대셀 오버라이드. 안전재고(개월) 대비 잔여 개월수 계산.</span></div>
+  </div>
+  <pre><span class="c">// production.js — parseDailyCsv (셀 좌표 파싱)</span>
+<span class="k">const</span> pr = <span class="fn">dFindRow</span>(grid, idx.product, p);   <span class="c">// 제품 행</span>
+byProduct[p] = {
+  monthActual: <span class="fn">dNum</span>(<span class="fn">g</span>(pr, idx.mAct)),
+  monthRate:   <span class="fn">dPct</span>(<span class="fn">g</span>(pr, idx.mRate)),   <span class="c">// 0.88 → 88.0%</span>
+  yield:       <span class="fn">dPct</span>(<span class="fn">g</span>(pr+yieldOffset, idx.mAct)),
+  inventory: { total: <span class="fn">invVal</span>(ov.total, idx.invTotal) },
+};</pre>
+
+  <h3>잔여 개월수 (재고 기준정보)</h3>
+  <p>관리자가 품목별 <b>연간계획(kg)·포장단위(kg)</b>를 입력하면 월 소비량(can)을 자동 계산하고, 잔여수량으로 소진 개월수를 산출한다. 안전재고(개월) 미만이면 요약카드에서 "재고관리 필요"로 경고한다.</p>
+  <pre><span class="c">// 월 소비량(can) = 연간계획(kg) ÷ 12 ÷ 포장단위(kg)</span>
+<span class="k">const</span> monthlyUse = annualPlan / <span class="n">12</span> / packageUnit;
+inv.remainingMonths = inv.total / monthlyUse;       <span class="c">// 잔여 개월수</span>
+inv.belowSafety = inv.remainingMonths &lt; (safetyMonths ?? <span class="n">2</span>);</pre>
+
+  <h3>화면 구성</h3>
+  <div class="rows">
+    <div class="row"><div class="k">요약 카드</div><div class="v">공장별 6월 실적 · 평균 생산 달성율 · 수율 주의 품목(<code>-N.N%p</code>) · 재고관리 필요.</div></div>
+    <div class="row"><div class="k">계획 달성 현황</div><div class="v">품목별 표. 표시 컬럼(일생산·계획·실적·달성율·연 생산 달성율·Batch·수율)을 관리자가 선택.</div></div>
+    <div class="row"><div class="k">재고 현황</div><div class="v">충진·출하·잔여(can) + 잔여(개월) 신호(2/4개월 임계).</div></div>
+    <div class="row"><div class="k">롤링 경고</div><div class="v">수율 이상 알림을 최상단 StockPilot식 배너로 4초 순환.</div></div>
+  </div>
+</section>
+
+<!-- ───────────────────────── 3단계 ───────────────────────── -->
+<section class="sec" id="s3">
+  <div class="sec-head"><div class="sec-num">3</div><h2>월별 추이 · 시각화 고도화</h2></div>
+  <p class="lead">배치별 수율 시트를 파싱해 월별 생산량·수율·배치수를 집계하고, 품목별 선그래프와 클릭형 내역표로 추세를 시각화했다.</p>
+
+  <h3>배치시트 파싱 (batch-yield.csv)</h3>
+  <p>월 블록(<code>N월</code> ~ <code>Sub total</code>)을 인식해, 소계 행에서 월 생산량·수율을, Batch no 열의 <code>#</code> 포함 행으로 배치 수를 집계한다. 소계가 <b>월 열 또는 품목별 Batch no 열</b> 어디에 있어도 인식하도록 처리해 공장별 양식 차이를 흡수했다.</p>
+  <pre><span class="c">// mergeBatchYield — 월/품목 소계 인식</span>
+<span class="k">const</span> rowIsSub = <span class="fn">isSub</span>(monthCell) ||
+  names.<span class="fn">some</span>(p =&gt; <span class="fn">isSub</span>(<span class="fn">cell</span>(r, prods[p].no)));
+<span class="k">if</span> (rowIsSub &amp;&amp; curMonth) {
+  out[p][curMonth] = { actual, yield, batchCount: counts[p] };
+}</pre>
+
+  <h3>월별 선그래프</h3>
+  <div class="arch-box"><div class="ab-title">MonthlyLineChart (SVG)</div>
+    <div class="arch-row"><span class="ar-tag blue">품목별 선</span><span class="ar-body">생산량 그래프는 품목별 선 + <b>총 생산량</b> 굵은 선. 수율 그래프는 품목별 %.</span></div>
+    <div class="arch-row"><span class="ar-tag green">Y축 스케일</span><span class="ar-body">최대치를 <b>총합 × 1.1</b>로 잡아 총생산량 선이 잘리지 않게 구성.</span></div>
+    <div class="arch-row"><span class="ar-tag amber">결측 처리</span><span class="ar-body"><b>10% 미만·음수·오류값(-2.15E+09)</b>은 0과 동일하게 공백 처리, 선을 끊어 추세 왜곡 방지.</span></div>
+    <div class="arch-row"><span class="ar-tag purple">미래월</span><span class="ar-body">현재월 이후는 회색 "데이터 없음" 영역으로 표시.</span></div>
+  </div>
+  <pre><span class="c">// 10% 미만/음수/오류값은 공백(null)</span>
+<span class="k">const</span> <span class="fn">val</span> = (p, m) =&gt; {
+  <span class="k">const</span> v = byProduct[p]?.monthlyData?.[m-<span class="n">1</span>]?.actual;
+  <span class="k">return</span> (v == <span class="k">null</span> || v &lt; <span class="n">10</span>) ? <span class="k">null</span> : v;
+};
+<span class="c">// Y 최대 = 월별 총합의 최대 × 1.1</span>
+maxV = <span class="fn">Math.max</span>(<span class="n">1</span>, ...totals.<span class="fn">map</span>(t =&gt; t||<span class="n">0</span>)) * <span class="n">1.1</span>;</pre>
+
+  <h3>인터랙션 · 디자인 정리</h3>
+  <div class="rows">
+    <div class="row"><div class="k">클릭 내역표</div><div class="v">생산량/수율 그래프 클릭 → <code>품목 × 월</code> 매트릭스 모달.</div></div>
+    <div class="row"><div class="k">색상 절제</div><div class="v">품목 구분은 색 동그라미 + 검정 글씨로 통일. 재고는 잔여(개월)만 색상.</div></div>
+    <div class="row"><div class="k">표기 통일</div><div class="v">Can 수량 제외 모든 숫자 소수점 1자리. "누적생산달성율 → 연 생산 달성율" 명칭 정리.</div></div>
+  </div>
+
+  <h3>진단 도구</h3>
+  <p>공장별 양식 차이로 인한 매핑 오류를 빠르게 잡기 위해, 미리보기에서 <b>감지된 월·소계 행수·첫 소계 원본값·품목 불일치</b>를 그대로 노출하는 디버그를 내장했다.</p>
+</section>
+
+<div class="foot">ManagePilot · 생산 통합관리 시스템 — 보안 엑셀 자동연동 · 공장별 종합현황 · 월별 추이 시각화</div>
+</div></body></html>

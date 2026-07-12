@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>dev-coder × TotalPilot — VDI 개발환경 구성 및 장점</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', 'Malgun Gothic', sans-serif; background: #f5f5f7; color: #1d1d1f; line-height: 1.6; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 32px 20px 60px; }
+  .hero { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%); color: #fff; border-radius: 16px; padding: 36px 40px; margin-bottom: 24px; }
+  .hero h1 { font-size: 26px; margin-bottom: 8px; }
+  .hero p { color: rgba(255,255,255,.75); font-size: 14px; }
+  .hero .tags { margin-top: 14px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .hero .tag { background: rgba(255,255,255,.15); border-radius: 20px; padding: 3px 14px; font-size: 12px; font-weight: 600; }
+  h2 { font-size: 19px; margin: 34px 0 14px; padding-left: 12px; border-left: 4px solid #0071e3; }
+  h3 { font-size: 15px; margin: 18px 0 8px; color: #0f3460; }
+  .card { background: #fff; border-radius: 12px; padding: 22px 26px; margin-bottom: 14px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 10px 0; }
+  th { background: #fafafd; text-align: left; padding: 9px 12px; border-bottom: 2px solid #e5e5ea; color: #6e6e73; font-size: 12.5px; white-space: nowrap; }
+  td { padding: 9px 12px; border-bottom: 1px solid #f0f0f5; vertical-align: top; }
+  td b.k { color: #0f3460; }
+  .flow { display: flex; align-items: stretch; gap: 0; flex-wrap: wrap; margin: 14px 0; }
+  .flow .step { flex: 1; min-width: 150px; background: #eef4fd; border: 1.5px solid #c6dcf8; border-radius: 10px; padding: 12px 14px; font-size: 12.5px; position: relative; margin-right: 26px; }
+  .flow .step:last-child { margin-right: 0; background: #e8f8ee; border-color: #b9e6c9; }
+  .flow .step::after { content: '→'; position: absolute; right: -22px; top: 50%; transform: translateY(-50%); font-size: 17px; color: #86868b; }
+  .flow .step:last-child::after { content: ''; }
+  .flow .step b { display: block; font-size: 13px; margin-bottom: 3px; color: #0f3460; }
+  .pro { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 12px; }
+  .pro .item { background: #fff; border-radius: 12px; padding: 18px 20px; box-shadow: 0 1px 4px rgba(0,0,0,.06); border-top: 3px solid #0071e3; }
+  .pro .item .icon { font-size: 22px; margin-bottom: 6px; }
+  .pro .item b { display: block; font-size: 14px; margin-bottom: 4px; }
+  .pro .item p { font-size: 12.5px; color: #515154; }
+  .warn { background: #fff8e1; border: 1px solid #ffe082; border-radius: 10px; padding: 14px 18px; font-size: 13px; margin: 10px 0; }
+  .warn b { color: #795548; }
+  .badge { display: inline-block; font-size: 11px; font-weight: 700; border-radius: 10px; padding: 1px 9px; color: #fff; vertical-align: middle; }
+  .b-blue { background: #0071e3; } .b-green { background: #34c759; } .b-orange { background: #ff9500; }
+  code { background: #f0f0f5; border-radius: 4px; padding: 1px 6px; font-size: 12.5px; font-family: Consolas, monospace; }
+  .foot { text-align: center; color: #86868b; font-size: 11.5px; margin-top: 40px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="hero">
+    <h1>🖥️ dev-coder × TotalPilot 개발환경 구성 보고서</h1>
+    <p>사내 dev-coder(Coder 기반 클라우드 개발환경)와 수불관리 시스템(StockPilot·ManagePilot)을 엮은 VDI 내 개발 체계 구성안과 그 장점 정리</p>
+    <div class="tags">
+      <span class="tag">AI DevBox 워크스페이스</span>
+      <span class="tag">VS Code + Claude Code</span>
+      <span class="tag">StockPilot · ManagePilot</span>
+      <span class="tag">VDI 보안망 내 완결</span>
+    </div>
+  </div>
+
+  <h2>1. dev-coder 주요 기능</h2>
+  <div class="card">
+    <table>
+      <tr><th style="width:170px">기능</th><th>내용</th><th style="width:200px">우리 시스템과의 연결점</th></tr>
+      <tr>
+        <td><b class="k">워크스페이스</b></td>
+        <td>개인 전용 개발 서버(컨테이너). AWS 위에서 돌아가며 브라우저만 있으면 어디서나 접속. 현재 <code>management</code> 워크스페이스 배정됨.</td>
+        <td>수불관리 시스템 코드 전체를 이 안에서 개발·실행</td>
+      </tr>
+      <tr>
+        <td><b class="k">AI DevBox 템플릿</b></td>
+        <td>VS Code(원격) + Claude Code 연동이 미리 세팅된 표준 환경. 관리자가 템플릿을 갱신하면 전 사용자 환경이 동일하게 유지됨.</td>
+        <td>개인 PC 세팅 없이 즉시 개발 시작</td>
+      </tr>
+      <tr>
+        <td><b class="k">VS Code 원격 접속</b></td>
+        <td>로컬 VS Code 또는 브라우저에서 워크스페이스로 바로 연결. 코드·터미널·디버깅 전부 서버에서 실행.</td>
+        <td>빌드(npm run build)·테스트를 서버 자원으로 수행</td>
+      </tr>
+      <tr>
+        <td><b class="k">Claude Code 연동</b></td>
+        <td>워크스페이스 안에서 AI에게 코드 수정·버그 조사·테스트 작성을 직접 시킬 수 있음.</td>
+        <td>지금까지 세션에서 하던 작업(FIFO 수정, 화면 개선 등)을 VDI 안에서 직접 수행</td>
+      </tr>
+      <tr>
+        <td><b class="k">포트 포워딩</b></td>
+        <td>워크스페이스 안에서 띄운 서버(예: <code>localhost:4000</code>)를 브라우저로 접근 가능.</td>
+        <td>수불관리 서버를 띄워 실제 화면으로 즉시 확인·시연</td>
+      </tr>
+      <tr>
+        <td><b class="k">자동 중지 / 재시작</b></td>
+        <td>미사용 시 자동으로 꺼져 비용 절감. 다시 접속하면 재시작.</td>
+        <td>홈 디렉토리는 유지되므로 코드는 안전 (단, 실행 중이던 서버는 재기동 필요)</td>
+      </tr>
+      <tr>
+        <td><b class="k">Claude API 연동</b></td>
+        <td>Claude API를 추가 구성하여, 기존의 규칙 기반 자연어 파싱이 아닌 <b>실제 AI가 질의를 이해하고 답하는 AI 검색</b>이 가능한 환경.</td>
+        <td>StockPilot·ManagePilot의 AI 검색을 진짜 AI 기반으로 고도화 (예: "지난달 대비 사용량이 급증한 품목은?" 같은 복합 질의)</td>
+      </tr>
+    </table>
+  </div>
+
+  <h2>2. VDI 내 TotalPilot 개발 체계 구성안</h2>
+  <div class="card">
+    <h3>권장 폴더 구성 (워크스페이스 홈 디렉토리 기준)</h3>
+    <table>
+      <tr><th style="width:280px">경로</th><th>내용</th></tr>
+      <tr><td><code>~/management_code/server</code></td><td>백엔드 (Node/Express) — <b>server/data는 개발용 데모 데이터만</b></td></tr>
+      <tr><td><code>~/management_code/client</code></td><td>프론트엔드 (React/Vite) — 여기서 <code>npm run build</code></td></tr>
+      <tr><td>git 저장소 연결</td><td>모든 변경은 커밋/푸시 — 워크스페이스 재빌드에도 코드 유실 없음</td></tr>
+    </table>
+
+    <h3>개발 → 운영 반영 흐름</h3>
+    <div class="flow">
+      <div class="step"><b>① 개발 (dev-coder)</b>Claude Code에게 수정 지시 → 코드 변경 → 테스트 실행</div>
+      <div class="step"><b>② 검증 (dev-coder)</b>서버 기동 + 포트 포워딩으로 화면 직접 확인</div>
+      <div class="step"><b>③ 커밋/푸시</b>git으로 변경 이력 보존</div>
+      <div class="step"><b>④ 운영 반영</b>운영 서버에 변경 파일 + dist 교체 후 재시작</div>
+    </div>
+
+    <h3>모듈별 개발환경 특이사항</h3>
+    <table>
+      <tr><th style="width:130px">모듈</th><th>dev-coder에서 가능한 것</th><th>운영에서만 가능한 것</th></tr>
+      <tr>
+        <td><b class="k">StockPilot</b><br><span style="font-size:11px;color:#86868b">원부재료·Canister</span></td>
+        <td>전체 기능 개발·테스트 가능 (데모 데이터 자동 생성 — seed)</td>
+        <td>실제 재고 데이터 (server/data — 운영 서버에만 존재, 절대 덮어쓰지 않음)</td>
+      </tr>
+      <tr>
+        <td><b class="k">ManagePilot</b><br><span style="font-size:11px;color:#86868b">Daily Report 시각화</span></td>
+        <td>화면·로직 개발 (테스트용 CSV를 만들어 검증 — 실제 이번 개발에서 사용한 방식)</td>
+        <td>실제 Excel 추출 CSV (사내 공유폴더 경로 — VDI 접근 권한에 따라 연동 검토 가능)</td>
+      </tr>
+    </table>
+  </div>
+
+  <h2>3. 기존 운영 방식과의 비교 — 무엇이 편해졌나</h2>
+  <div class="card">
+    <p style="font-size:13.5px; margin-bottom:12px">
+      기존에는 <b>로컬 PC에 개발환경을 직접 세팅</b>하고, 보안 데이터가 전혀 없는 상태에서 더미데이터로 테스트한 뒤,
+      수정된 코딩 파일(js 등)을 <b>하나하나 운영 환경으로 옮겨서 실제로 적용되는지 다시 테스트</b>해야 했습니다.
+      환경 차이로 빌드가 깨지거나(vite 미설치 등), 파일 누락으로 기능이 일부만 반영되는 일이 반복되어 과정이 매우 복잡했는데,
+      dev-coder 도입으로 이 과정이 크게 단순해졌습니다.
+    </p>
+    <table>
+      <tr><th style="width:200px">항목</th><th>기존 (로컬 PC 방식)</th><th>dev-coder 방식</th></tr>
+      <tr>
+        <td><b class="k">환경 세팅</b></td>
+        <td>PC마다 Node/npm/vite 직접 설치·버전 맞춤 — 설치 문제로 빌드 실패 빈번</td>
+        <td>AI DevBox 템플릿에 이미 세팅됨 — 접속 즉시 개발 시작</td>
+      </tr>
+      <tr>
+        <td><b class="k">테스트 데이터</b></td>
+        <td>보안 데이터가 없어 더미데이터를 수동으로 만들어 테스트</td>
+        <td>데모 데이터 자동 생성(seed) + 테스트용 CSV로 동일 환경에서 즉시 검증</td>
+      </tr>
+      <tr>
+        <td><b class="k">수정 반영</b></td>
+        <td>변경된 js 파일들을 골라서 복사 → 옮긴 뒤 적용되는지 재테스트 → 누락 시 처음부터 반복</td>
+        <td>워크스페이스에서 수정·빌드·화면검증까지 끝내고, git으로 이력 관리 — 운영에는 검증된 결과물만 반영</td>
+      </tr>
+      <tr>
+        <td><b class="k">AI 활용</b></td>
+        <td>파일을 주고받으며 외부에서 수정 요청</td>
+        <td>Claude Code가 워크스페이스 안에서 직접 수정 + Claude API로 실제 AI 검색 구성까지 가능</td>
+      </tr>
+      <tr>
+        <td><b class="k">체감</b></td>
+        <td>단계마다 수작업·재확인이 필요해 복잡하고 불안</td>
+        <td><b>한 곳에서 수정→검증이 끝나 속이 편해짐</b></td>
+      </tr>
+    </table>
+  </div>
+
+  <h2>4. 이 구성의 장점</h2>
+  <div class="pro">
+    <div class="item"><div class="icon">🔒</div><b>보안망 내 완결</b><p>코드·데이터가 회사 AWS/VDI 밖으로 나가지 않음. 개인 PC에 소스를 보관할 필요가 없어 유출 위험 감소.</p></div>
+    <div class="item"><div class="icon">⚡</div><b>개발 속도</b><p>Claude Code가 워크스페이스 안에서 직접 코드를 고치고 테스트까지 돌림 — 파일을 주고받으며 수동 반영하던 현재 방식 대비 왕복 시간 대폭 단축.</p></div>
+    <div class="item"><div class="icon">🖥️</div><b>PC 성능 무관</b><p>빌드·테스트가 서버 자원으로 실행. 로컬 PC가 느려도, npm/node 설치가 안 돼 있어도 무관 (vite 미설치로 빌드 실패했던 문제 원천 해소).</p></div>
+    <div class="item"><div class="icon">🧪</div><b>안전한 실험</b><p>운영과 완전히 분리된 환경 — 데모 데이터로 마음껏 테스트하고, 실패해도 운영에 영향 없음. 워크스페이스는 새로 만들면 그만.</p></div>
+    <div class="item"><div class="icon">📜</div><b>이력 관리 일원화</b><p>모든 변경이 git 커밋으로 남음. "어느 파일을 언제 바꿨는지" 추적 가능, 문제 시 이전 버전으로 복구.</p></div>
+    <div class="item"><div class="icon">🌐</div><b>어디서나 동일 환경</b><p>사무실·재택 어디서든 브라우저로 같은 환경에 접속. 자리를 옮겨도 작업 상태 그대로.</p></div>
+  </div>
+
+  <h2>5. 운영 시 주의사항</h2>
+  <div class="card">
+    <div class="warn"><b>⚠ 홈 디렉토리 밖은 초기화될 수 있음</b> — 워크스페이스 재빌드(템플릿 업데이트) 시 홈(<code>~/</code>) 밖에 둔 파일은 사라질 수 있습니다. 코드는 반드시 홈 아래 + git 커밋으로 이중 보관하세요.</div>
+    <div class="warn"><b>⚠ 자동 중지</b> — 장시간 미사용 시 워크스페이스가 자동으로 꺼집니다. 띄워둔 개발 서버는 재접속 후 다시 실행해야 합니다. 긴 작업은 <code>tmux</code>/<code>nohup</code> 안에서 실행 권장.</div>
+    <div class="warn"><b>⚠ 리소스 한도</b> — 무거운 작업 시 "Attempting to reconnect" 끊김이 발생하면 워크스페이스 메모리 부족일 가능성이 높습니다. <code>free -h</code>로 확인 후 필요 시 관리자에게 사양 상향 요청.</div>
+    <div class="warn"><b>⚠ 운영 데이터 분리 원칙</b> — dev-coder의 <code>server/data</code>는 데모 전용입니다. 운영 서버의 실제 데이터 폴더는 절대 dev 환경 파일로 덮어쓰지 않습니다.</div>
+  </div>
+
+  <h2>6. 요약</h2>
+  <div class="card">
+    <p style="font-size:14px">
+      dev-coder는 <b>"개발·검증은 클라우드 워크스페이스에서, 운영 반영은 검증된 파일만"</b>이라는 체계를 만들어 줍니다.
+      지금까지는 <span class="badge b-orange">파일 전달 → 수동 교체 → 빌드 실패 시 재요청</span> 방식이었다면,
+      dev-coder 도입 후에는 <span class="badge b-blue">워크스페이스에서 수정·빌드·화면검증 완료</span> →
+      <span class="badge b-green">운영에는 결과물만 반영</span>으로 단순해집니다.
+      특히 Claude Code가 워크스페이스 안에서 직접 작업하므로, 이번 세션에서 진행한 것과 같은
+      버그 수정·기능 추가·화면 검증(headless 브라우저 테스트 포함)을 모두 VDI 보안망 안에서 수행할 수 있습니다.
+    </p>
+  </div>
+
+  <div class="foot">TotalPilot (StockPilot · ManagePilot) — dev-coder 개발환경 구성 검토 보고서</div>
+</div>
+</body>
+</html>

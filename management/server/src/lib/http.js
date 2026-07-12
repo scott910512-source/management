@@ -32,6 +32,9 @@ function badRequest(message) {
 function notFound(message = '대상을 찾을 수 없습니다.') {
   return new HttpError(404, message);
 }
+function forbidden(message = '권한이 없습니다.') {
+  return new HttpError(403, message);
+}
 
 /**
  * CSV 파일을 응답으로 내려준다. UTF-8 BOM 포함, 한글 파일명 지원.
@@ -46,4 +49,4 @@ function sendCsv(res, headers, rows, baseName) {
   res.send(body);
 }
 
-module.exports = { asyncHandler, str, num, HttpError, badRequest, notFound, sendCsv };
+module.exports = { asyncHandler, str, num, HttpError, badRequest, notFound, forbidden, sendCsv };

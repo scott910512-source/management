@@ -7,45 +7,104 @@ const catLabel = { raw: '원재료', sub: '부재료', canister: 'Canister' };
 const catColor = { raw: 'blue', sub: 'purple', canister: 'green' };
 const inTypes = ['입고', '반입'];
 
+// 원재료·부재료(품목 단위 재고)와 Canister(용기 단위 관리)는 성격이 달라 탭으로 분리한다.
+const TABS = [
+  { key: 'material', label: '원재료·부재료', types: 'raw,sub' },
+  { key: 'canister', label: 'Canister', types: 'canister' },
+];
+
 export default function Transactions() {
   const { isAdmin, canWrite } = useAuth();
   const toast = useToast();
+  const [tab, setTab] = useState('material');
   const [items, setItems] = useState(null);
   const [edit, setEdit] = useState(null);
   const [del, setDel] = useState(null);
+  const [sel, setSel] = useState(() => new Set());
+  const [delBulk, setDelBulk] = useState(false);
   const [f, setF] = useState({ materialType: '', type: '', q: '', from: '', to: '', sort: 'category' });
   const set = (k, v) => setF((p) => ({ ...p, [k]: v }));
+
+  function setMonth(offset) {
+    const d = new Date();
+    d.setMonth(d.getMonth() + offset);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const last = new Date(y, d.getMonth() + 1, 0).getDate();
+    setF((p) => ({ ...p, from: `${y}-${m}-01`, to: `${y}-${m}-${last}` }));
+  }
+
+  const tabTypes = (TABS.find((t) => t.key === tab) || TABS[0]).types;
 
   const params = () => {
     const p = new URLSearchParams();
     Object.entries(f).forEach(([k, v]) => v && p.set(k, v));
+    // 탭이 지정한 대분류로 제한(탭 내 materialType 필터는 그 범위 안에서만 선택)
+    p.set('materialType', f.materialType || tabTypes);
     return p.toString();
   };
 
   const load = useCallback(async () => {
     const d = await api.get('/transactions?' + params());
     setItems(d.items);
+    setSel(new Set());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [f]);
+  }, [f, tab]);
 
   useEffect(() => {
     load();
   }, [load]);
 
+  // 탭 전환 시 다른 탭에서 고른 대분류 필터(예: canister)가 남아있지 않도록 초기화
+  function selectTab(key) {
+    setTab(key);
+    setF((p) => ({ ...p, materialType: '' }));
+  }
+
+  // 품목(제품/품목명) 기준 그룹 헤더를 끼워넣기 위한 렌더 목록 생성
+  const grouped = [];
+  {
+    let lastKey = null;
+    for (const t of items || []) {
+      const key = `${t.materialType}|${t.materialName || ''}`;
+      if (key !== lastKey) { grouped.push({ header: true, materialType: t.materialType, materialName: t.materialName }); lastKey = key; }
+      grouped.push(t);
+    }
+  }
+
+  const toggle = (id) => setSel((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const toggleAll = () => setSel((s) => (items && s.size === items.length ? new Set() : new Set((items || []).map((t) => t.id))));
+  async function removeBulk() {
+    try { const r = await api.post('/transactions/bulk-delete', { ids: [...sel], restock: true }); setDelBulk(false); load(); toast.ok(`${r.removed}건 삭제 · 재고를 원복했습니다.`); }
+    catch (e) { toast.err(e.message); }
+  }
+
   return (
     <>
       <div className="page-head">
-        <div className="desc">원재료·부재료·Canister의 입출고(수불) 작성 이력 전체입니다. 해당 없는 항목은 빈칸으로 표시됩니다.</div>
-        <button className="btn secondary sm" onClick={() => downloadCsv('/transactions/export?' + params())}>⬇ CSV Export</button>
+        <div className="desc">
+          {tab === 'material' ? '원재료·부재료의 입출고(수불) 작성 이력입니다. 품목별로 묶어서 보여줍니다.' : 'Canister의 입출고(수불) 작성 이력입니다.'}
+        </div>
+        <div className="btn-row">
+          {isAdmin && sel.size > 0 && <button className="btn danger sm" onClick={() => setDelBulk(true)}>선택 삭제 ({sel.size})</button>}
+          <button className="btn secondary sm" onClick={() => downloadCsv('/transactions/export?' + params())}>⬇ CSV Export</button>
+        </div>
       </div>
 
-      <div className="toolbar">
-        <Select value={f.materialType} onChange={(e) => set('materialType', e.target.value)} style={{ width: 130 }}>
-          <option value="">대분류 전체</option>
-          <option value="raw">원재료</option>
-          <option value="sub">부재료</option>
-          <option value="canister">Canister</option>
-        </Select>
+      <div className="sheet-tabs">
+        {TABS.map((t) => (
+          <button key={t.key} className={`sheet-tab ${tab === t.key ? 'active' : ''}`} onClick={() => selectTab(t.key)}>{t.label}</button>
+        ))}
+      </div>
+
+      <div className="toolbar" style={{ borderTopLeftRadius: 0 }}>
+        {tab === 'material' && (
+          <Select value={f.materialType} onChange={(e) => set('materialType', e.target.value)} style={{ width: 130 }}>
+            <option value="">원부재료 전체</option>
+            <option value="raw">원재료</option>
+            <option value="sub">부재료</option>
+          </Select>
+        )}
         <Select value={f.type} onChange={(e) => set('type', e.target.value)} style={{ width: 120 }}>
           <option value="">입출고 전체</option>
           <option value="입고">입고</option>
@@ -62,6 +121,9 @@ export default function Transactions() {
           <input placeholder="품목/Lot/내용물 검색" value={f.q} onChange={(e) => set('q', e.target.value)} />
         </div>
         <div className="spacer" />
+        <button className="btn secondary sm" onClick={() => setMonth(-1)}>지난달</button>
+        <button className="btn secondary sm" onClick={() => setMonth(0)}>이번달</button>
+        <button className="btn secondary sm" onClick={() => setF((p) => ({ ...p, from: '', to: '' }))}>전체</button>
         <input className="input" type="date" style={{ width: 145 }} value={f.from} onChange={(e) => set('from', e.target.value)} />
         <span className="muted">~</span>
         <input className="input" type="date" style={{ width: 145 }} value={f.to} onChange={(e) => set('to', e.target.value)} />
@@ -76,6 +138,7 @@ export default function Transactions() {
           <table className="tbl compact">
             <thead>
               <tr>
+                {isAdmin && <th style={{ width: 1 }}><input type="checkbox" checked={items.length > 0 && sel.size === items.length} onChange={toggleAll} title="전체 선택" /></th>}
                 <th>일시</th>
                 <th>대분류</th>
                 <th>제품/품목</th>
@@ -89,26 +152,36 @@ export default function Transactions() {
               </tr>
             </thead>
             <tbody>
-              {items.map((t) => (
-                <tr key={t.id}>
-                  <td className="muted">{(t.createdAt || '').slice(0, 16).replace('T', ' ')}</td>
-                  <td><Badge color={catColor[t.materialType] || ''}>{catLabel[t.materialType] || t.materialType}</Badge></td>
-                  <td><b>{t.materialName || ''}</b></td>
-                  <td className="muted">{t.lotNo || t.content || ''}</td>
-                  <td><Badge color={inTypes.includes(t.type) ? 'green' : 'orange'}>{t.type}</Badge></td>
-                  <td className="num">{t.quantity ? Number(t.quantity).toLocaleString() + (t.unit || '') : ''}</td>
-                  <td className="num muted">{t.balanceAfter !== '' && t.balanceAfter != null ? Number(t.balanceAfter).toLocaleString() + (t.unit || '') : ''}</td>
-                  <td className="muted">{t.note || ''}</td>
-                  <td className="muted">{t.createdBy || ''}</td>
-                  <td>
-                    <div className="btn-row">
-                      {canWrite && <button className="btn secondary sm" onClick={() => setEdit(t)}>수정</button>}
-                      {isAdmin && <button className="btn danger sm" onClick={() => setDel(t)}>삭제</button>}
-                      {!canWrite && <span className="muted" style={{ fontSize: 12 }}>조회</span>}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {(f.sort === 'date' ? items : grouped).map((t, i) =>
+                t.header ? (
+                  <tr key={`h-${t.materialType}-${t.materialName}-${i}`} style={{ background: 'var(--bg2)' }}>
+                    <td colSpan={isAdmin ? 10 : 9} style={{ padding: '6px 12px' }}>
+                      <Badge color={catColor[t.materialType] || ''}>{catLabel[t.materialType] || t.materialType}</Badge>{' '}
+                      <b>{t.materialName || '(품목 미상)'}</b>
+                    </td>
+                  </tr>
+                ) : (
+                  <tr key={t.id} style={sel.has(t.id) ? { background: 'var(--accent-soft, #eaf3fe)' } : {}}>
+                    {isAdmin && <td><input type="checkbox" checked={sel.has(t.id)} onChange={() => toggle(t.id)} /></td>}
+                    <td className="muted">{(t.createdAt || '').slice(0, 16).replace('T', ' ')}</td>
+                    <td><Badge color={catColor[t.materialType] || ''}>{catLabel[t.materialType] || t.materialType}</Badge></td>
+                    <td><b>{t.materialName || ''}</b></td>
+                    <td className="muted">{t.lotNo || t.content || ''}</td>
+                    <td><Badge color={inTypes.includes(t.type) ? 'green' : 'orange'}>{t.type}</Badge></td>
+                    <td className="num">{t.quantity ? Number(t.quantity).toLocaleString() + (t.unit || '') : ''}</td>
+                    <td className="num muted">{t.balanceAfter !== '' && t.balanceAfter != null ? Number(t.balanceAfter).toLocaleString() + (t.unit || '') : ''}</td>
+                    <td className="muted">{t.note || ''}</td>
+                    <td className="muted">{t.createdBy || ''}</td>
+                    <td>
+                      <div className="btn-row">
+                        {canWrite && <button className="btn secondary sm" onClick={() => setEdit(t)}>수정</button>}
+                        {isAdmin && <button className="btn danger sm" onClick={() => setDel(t)}>삭제</button>}
+                        {!canWrite && <span className="muted" style={{ fontSize: 12 }}>조회</span>}
+                      </div>
+                    </td>
+                  </tr>
+                ),
+              )}
             </tbody>
           </table>
         )}
@@ -120,9 +193,17 @@ export default function Transactions() {
       {del && (
         <ConfirmDialog
           title="수불 내역 삭제"
-          message="이 수불 내역을 삭제할까요? (재고 수량은 자동 보정되지 않습니다)"
+          message="이 수불 내역을 삭제할까요? 삭제 시 해당 수량만큼 재고가 원복(출고→가산 / 입고→차감)됩니다."
           onClose={() => setDel(null)}
           onConfirm={async () => { try { await api.del('/transactions/' + del.id); setDel(null); load(); toast.ok('삭제했습니다.'); } catch (e) { toast.err(e.message); } }}
+        />
+      )}
+      {delBulk && (
+        <ConfirmDialog
+          title="수불 내역 일괄 삭제"
+          message={`선택한 ${sel.size}건의 수불 내역을 삭제할까요? 삭제 시 해당 수량만큼 재고가 원복됩니다.`}
+          onClose={() => setDelBulk(false)}
+          onConfirm={removeBulk}
         />
       )}
     </>

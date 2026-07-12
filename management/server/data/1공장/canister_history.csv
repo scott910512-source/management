@@ -1,0 +1,3 @@
+﻿id,canisterId,canisterNo,date,type,content,weight,location,status,note,createdBy,createdAt
+ch_0001,cn_0001,CN-001,2026-06-01,반입,톨루엔,180,2공장현장,사용중,내용물 충전,admin,2026-06-01T00:00:00.000Z
+ch_0002,cn_0003,CN-003,2026-06-01,반입,황산,15,4류창고,수령,내용물 충전,admin,2026-06-01T00:00:00.000Z

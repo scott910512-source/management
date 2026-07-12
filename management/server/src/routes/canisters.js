@@ -5,8 +5,10 @@ const { mutate, readTable, headersOf } = require('../lib/store');
 const { asyncHandler, str, num, badRequest, notFound, sendCsv } = require('../lib/http');
 const { newId, now } = require('../lib/ids');
 const { appendTransaction } = require('../lib/tx');
-const { requireAuth, requireAdmin } = require('../middleware/auth');
+const { requireAuth, requireAdmin, requireWrite } = require('../middleware/auth');
 const { resolvePlant } = require('../middleware/plant');
+const { readSettings } = require('./settings');
+const { parseSizeMaxKg, CANISTER_WARN_RATIO } = require('../lib/warnings');
 
 const router = express.Router();
 
@@ -20,21 +22,28 @@ router.use(requireAuth, resolvePlant);
 function disp(value, etc) {
   return value === '기타' ? (etc || '기타') : value;
 }
-function decorate(r) {
+function decorate(r, maxMap) {
+  const max = maxMap ? maxMap[r.size] : null;
+  const w = num(r.weight) || 0;
   return {
     ...r,
     sizeLabel: disp(r.size, r.sizeEtc),
     locationLabel: disp(r.location, r.locationEtc),
     statusLabel: disp(r.status, r.statusEtc),
+    maxKg: max != null ? max : null,
+    capPct: max != null && max > 0 ? Math.round((w / max) * 100) : null,
+    capWarn: max != null && max > 0 && w >= max * CANISTER_WARN_RATIO, // 90% 이상
   };
 }
 function filterRows(rows, query) {
   const q = str(query.q).toLowerCase();
+  const content = str(query.content);
   const size = str(query.size);
   const location = str(query.location);
   const status = str(query.status);
   return rows.filter((r) => {
     if (q && !`${r.canisterNo} ${r.content}`.toLowerCase().includes(q)) return false;
+    if (content && r.content !== content) return false;
     if (size && r.size !== size) return false;
     if (location && r.location !== location) return false;
     if (status && r.status !== status) return false;
@@ -44,12 +53,22 @@ function filterRows(rows, query) {
 function validateEnum(label, value, allowed) {
   if (!allowed.includes(value)) throw badRequest(`${label} 값이 올바르지 않습니다.`);
 }
+function toArr(str) { return (str || '').split(',').map(v => v.trim()).filter(Boolean); }
+async function getDynamicEnums(plant) {
+  const s = await readSettings(plant);
+  return {
+    sizes: [...toArr(s.canisterSizes), '기타'],
+    locations: [...toArr(s.canisterLocations), '기타'],
+    statuses: [...toArr(s.canisterStatuses), '기타'],
+  };
+}
 
 // 목록
 router.get(
   '/',
   asyncHandler(async (req, res) => {
-    const rows = await readTable('canisters', req.plant);
+    const [rows, settings] = await Promise.all([readTable('canisters', req.plant), readSettings(req.plant)]);
+    const maxMap = parseSizeMaxKg(settings.canisterSizeMaxKg);
     // 기본 정렬: 제품(내용물) 그룹 → Canister No.
     const sorted = filterRows(rows, req.query).sort((a, b) => {
       const ca = a.content || '~';
@@ -57,7 +76,7 @@ router.get(
       if (ca !== cb) return ca < cb ? -1 : 1;
       return a.canisterNo.localeCompare(b.canisterNo);
     });
-    res.json({ items: sorted.map(decorate) });
+    res.json({ items: sorted.map((r) => decorate(r, maxMap)) });
   }),
 );
 
@@ -95,10 +114,10 @@ router.get(
 router.get(
   '/:id',
   asyncHandler(async (req, res) => {
-    const rows = await readTable('canisters', req.plant);
+    const [rows, settings] = await Promise.all([readTable('canisters', req.plant), readSettings(req.plant)]);
     const r = rows.find((x) => x.id === req.params.id);
     if (!r) throw notFound('Canister를 찾을 수 없습니다.');
-    res.json({ item: decorate(r) });
+    res.json({ item: decorate(r, parseSizeMaxKg(settings.canisterSizeMaxKg)) });
   }),
 );
 
@@ -124,6 +143,7 @@ router.get(
 // Canister 등록 (+ 등록 이력)
 router.post(
   '/',
+  requireWrite,
   asyncHandler(async (req, res) => {
     const canisterNo = str(req.body.canisterNo);
     const size = str(req.body.size);
@@ -132,18 +152,20 @@ router.post(
     const content = str(req.body.content);
     const weight = req.body.weight === '' || req.body.weight === undefined ? 0 : num(req.body.weight);
     if (!canisterNo) throw badRequest('Canister No.를 입력하세요.');
-    validateEnum('용기 사이즈', size, SIZES);
-    validateEnum('위치', location, LOCATIONS);
-    validateEnum('상태', status, STATUSES);
+    const enums = await getDynamicEnums(req.plant);
+    validateEnum('용기 사이즈', size, enums.sizes);
+    validateEnum('위치', location, enums.locations);
+    validateEnum('상태', status, enums.statuses);
     if (Number.isNaN(weight) || weight < 0) throw badRequest('무게는 0 이상의 숫자여야 합니다.');
 
+    const unit = str(req.body.unit) || 'kg';
     const me = req.session.user.id;
     const item = await mutate('canisters', req.plant, (rows) => {
       if (rows.some((r) => r.canisterNo === canisterNo)) throw badRequest('이미 등록된 Canister No.입니다.');
       const row = {
         id: newId('cn'), canisterNo, size, sizeEtc: str(req.body.sizeEtc),
         location, locationEtc: str(req.body.locationEtc), status, statusEtc: str(req.body.statusEtc),
-        content, weight: String(weight), note: str(req.body.note),
+        content, weight: String(weight), unit, note: str(req.body.note),
         createdBy: me, createdAt: now(), updatedBy: me, updatedAt: now(),
       };
       rows.push(row);
@@ -170,13 +192,16 @@ router.post(
 // Canister 이력 등록(반입/반출/상태변경) — 내용물 수불
 router.post(
   '/:id/move',
+  requireWrite,
   asyncHandler(async (req, res) => {
     const type = str(req.body.type);
     const amount = req.body.weight === '' || req.body.weight === undefined ? 0 : num(req.body.weight);
     const unit = str(req.body.unit) || 'kg';
+    const txDate = str(req.body.txDate) || null;
     if (!MOVE_TYPES.includes(type)) throw badRequest('구분은 반입/반출/상태변경 중 하나여야 합니다.');
     if (Number.isNaN(amount) || amount < 0) throw badRequest('무게는 0 이상의 숫자여야 합니다.');
 
+    const moveEnums = (req.body.location || req.body.status) ? await getDynamicEnums(req.plant) : null;
     const me = req.session.user.id;
     let snap;
     const item = await mutate('canisters', req.plant, (rows) => {
@@ -193,12 +218,12 @@ router.post(
         if (next === 0 && str(req.body.content) === '') r.content = '';
       }
       if (req.body.location !== undefined && req.body.location !== '') {
-        validateEnum('위치', str(req.body.location), LOCATIONS);
+        validateEnum('위치', str(req.body.location), moveEnums.locations);
         r.location = str(req.body.location);
         r.locationEtc = str(req.body.locationEtc);
       }
       if (req.body.status !== undefined && req.body.status !== '') {
-        validateEnum('상태', str(req.body.status), STATUSES);
+        validateEnum('상태', str(req.body.status), moveEnums.statuses);
         r.status = str(req.body.status);
         r.statusEtc = str(req.body.statusEtc);
       }
@@ -220,7 +245,7 @@ router.post(
     if (type !== '상태변경' && amount > 0) {
       await appendTransaction({
         plant: req.plant, materialType: 'canister', materialId: item.id, materialName: item.canisterNo, content: snap.content,
-        type, quantity: amount, unit, balanceAfter: snap.weight, note: str(req.body.note), user: me,
+        type, quantity: amount, unit, balanceAfter: snap.weight, note: str(req.body.note), user: me, txDate,
       });
     }
     res.status(201).json({ item: decorate(item), history });
@@ -234,6 +259,7 @@ router.patch(
   requireAdmin,
   asyncHandler(async (req, res) => {
     const me = req.session.user.id;
+    const patchEnums = req.body.size !== undefined ? await getDynamicEnums(req.plant) : null;
     const item = await mutate('canisters', req.plant, (rows) => {
       const r = rows.find((x) => x.id === req.params.id);
       if (!r) throw notFound('Canister를 찾을 수 없습니다.');
@@ -244,7 +270,7 @@ router.patch(
         r.canisterNo = cn;
       }
       if (req.body.size !== undefined) {
-        validateEnum('용기 사이즈', str(req.body.size), SIZES);
+        validateEnum('용기 사이즈', str(req.body.size), patchEnums.sizes);
         r.size = str(req.body.size);
         r.sizeEtc = str(req.body.sizeEtc);
       }
